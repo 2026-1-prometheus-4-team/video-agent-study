@@ -3,9 +3,62 @@
 ## 파일 구조
 
 ```
-agent.py      - 에이전트 핵심 로직 (State, Tool, Graph)
-server.py     - FastAPI 서버 (REST + WebSocket)
+agent/
+  __init__.py        패키지 export
+  state.py           AgentState, VideoContext 등 공용 스키마
+  llm.py             Gemini LLM 인스턴스
+  graph.py           LangGraph 그래프 / 노드 정의
+  tools/
+    __init__.py      tool 자동 수집
+    scene.py         search_scene, get_video_info (참고용 더미)
+    cut.py           영상 자르기 Tool
+    transcribe.py    음성 -> 자막 Tool
+    tts.py           텍스트 -> 음성 Tool
+main.py              CLI 진입점
+server.py            FastAPI 서버 (REST + WebSocket)
 requirements.txt
+```
+
+## 팀원 작업 분담
+
+각자 본인 파일만 수정하면 머지 충돌 없음.
+
+| 담당  | 작업                              | 건드릴 파일                   |
+| ----- | --------------------------------- | ----------------------------- |
+| 성민  | 에이전트 graph 설계               | `agent/graph.py`              |
+| 병건  | 타임스탬프 받아서 영상 자르는 Tool| `agent/tools/cut.py`          |
+| 은서  | faster-whisper 자막 + 타임스탬프  | `agent/tools/transcribe.py`   |
+| 은채  | 텍스트 -> 음성 TTS                | `agent/tools/tts.py`          |
+
+### 절대 건드리지 말 것 (공용)
+
+- `agent/state.py` - State 스키마, 모든 모듈이 import 함
+- `agent/llm.py` - LLM 인스턴스, 모델 교체할 때만 수정
+- `agent/tools/scene.py` - 참고용 더미. `@tool` 작성 예시로 보면 됨
+
+### 가끔 같이 건드림 (PR 머지 시 주의)
+
+- `agent/tools/__init__.py` - 새 tool 파일 추가하면 여기 import 한 줄, 리스트에 한 줄 추가됨
+
+### 새 Tool 추가하는 법
+
+1. `agent/tools/내이름.py` 생성
+2. `@tool` 데코레이터로 함수 정의 (docstring 자세히 - LLM이 이걸로 판단함)
+3. 파일 마지막에 `TOOLS = [내함수1, 내함수2]` 노출
+4. `agent/tools/__init__.py` 에 import 한 줄 + `tools` 리스트에 한 줄 추가
+
+`agent/tools/scene.py` 가 살아있는 예시.
+
+### 작업 흐름
+
+```bash
+git checkout -b feature/병건-cut-tool
+# 본인 파일 수정
+python main.py    # 동작 확인
+git add agent/tools/cut.py
+git commit -m "feat: implement ffmpeg cut_video tool"
+git push -u origin feature/병건-cut-tool
+# GitHub 에서 main 으로 PR
 ```
 
 ## 설치 및 실행
@@ -32,7 +85,7 @@ GOOGLE_API_KEY=발급받은_키
 
 ```bash
 # 에이전트 단독 실행 (CLI 테스트)
-python agent.py
+python main.py
 
 # FastAPI 서버 실행 (REST + WebSocket)
 python server.py
@@ -75,9 +128,4 @@ WebSocket 메시지 타입
 
 ## 숙제
 
-### 백엔드 2명
-agent.py에 Tool 하나 추가해서 graph에 붙여오기
-
-### ML 하던 애
-faster-whisper로 샘플 영상 자막 + 타임스탬프 JSON 뽑아오기
-이 결과가 다음주 VideoContext.transcript 필드 베이스 됨
+위 작업 분담표 참고. 각자 본인 파일에 `@tool` 하나씩 구현해서 PR.
