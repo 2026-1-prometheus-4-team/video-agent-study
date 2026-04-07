@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from agent import build_graph, VideoContext
+from agent import build_graph, VideoContext  # noqa: F401  (agent 패키지에서 가져옴)
 
 
 app = FastAPI(title="Video Edit Agent API")
