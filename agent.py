@@ -109,7 +109,7 @@ tool_map = {t.name: t for t in tools}
 # LLM 설정
 # -------------------------------------------------------------------
 
-llm = ChatGoogleGenerativeAI(model="gemini-3.0-flash")
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 llm_with_tools = llm.bind_tools(tools)
 
 
