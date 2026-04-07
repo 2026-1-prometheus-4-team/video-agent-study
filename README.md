@@ -10,15 +10,37 @@ requirements.txt
 
 ## 설치 및 실행
 
-```
-pip install -r requirements.txt
+### 1. 가상환경 생성 및 패키지 설치
 
-# 에이전트 단독 실행
+```bash
+python3 -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. API 키 설정
+
+Google AI Studio 에서 API 키 발급 : [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+
+프로젝트 루트에 `.env` 파일 생성 후 아래 내용 작성
+
+```
+GOOGLE_API_KEY=발급받은_키
+```
+
+### 3. 실행
+
+```bash
+# 에이전트 단독 실행 (CLI 테스트)
 python agent.py
 
-# FastAPI 서버 실행
+# FastAPI 서버 실행 (REST + WebSocket)
 python server.py
 ```
+
+## 사용 모델
+
+- Gemini 2.5 Flash (`gemini-2.5-flash`)
 
 ## 추가된 것들
 
