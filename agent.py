@@ -5,7 +5,8 @@ VideoContext, 에러 핸들링, 스트리밍 포함
 
 import json
 import logging
-from typing import Annotated, TypedDict, Optional
+from typing import Annotated, Optional
+from typing_extensions import TypedDict
 from dotenv import load_dotenv
 
 load_dotenv()
