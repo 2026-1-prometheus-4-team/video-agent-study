@@ -2,24 +2,56 @@
 
 ## 아키텍처
 
-```text
-User
-  |
-  v
-Supervisor (Gemini 2.5 Flash)
-  - 사용자 요청 분석 + 적절한 전문가에게 위임
-  - 복합 요청은 순차/병렬로 여러 agent에게 위임
-  |
-  ├─ edit_expert    : 영상 자르기, 붙이기, 속도 조절
-  ├─ audio_expert   : TTS, STT, BGM, 노이즈 제거
-  ├─ text_expert    : 자막, 타이틀, 캡션 (TODO)
-  ├─ effect_expert  : 페이드, 줌, 블러, 트랜지션 (TODO)
-  ├─ analysis_expert: 장면 감지, 영상 메타 조회
-  └─ research_expert: 웹 검색, 트렌드 분석 (TODO)
+```mermaid
+flowchart TD
+    User([User]) --> Supervisor[Supervisor]
+
+    Supervisor --> Edit[edit_expert]
+    Supervisor --> Audio[audio_expert]
+    Supervisor --> Text[text_expert]
+    Supervisor --> Effect[effect_expert]
+    Supervisor --> Analysis[analysis_expert]
+    Supervisor --> Research[research_expert]
+
+    Edit --> EditTools["cut, trim, split, merge\nspeed, reverse, crop, resize"]
+    Audio --> AudioTools["tts, stt, bgm\ndenoise, volume, voice clone"]
+    Text --> TextTools["subtitle, title\ncaption, overlay"]
+    Effect --> EffectTools["fade, zoom, blur\ncolor grade, transition"]
+    Analysis --> AnalysisTools["scene detect, face detect\nobject track, video info"]
+    Research --> ResearchTools["web search, trend\nreference"]
+
+    classDef emphasisClass fill:#f4845f,stroke:#e06840,stroke-width:2px,color:#fff,rx:15,ry:15
+    classDef normalClass fill:#fff,stroke:#f4845f,stroke-width:1.5px,color:#333,rx:15,ry:15
+    classDef processClass fill:#fff3ed,stroke:#f4a261,stroke-width:1px,color:#555,rx:10,ry:10
+    classDef decisionClass fill:#ffe8d6,stroke:#e07c3e,stroke-width:2px,color:#333,rx:15,ry:15
+
+    class User,Supervisor emphasisClass
+    class Edit,Audio,Text,Effect,Analysis,Research normalClass
+    class EditTools,AudioTools,TextTools,EffectTools,AnalysisTools,ResearchTools processClass
 ```
 
 각 Sub-Agent는 `create_agent`로 생성되며 내부에 ReAct 루프가 내장되어 있음.
 Supervisor는 `langgraph-supervisor`의 `create_supervisor`로 생성, handoff tool을 자동 생성함.
+
+### 요청 처리 흐름
+
+```mermaid
+flowchart LR
+    Input([프롬프트 입력]) --> Sup[Supervisor LLM]
+    Sup --> |handoff| Agent[Sub-Agent LLM]
+    Agent --> |tool call| Tool[Tool 실행]
+    Tool --> |result| Agent
+    Agent --> |transfer back| Sup
+    Sup --> Output([최종 응답])
+
+    classDef emphasisClass fill:#f4845f,stroke:#e06840,stroke-width:2px,color:#fff,rx:15,ry:15
+    classDef normalClass fill:#fff,stroke:#f4845f,stroke-width:1.5px,color:#333,rx:15,ry:15
+    classDef processClass fill:#fff3ed,stroke:#f4a261,stroke-width:1px,color:#555,rx:10,ry:10
+
+    class Input,Output emphasisClass
+    class Sup,Agent normalClass
+    class Tool processClass
+```
 
 ## 파일 구조
 
