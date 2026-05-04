@@ -20,10 +20,9 @@ flowchart TD
     Analysis --> AnalysisTools["scene detect, face detect\nobject track, video info"]
     Research --> ResearchTools["web search, trend\nreference"]
 
-    classDef emphasisClass fill:#f4845f,stroke:#e06840,stroke-width:2px,color:#fff,rx:15,ry:15
-    classDef normalClass fill:#fff,stroke:#f4845f,stroke-width:1.5px,color:#333,rx:15,ry:15
-    classDef processClass fill:#fff3ed,stroke:#f4a261,stroke-width:1px,color:#555,rx:10,ry:10
-    classDef decisionClass fill:#ffe8d6,stroke:#e07c3e,stroke-width:2px,color:#333,rx:15,ry:15
+    classDef emphasisClass fill:#1a7a6d,stroke:#145f55,stroke-width:2px,color:#fff,rx:15,ry:15
+    classDef normalClass fill:#fff,stroke:#2d9f93,stroke-width:1.5px,color:#1a3a36,rx:15,ry:15
+    classDef processClass fill:#e8f6f4,stroke:#7ecac1,stroke-width:1px,color:#2c5c56,rx:10,ry:10
 
     class User,Supervisor emphasisClass
     class Edit,Audio,Text,Effect,Analysis,Research normalClass
@@ -44,9 +43,9 @@ flowchart LR
     Agent --> |transfer back| Sup
     Sup --> Output([최종 응답])
 
-    classDef emphasisClass fill:#f4845f,stroke:#e06840,stroke-width:2px,color:#fff,rx:15,ry:15
-    classDef normalClass fill:#fff,stroke:#f4845f,stroke-width:1.5px,color:#333,rx:15,ry:15
-    classDef processClass fill:#fff3ed,stroke:#f4a261,stroke-width:1px,color:#555,rx:10,ry:10
+    classDef emphasisClass fill:#1a7a6d,stroke:#145f55,stroke-width:2px,color:#fff,rx:15,ry:15
+    classDef normalClass fill:#fff,stroke:#2d9f93,stroke-width:1.5px,color:#1a3a36,rx:15,ry:15
+    classDef processClass fill:#e8f6f4,stroke:#7ecac1,stroke-width:1px,color:#2c5c56,rx:10,ry:10
 
     class Input,Output emphasisClass
     class Sup,Agent normalClass
