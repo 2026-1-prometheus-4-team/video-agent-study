@@ -14,4 +14,5 @@ logging.basicConfig(
 
 
 if __name__ == "__main__":
-    run_agent_stream("sample.mp4 영상 정보 조회하고 10 + 25 계산해줘")
+    user_input = input("명령어 입력: ")
+    run_agent_stream(user_input)
