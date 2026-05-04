@@ -17,6 +17,7 @@ from agent.tools.transcribe import TOOLS as transcribe_tools
 from agent.tools.tts import TOOLS as tts_tools
 # ===========================================
 
+# --- 전체 tool 리스트 (하위 호환) ---
 tools = [
     *scene_tools,
     *cut_tools,
@@ -25,3 +26,15 @@ tools = [
 ]
 
 tool_map = {t.name: t for t in tools}
+
+# --- Agent 도메인별 그룹 ---
+# graph.py 에서 각 sub-agent 에 할당할 때 사용
+# 새 도메인 tool 추가 시 해당 그룹에 등록
+tool_groups = {
+    "edit": [*cut_tools],
+    "audio": [*transcribe_tools, *tts_tools],
+    "text": [],       # TODO: subtitle, caption tool 추가 시
+    "effect": [],     # TODO: fade, transition tool 추가 시
+    "analysis": [*scene_tools],
+    "research": [],   # TODO: web_search, trend tool 추가 시
+}
