@@ -10,3 +10,5 @@ build/
 .vscode/
 audio_files/
 scripts/
+video_files/
+.venv/
