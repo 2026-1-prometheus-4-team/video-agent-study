@@ -12,3 +12,4 @@ videos/*.mp4
 videos/*.mov
 videos/*.avi
 videos/*.mkv
+videos/*.json
