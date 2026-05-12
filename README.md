@@ -46,31 +46,39 @@ while not done:
 
 <h2 id="architecture">아키텍처</h2>
 
-### 전체 구조
+### 전체 구조: 사용자 요청 → 자유로운 편집 루프
 
+```mermaid
+flowchart TD
+    User(['"지루한 부분 빼줘"']) --> Supervisor[Supervisor\n라우팅]
+    Supervisor --> |"분석 + 편집 필요"| Expert[Expert Agent\nReAct Loop]
+
+    Expert --> Think1{{"1. search_analysis\n'지루한 구간' → 후보 3개"}}
+    Think1 --> Think2{{"2. 판단\n'두 번째는 핵심이라 살려야겠다'"}}
+    Think2 --> Exec["3. execute_edit\ncut(55,72) + cut(200,225)"]
+    Exec --> Preview1["4. preview_frame(54.5)\n컷 직전 확인"]
+    Preview1 --> Preview2["5. preview_frame(72.1)\n컷 직후 확인"]
+    Preview2 --> Check{자연스러운가?}
+
+    Check --> |"아니오"| Think2
+    Check --> |"예"| Done([사용자에게 전달])
+
+    classDef emphasisClass fill:#1a7a6d,stroke:#145f55,stroke-width:2px,color:#fff,rx:15,ry:15
+    classDef normalClass fill:#fff,stroke:#2d9f93,stroke-width:1.5px,color:#1a3a36,rx:15,ry:15
+    classDef processClass fill:#e8f6f4,stroke:#7ecac1,stroke-width:1px,color:#2c5c56,rx:10,ry:10
+    classDef thinkClass fill:#f0faf8,stroke:#5ab8a9,stroke-width:1.5px,color:#1a3a36,rx:10,ry:10
+    classDef checkClass fill:#fff3e0,stroke:#e6a23c,stroke-width:1.5px,color:#5a4020,rx:10,ry:10
+
+    class User,Done emphasisClass
+    class Supervisor,Expert normalClass
+    class Exec,Preview1,Preview2 processClass
+    class Think1,Think2 thinkClass
+    class Check checkClass
 ```
-사용자: "지루한 부분 빼줘"
-  │
-  v
-┌─────────────────────────────────────────────────────┐
-│  Supervisor (라우팅)                                  │
-│  "이건 분석 + 편집이 필요하다" → 적절한 Agent에 위임      │
-└──────────────┬──────────────────────────────────────┘
-               │
-               v
-┌─────────────────────────────────────────────────────┐
-│  Expert Agent (ReAct Loop)                           │
-│                                                      │
-│  1. search_analysis("지루한 구간") → 후보 3개 발견      │
-│  2. 생각: "두 번째는 핵심 내용이라 살려야겠다"            │
-│  3. execute_edit([cut(55,72), cut(200,225)])          │
-│  4. preview_frame(54.5) → 컷 직전 확인                │
-│  5. preview_frame(72.1) → 컷 직후 확인                │
-│  6. 생각: "연결 자연스럽다. 사용자에게 전달"              │
-│                                                      │
-│  → 순서가 미리 정해진 게 아니라 LLM이 상황 보고 판단      │
-└─────────────────────────────────────────────────────┘
-```
+
+> 순서가 미리 정해진 게 아니라 **LLM이 상황 보고 매 턴 판단**한다.
+> 4번에서 이상하면 3번이 아니라 2번으로 돌아가서 계획을 수정할 수도 있고,
+> 1번으로 돌아가서 다른 기준으로 재검색할 수도 있다.
 
 ### Supervisor + Domain Expert 패턴
 
@@ -91,6 +99,14 @@ flowchart TD
     Effect --> EffectTools["fade, zoom, blur\ncolor grade, transition"]
     Analysis --> AnalysisTools["analyze_video\nsearch_analysis\npreview_frame"]
     Research --> ResearchTools["web search, trend\nreference"]
+
+    classDef emphasisClass fill:#1a7a6d,stroke:#145f55,stroke-width:2px,color:#fff,rx:15,ry:15
+    classDef normalClass fill:#fff,stroke:#2d9f93,stroke-width:1.5px,color:#1a3a36,rx:15,ry:15
+    classDef processClass fill:#e8f6f4,stroke:#7ecac1,stroke-width:1px,color:#2c5c56,rx:10,ry:10
+
+    class User emphasisClass
+    class Supervisor,Edit,Audio,Text,Effect,Analysis,Research normalClass
+    class EditTools,AudioTools,TextTools,EffectTools,AnalysisTools,ResearchTools processClass
 ```
 
 각 Expert Agent는 내부에 **독립적인 ReAct 루프**를 가진다. Supervisor가 "어느 전문가에게 맡길지"만 판단하면, 그 안에서는 LLM이 자유롭게 도구를 조합한다.
@@ -563,4 +579,4 @@ tool_groups["edit"].extend(my_tools)  # 해당 도메인에 추가
 
 <h2 id="license">라이선스</h2>
 
-이 프로젝트는 고려대학교 정보대학 Prometheus 스터디 그룹의 학습 목적 프로젝트입니다.
+MIT License
