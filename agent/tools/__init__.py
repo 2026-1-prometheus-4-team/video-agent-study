@@ -15,6 +15,7 @@ from agent.tools.scene import TOOLS as scene_tools
 from agent.tools.cut import TOOLS as cut_tools
 from agent.tools.transcribe import TOOLS as transcribe_tools
 from agent.tools.tts import TOOLS as tts_tools
+from agent.tools.video_analysis import TOOLS as video_analysis_tools
 from agent.tools.video_understanding_eun import TOOLS as video_understanding_tools
 # ===========================================
 
@@ -24,6 +25,7 @@ tools = [
     *cut_tools,
     *transcribe_tools,
     *tts_tools,
+    *video_analysis_tools,
     *video_understanding_tools,
 ]
 
