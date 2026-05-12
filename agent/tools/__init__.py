@@ -15,6 +15,7 @@ from agent.tools.scene import TOOLS as scene_tools
 from agent.tools.cut import TOOLS as cut_tools
 from agent.tools.transcribe import TOOLS as transcribe_tools
 from agent.tools.tts import TOOLS as tts_tools
+from agent.tools.video_understanding_eun import TOOLS as video_understanding_tools
 # ===========================================
 
 # --- 전체 tool 리스트 (하위 호환) ---
@@ -23,6 +24,7 @@ tools = [
     *cut_tools,
     *transcribe_tools,
     *tts_tools,
+    *video_understanding_tools,
 ]
 
 tool_map = {t.name: t for t in tools}
@@ -35,6 +37,6 @@ tool_groups = {
     "audio": [*transcribe_tools, *tts_tools],
     "text": [],       # TODO: subtitle, caption tool 추가 시
     "effect": [],     # TODO: fade, transition tool 추가 시
-    "analysis": [*scene_tools],
+    "analysis": [*scene_tools, *video_understanding_tools],
     "research": [],   # TODO: web_search, trend tool 추가 시
 }
