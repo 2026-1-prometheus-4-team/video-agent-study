@@ -13,3 +13,4 @@ videos/*.mov
 videos/*.avi
 videos/*.mkv
 videos/*.json
+audio_files/
