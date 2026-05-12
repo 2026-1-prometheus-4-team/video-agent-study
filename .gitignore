@@ -1,3 +1,19 @@
+<<<<<<< HEAD
+venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+build/
+.idea/
+.vscode/
+audio_files/
+scripts/
+video_files/
+.venv/
+=======
 venv/
 .env
 __pycache__/
@@ -14,3 +30,4 @@ videos/*.avi
 videos/*.mkv
 videos/*.json
 audio_files/
+>>>>>>> main

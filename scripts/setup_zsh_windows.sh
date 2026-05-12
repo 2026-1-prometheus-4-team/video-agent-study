@@ -8,7 +8,7 @@
 #    Ubuntu 설치 + 재부팅
 # 2. Ubuntu 실행해서 사용자 계정 만들기
 # 3. Ubuntu 안에서 이 스크립트 실행
-#       bash setup_zsh_windows.sh
+#       bash scripts/setup_zsh_windows.sh
 #
 # 설치 항목
 # - zsh
@@ -21,7 +21,7 @@
 set -e
 
 echo ">> 패키지 업데이트"
-sudo apt update && sudo apt install -y zsh git curl fonts-powerline
+sudo apt update && sudo apt install -y zsh git curl
 
 echo ">> oh-my-zsh 설치"
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
