@@ -50,18 +50,18 @@ while not done:
 
 ```mermaid
 flowchart TD
-    User(['"지루한 부분 빼줘"']) --> Supervisor[Supervisor\n라우팅]
-    Supervisor --> |"분석 + 편집 필요"| Expert[Expert Agent\nReAct Loop]
+    User(["지루한 부분 빼줘"]) --> Supervisor["Supervisor - 라우팅"]
+    Supervisor -->|분석+편집 필요| Expert["Expert Agent - ReAct Loop"]
 
-    Expert --> Think1{{"1. search_analysis\n'지루한 구간' → 후보 3개"}}
-    Think1 --> Think2{{"2. 판단\n'두 번째는 핵심이라 살려야겠다'"}}
-    Think2 --> Exec["3. execute_edit\ncut(55,72) + cut(200,225)"]
-    Exec --> Preview1["4. preview_frame(54.5)\n컷 직전 확인"]
-    Preview1 --> Preview2["5. preview_frame(72.1)\n컷 직후 확인"]
-    Preview2 --> Check{자연스러운가?}
+    Expert --> Think1["1. search_analysis - 지루한 구간 검색 - 후보 3개"]
+    Think1 --> Think2["2. 판단 - 두 번째는 핵심이라 살린다"]
+    Think2 --> Exec["3. execute_edit - cut 55~72s, cut 200~225s"]
+    Exec --> Preview1["4. preview_frame 54.5s - 컷 직전 확인"]
+    Preview1 --> Preview2["5. preview_frame 72.1s - 컷 직후 확인"]
+    Preview2 --> Check{"자연스러운가?"}
 
-    Check --> |"아니오"| Think2
-    Check --> |"예"| Done([사용자에게 전달])
+    Check -->|아니오| Think2
+    Check -->|예| Done(["사용자에게 전달"])
 
     classDef emphasisClass fill:#1a7a6d,stroke:#145f55,stroke-width:2px,color:#fff,rx:15,ry:15
     classDef normalClass fill:#fff,stroke:#2d9f93,stroke-width:1.5px,color:#1a3a36,rx:15,ry:15
