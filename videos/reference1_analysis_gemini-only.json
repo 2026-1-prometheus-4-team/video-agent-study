@@ -1,0 +1,8240 @@
+{
+  "file_path": "/Users/zs_olef.x/Work/Proj/Out-proj/prometheus-2026-1-4/video-agent-study/videos/reference1.mp4",
+  "metadata": {
+    "duration": 885.341,
+    "resolution": "1920x1080",
+    "fps": 29.97,
+    "codec": "h264",
+    "audio_codec": "aac",
+    "file_size_mb": 185.3
+  },
+  "language": "korean",
+  "segments": [
+    {
+      "start": 2.76,
+      "end": 6.0,
+      "text": "여기는 지금 멕시코 수도 멕시코 시티입니다.",
+      "scene_id": 2,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 6.56,
+      "end": 9.32,
+      "text": "여기에 세계에서 가장 무서운 광경?",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 10.08,
+      "end": 13.1,
+      "text": "TOP5 안에 드는 이상한 시장이 하나 있어요.",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 13.46,
+      "end": 16.0,
+      "text": "손오라 시장이라고 이상한 약 팔고",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 16.64,
+      "end": 19.62,
+      "text": "잘생겨지는 약, 사랑이 이루어지는 약",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 19.62,
+      "end": 22.1,
+      "text": "그런 고어한 것들 좀 많이 팔고",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 22.22,
+      "end": 24.54,
+      "text": "다양한 주술용품들을 판다고 하더라고요.",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 24.94,
+      "end": 26.1,
+      "text": "그 김에 머리도 좀 자르려고요.",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 26.34,
+      "end": 28.72,
+      "text": "머리도 지금 여행한 지 한 달이 돼가지고",
+      "scene_id": 3,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 29.72,
+      "end": 30.84,
+      "text": "한 입 먹어봐야겠는데?",
+      "scene_id": 4,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "city_view",
+        "outdoor",
+        "car_interior",
+        "street",
+        "traffic"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 36.54,
+      "end": 39.62,
+      "text": "전혀 무서운 느낌이 없는데?",
+      "scene_id": 6,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "outdoor",
+        "market_stall",
+        "people_walking"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 41.8,
+      "end": 43.14,
+      "text": "카텔말라 시장이랑 다를 게 없는데?",
+      "scene_id": 7,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "vendors",
+        "merchandise"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 47.04,
+      "end": 49.72,
+      "text": "왜 이렇게 좋아해? 여기 중남미 사람들은 이런 거",
+      "scene_id": 8,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "costumes",
+        "merchandise",
+        "people_walking"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 53.72,
+      "end": 54.48,
+      "text": "너무 평범한데?",
+      "scene_id": 10,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "merchandise"
+      ],
+      "energy": 0.5,
+      "pacing": "slow"
+    },
+    {
+      "start": 55.68,
+      "end": 56.62,
+      "text": "잘생겨지는 약 어딨어?",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 59.28,
+      "end": 60.68,
+      "text": "잘생겨지는 약",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 62.72,
+      "end": 64.14,
+      "text": "잘생겨지는 약?",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 64.5,
+      "end": 65.9,
+      "text": "아니요",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 65.9,
+      "end": 67.5,
+      "text": "아, 아닌가?",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 69.64,
+      "end": 71.72,
+      "text": "밖에서 팔고 있어요",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 71.72,
+      "end": 73.32,
+      "text": "여기 왼쪽에",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 74.72,
+      "end": 75.36,
+      "text": "고마워요",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 78.72,
+      "end": 80.28,
+      "text": "아, 민망하네 물어보기가",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 82.72,
+      "end": 84.62,
+      "text": "다 비웃는다 지금",
+      "scene_id": 11,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 84.62,
+      "end": 85.78,
+      "text": "너무 무서운데?",
+      "scene_id": 12,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "animals",
+        "cages",
+        "merchandise"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 89.24,
+      "end": 92.56,
+      "text": "우와, 그치",
+      "scene_id": 13,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "dolls",
+        "skulls",
+        "religious_items",
+        "strange_items"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 92.56,
+      "end": 94.9,
+      "text": "야, 이거 무서워",
+      "scene_id": 13,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "dolls",
+        "skulls",
+        "religious_items",
+        "strange_items"
+      ],
+      "energy": 0.8,
+      "pacing": "fast"
+    },
+    {
+      "start": 95.1,
+      "end": 97.4,
+      "text": "여기인가 봐, 주술시장",
+      "scene_id": 14,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "dolls",
+        "potion_bottles",
+        "shelves",
+        "dark_area"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 97.7,
+      "end": 100.72,
+      "text": "우와, 뭐야 이거?",
+      "scene_id": 14,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "dolls",
+        "potion_bottles",
+        "shelves",
+        "dark_area"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 107.18,
+      "end": 108.58,
+      "text": "마법용품?",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 109.22,
+      "end": 110.6,
+      "text": "아, 마법용품",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 110.6,
+      "end": 111.28,
+      "text": "여기?",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 111.4,
+      "end": 113.0,
+      "text": "네, 뭐 찾으세요?",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 113.86,
+      "end": 115.26,
+      "text": "잘생겨지는 약",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 115.48,
+      "end": 116.88,
+      "text": "네",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 116.88,
+      "end": 117.76,
+      "text": "어디?",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 117.76,
+      "end": 118.88,
+      "text": "여기 있어요",
+      "scene_id": 15,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 122.54,
+      "end": 124.02,
+      "text": "뭐야 이거?",
+      "scene_id": 16,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_holding_object",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 124.56,
+      "end": 126.28,
+      "text": "아이, 난 무슨 먹는 약인 줄 알았어",
+      "scene_id": 16,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_holding_object",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 127.52,
+      "end": 129.08,
+      "text": "아하, 먹어",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 129.08,
+      "end": 129.82,
+      "text": "그래?",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 130.52,
+      "end": 131.52,
+      "text": "얼마야?",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 133.1,
+      "end": 134.1,
+      "text": "120원",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 136.36,
+      "end": 137.36,
+      "text": "한 입?",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 137.56,
+      "end": 138.46,
+      "text": "하나?",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 139.28,
+      "end": 140.28,
+      "text": "5개도",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 141.14,
+      "end": 142.14,
+      "text": "5개도",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 143.14,
+      "end": 143.6,
+      "text": "좋아",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 146.14,
+      "end": 147.02,
+      "text": "고마워요",
+      "scene_id": 17,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 148.14,
+      "end": 151.48,
+      "text": "아니, 물약을 샀는데 먹어도 되나 모르겠다",
+      "scene_id": 18,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "shelves"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 153.18,
+      "end": 154.58,
+      "text": "안녕하세요",
+      "scene_id": 19,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "shelves"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 154.58,
+      "end": 155.7,
+      "text": "영어로 말해요?",
+      "scene_id": 19,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "shelves"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 156.66,
+      "end": 157.5,
+      "text": "조금",
+      "scene_id": 19,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "shelves"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 157.5,
+      "end": 158.14,
+      "text": "조금?",
+      "scene_id": 19,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "shelves"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 158.76,
+      "end": 159.82,
+      "text": "어디서 왔어요?",
+      "scene_id": 20,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 160.48,
+      "end": 161.52,
+      "text": "한국에서",
+      "scene_id": 20,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 161.52,
+      "end": 163.28,
+      "text": "아, BTS?",
+      "scene_id": 20,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 164.46,
+      "end": 165.86,
+      "text": "학생이에요?",
+      "scene_id": 21,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 166.5,
+      "end": 169.12,
+      "text": "아니요, 여행요",
+      "scene_id": 21,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 169.12,
+      "end": 170.0,
+      "text": "흥미로워요",
+      "scene_id": 22,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 170.0,
+      "end": 170.52,
+      "text": "섹스",
+      "scene_id": 22,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 170.52,
+      "end": 171.98,
+      "text": "네?",
+      "scene_id": 22,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 171.98,
+      "end": 173.18,
+      "text": "섹스",
+      "scene_id": 22,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 176.08,
+      "end": 177.48,
+      "text": "섹스",
+      "scene_id": 22,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 177.48,
+      "end": 178.66,
+      "text": "섹스는 좋은 약인가요?",
+      "scene_id": 22,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 179.68,
+      "end": 179.68,
+      "text": "",
+      "scene_id": 23,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 179.96,
+      "end": 181.36,
+      "text": "그게 뭐예요?",
+      "scene_id": 23,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 182.48,
+      "end": 182.58,
+      "text": "뭐야?",
+      "scene_id": 23,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 183.36,
+      "end": 184.22,
+      "text": "펜드로, 부장님",
+      "scene_id": 23,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 184.22,
+      "end": 184.98,
+      "text": "네",
+      "scene_id": 23,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 184.98,
+      "end": 186.52,
+      "text": "이게 뭐예요?",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 187.38,
+      "end": 188.9,
+      "text": "이게 향수예요",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 189.56,
+      "end": 190.96,
+      "text": "향수",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 190.96,
+      "end": 191.02,
+      "text": "향수",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 191.02,
+      "end": 191.02,
+      "text": "",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 192.76,
+      "end": 194.16,
+      "text": "향수",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 194.16,
+      "end": 194.22,
+      "text": "향수",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 195.0,
+      "end": 195.14,
+      "text": "아",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 195.14,
+      "end": 195.14,
+      "text": "",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 198.14,
+      "end": 198.42,
+      "text": "좋아?",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 199.88,
+      "end": 200.14,
+      "text": "좋아",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 201.18,
+      "end": 202.14,
+      "text": "이거 먹으면 난리 나는 것 같은데?",
+      "scene_id": 24,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 203.54,
+      "end": 203.92,
+      "text": "이게 뭐예요?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 204.76,
+      "end": 206.38,
+      "text": "페로몬 약",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 206.38,
+      "end": 207.98,
+      "text": "페로몬 약?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 208.62,
+      "end": 209.4,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 209.4,
+      "end": 210.1,
+      "text": "괜찮아요?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 210.32,
+      "end": 211.62,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 211.62,
+      "end": 212.2,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 212.2,
+      "end": 212.96,
+      "text": "아니요?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 213.02,
+      "end": 213.46,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 213.76,
+      "end": 215.06,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.06,
+      "end": 215.52,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.52,
+      "end": 215.52,
+      "text": "",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.52,
+      "end": 215.62,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.62,
+      "end": 215.68,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.68,
+      "end": 215.68,
+      "text": "",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.68,
+      "end": 215.7,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.7,
+      "end": 215.76,
+      "text": "아니요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 215.76,
+      "end": 217.52,
+      "text": "이거 먹으면 난리 나는 것 같은데?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 217.64,
+      "end": 217.84,
+      "text": "네?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 219.48,
+      "end": 220.22,
+      "text": "아, 네",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 220.76,
+      "end": 221.48,
+      "text": "네?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 221.48,
+      "end": 221.48,
+      "text": "",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 222.36,
+      "end": 222.36,
+      "text": "",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 223.76,
+      "end": 224.44,
+      "text": "이게 뭐예요?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 224.84,
+      "end": 225.76,
+      "text": "사랑과 섹스",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 227.76,
+      "end": 227.78,
+      "text": "향수",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 228.76,
+      "end": 229.0,
+      "text": "향수였어?",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 229.38,
+      "end": 230.78,
+      "text": "고마워요",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 231.76,
+      "end": 232.62,
+      "text": "안녕, 친구",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 232.62,
+      "end": 233.76,
+      "text": "안녕, 안녕",
+      "scene_id": 25,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 235.76,
+      "end": 236.96,
+      "text": "마시는 게 아니었구나",
+      "scene_id": 26,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 237.5,
+      "end": 240.04,
+      "text": "잘생겨지는 약이 있다고 들었는데",
+      "scene_id": 26,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 242.26,
+      "end": 243.66,
+      "text": "냄새가",
+      "scene_id": 26,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 243.66,
+      "end": 245.5,
+      "text": "목욕탕에 있는 IC 로션 있잖아요",
+      "scene_id": 26,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 245.64,
+      "end": 246.94,
+      "text": "그거 냄새나",
+      "scene_id": 26,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 247.66,
+      "end": 251.12,
+      "text": "내가 생각했던 주술 시장이랑 거리가 좀 먼 해요",
+      "scene_id": 26,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 251.12,
+      "end": 253.06,
+      "text": "되게 세상에서 가장 무서운",
+      "scene_id": 27,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "market",
+        "people_walking"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 253.06,
+      "end": 254.78,
+      "text": "탑 5에 든다는데",
+      "scene_id": 27,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "market",
+        "people_walking"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 254.78,
+      "end": 256.88,
+      "text": "월드 클래스 절대 아닙니다",
+      "scene_id": 27,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "market",
+        "people_walking"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 257.82,
+      "end": 259.7,
+      "text": "머리는 잘라야겠다",
+      "scene_id": 27,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "market",
+        "people_walking"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 262.54,
+      "end": 263.48,
+      "text": "안녕하세요",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 263.52,
+      "end": 264.46,
+      "text": "안녕하세요",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 265.08,
+      "end": 266.02,
+      "text": "네?",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 267.58,
+      "end": 268.58,
+      "text": "30분 40분 먹었어요",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 268.58,
+      "end": 269.18,
+      "text": "아, 먹었어요?",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 269.88,
+      "end": 270.8,
+      "text": "30분 40분",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 270.8,
+      "end": 272.46,
+      "text": "네, 네, 네",
+      "scene_id": 28,
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    },
+    {
+      "start": 273.46,
+      "end": 273.78,
+      "text": "이거 뭐지?",
+      "scene_id": 29,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_drinking",
+        "indoor",
+        "market",
+        "drink_stall",
+        "drinks"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 275.4,
+      "end": 275.86,
+      "text": "이게 뭐예요?",
+      "scene_id": 29,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_drinking",
+        "indoor",
+        "market",
+        "drink_stall",
+        "drinks"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 276.04,
+      "end": 276.88,
+      "text": "파채요",
+      "scene_id": 29,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_drinking",
+        "indoor",
+        "market",
+        "drink_stall",
+        "drinks"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 277.22,
+      "end": 278.62,
+      "text": "파채요?",
+      "scene_id": 29,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_drinking",
+        "indoor",
+        "market",
+        "drink_stall",
+        "drinks"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 279.26,
+      "end": 280.66,
+      "text": "하나 주세요",
+      "scene_id": 29,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_drinking",
+        "indoor",
+        "market",
+        "drink_stall",
+        "drinks"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 285.46,
+      "end": 288.5,
+      "text": "이발소 겸 종이 가방 파는 곳이야",
+      "scene_id": 30,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters",
+        "paper_bags"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 288.5,
+      "end": 290.46,
+      "text": "설마 이런 헤어스타일밖에 못하나?",
+      "scene_id": 30,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters",
+        "paper_bags"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 293.28,
+      "end": 293.82,
+      "text": "이거 얼마예요?",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 295.46,
+      "end": 295.8,
+      "text": "70만원",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 296.46,
+      "end": 296.88,
+      "text": "70만원?",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 298.3,
+      "end": 299.7,
+      "text": "80만원",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 299.88,
+      "end": 300.46,
+      "text": "80만원?",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 301.8,
+      "end": 302.8,
+      "text": "90만원?",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 302.88,
+      "end": 302.88,
+      "text": "",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 305.52,
+      "end": 307.24,
+      "text": "이런 헤어스타일밖에 안되나?",
+      "scene_id": 31,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 310.14,
+      "end": 310.58,
+      "text": "조금만",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 314.66,
+      "end": 316.66,
+      "text": "이 헤어스타일은",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 316.66,
+      "end": 316.82,
+      "text": "흰색이 아니에요",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 318.66,
+      "end": 320.04,
+      "text": "흰색이 안좋아해요",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 320.16,
+      "end": 321.36,
+      "text": "흰색이 좋아요",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 321.36,
+      "end": 321.68,
+      "text": "흰색?",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 322.0,
+      "end": 323.66,
+      "text": "네, 네, 네",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 324.4,
+      "end": 324.58,
+      "text": "조금만",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 326.2,
+      "end": 327.58,
+      "text": "여기가 흰색이래요",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 328.2,
+      "end": 329.08,
+      "text": "흰색?",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 329.16,
+      "end": 329.86,
+      "text": "네, 흰색",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 343.2,
+      "end": 344.6,
+      "text": "조금만",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 344.6,
+      "end": 344.6,
+      "text": "",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 345.86,
+      "end": 345.94,
+      "text": "가방도?",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 347.02,
+      "end": 347.86,
+      "text": "가방도",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 348.42,
+      "end": 348.98,
+      "text": "너무 많이 줄었어",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 348.98,
+      "end": 349.7,
+      "text": "이미",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 350.84,
+      "end": 352.24,
+      "text": "고마워",
+      "scene_id": 32,
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 372.22,
+      "end": 373.62,
+      "text": "고마워",
+      "scene_id": 33,
+      "content_type": "barber_cutting_hair",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop",
+        "hair_dryer"
+      ],
+      "energy": 0.9,
+      "pacing": "fast"
+    },
+    {
+      "start": 374.1,
+      "end": 375.5,
+      "text": "고마워요",
+      "scene_id": 34,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.4,
+      "pacing": "slow"
+    },
+    {
+      "start": 375.5,
+      "end": 377.96,
+      "text": "네, 고마워요",
+      "scene_id": 34,
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop"
+      ],
+      "energy": 0.4,
+      "pacing": "slow"
+    },
+    {
+      "start": 382.46,
+      "end": 383.86,
+      "text": "그...",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 384.98,
+      "end": 388.56,
+      "text": "멕시코 조금이랑 우리나라 조금이랑",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 388.56,
+      "end": 389.84,
+      "text": "그... 다른가봐요",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 389.84,
+      "text": "",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 389.84,
+      "end": 391.3,
+      "text": "조금만 잘라드렸는데",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 391.3,
+      "end": 392.84,
+      "text": "거의 호동이형 전성기머리를 이렇게",
+      "scene_id": 35,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "energy": 0.8,
+      "pacing": "normal"
+    },
+    {
+      "start": 394.58,
+      "end": 396.84,
+      "text": "나만 북한 부르면 그냥 북한이라 해야겠다",
+      "scene_id": 36,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "new_hairstyle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 398.36,
+      "end": 399.72,
+      "text": "아 시원하다",
+      "scene_id": 36,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "new_hairstyle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 400.46,
+      "end": 402.24,
+      "text": "어쩜 이렇게 개운할까",
+      "scene_id": 36,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "new_hairstyle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 403.38,
+      "end": 405.2,
+      "text": "악기가 다 떨어져 나온 것 같아요",
+      "scene_id": 36,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "new_hairstyle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 405.24,
+      "end": 406.84,
+      "text": "오컬트가 여기 있었네",
+      "scene_id": 36,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "new_hairstyle"
+      ],
+      "energy": 0.7,
+      "pacing": "normal"
+    },
+    {
+      "start": 408.56,
+      "end": 409.84,
+      "text": "걸어서 한 30분 가면은",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 411.12,
+      "end": 411.84,
+      "text": "산후한시장이라고",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 411.84,
+      "end": 413.44,
+      "text": "거기도 또 특이한 시장인데",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 413.44,
+      "end": 415.1,
+      "text": "멕시코에 진짜 특이한 시장이 많아요",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 415.1,
+      "end": 417.18,
+      "text": "이상한 고기 많이 판다고 하더라고 막",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 417.18,
+      "end": 417.84,
+      "text": "이구아나 고기랑",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 418.36,
+      "end": 419.14,
+      "text": "호랑이 고기랑",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 419.14,
+      "end": 420.14,
+      "text": "막 그런거 안 먹어본거",
+      "scene_id": 37,
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "energy": 0.6,
+      "pacing": "normal"
+    },
+    {
+      "start": 423.14,
+      "end": 423.38,
+      "text": "와",
+      "scene_id": 38,
+      "content_type": "b_roll",
+      "visual_tags": [
+        "outdoor",
+        "market_entrance",
+        "street",
+        "people_walking"
+      ],
+      "energy": 0.5,
+      "pacing": "normal"
+    }
+  ],
+  "words": [
+    {
+      "word": "여기는",
+      "start": 2.76,
+      "end": 3.64
+    },
+    {
+      "word": "지금",
+      "start": 3.64,
+      "end": 3.94
+    },
+    {
+      "word": "멕시코",
+      "start": 3.94,
+      "end": 4.38
+    },
+    {
+      "word": "수도",
+      "start": 4.38,
+      "end": 4.82
+    },
+    {
+      "word": "멕시코",
+      "start": 4.82,
+      "end": 5.26
+    },
+    {
+      "word": "시티입니다",
+      "start": 5.26,
+      "end": 6.0
+    },
+    {
+      "word": "여기에",
+      "start": 6.56,
+      "end": 7.1
+    },
+    {
+      "word": "세계에서",
+      "start": 7.1,
+      "end": 7.78
+    },
+    {
+      "word": "가장",
+      "start": 7.78,
+      "end": 8.1
+    },
+    {
+      "word": "무서운",
+      "start": 8.1,
+      "end": 8.76
+    },
+    {
+      "word": "광경",
+      "start": 8.76,
+      "end": 9.32
+    },
+    {
+      "word": "TOP5",
+      "start": 10.08,
+      "end": 10.76
+    },
+    {
+      "word": "안에",
+      "start": 10.76,
+      "end": 11.0
+    },
+    {
+      "word": "드는",
+      "start": 11.0,
+      "end": 11.6
+    },
+    {
+      "word": "이상한",
+      "start": 11.6,
+      "end": 12.12
+    },
+    {
+      "word": "시장이",
+      "start": 12.12,
+      "end": 12.38
+    },
+    {
+      "word": "하나",
+      "start": 12.38,
+      "end": 12.62
+    },
+    {
+      "word": "있어요",
+      "start": 12.62,
+      "end": 13.1
+    },
+    {
+      "word": "손오라",
+      "start": 13.46,
+      "end": 13.8
+    },
+    {
+      "word": "시장이라고",
+      "start": 13.8,
+      "end": 14.4
+    },
+    {
+      "word": "이상한",
+      "start": 14.4,
+      "end": 15.36
+    },
+    {
+      "word": "약",
+      "start": 15.36,
+      "end": 15.5
+    },
+    {
+      "word": "팔고",
+      "start": 15.5,
+      "end": 16.0
+    },
+    {
+      "word": "잘생겨지는",
+      "start": 16.64,
+      "end": 17.52
+    },
+    {
+      "word": "약",
+      "start": 17.52,
+      "end": 18.0
+    },
+    {
+      "word": "사랑이",
+      "start": 18.2,
+      "end": 18.82
+    },
+    {
+      "word": "이루어지는",
+      "start": 18.82,
+      "end": 19.36
+    },
+    {
+      "word": "약",
+      "start": 19.36,
+      "end": 19.62
+    },
+    {
+      "word": "그런",
+      "start": 19.62,
+      "end": 20.38
+    },
+    {
+      "word": "고어한",
+      "start": 20.38,
+      "end": 20.82
+    },
+    {
+      "word": "것들",
+      "start": 20.82,
+      "end": 21.04
+    },
+    {
+      "word": "좀",
+      "start": 21.04,
+      "end": 21.2
+    },
+    {
+      "word": "많이",
+      "start": 21.2,
+      "end": 21.48
+    },
+    {
+      "word": "팔고",
+      "start": 21.48,
+      "end": 22.1
+    },
+    {
+      "word": "다양한",
+      "start": 22.22,
+      "end": 23.1
+    },
+    {
+      "word": "주술용품들을",
+      "start": 23.1,
+      "end": 23.98
+    },
+    {
+      "word": "판다고",
+      "start": 23.98,
+      "end": 24.3
+    },
+    {
+      "word": "하더라고요",
+      "start": 24.3,
+      "end": 24.54
+    },
+    {
+      "word": "그",
+      "start": 24.94,
+      "end": 24.94
+    },
+    {
+      "word": "김에",
+      "start": 24.94,
+      "end": 25.1
+    },
+    {
+      "word": "머리도",
+      "start": 25.1,
+      "end": 25.36
+    },
+    {
+      "word": "좀",
+      "start": 25.36,
+      "end": 25.7
+    },
+    {
+      "word": "자르려고요",
+      "start": 25.7,
+      "end": 26.1
+    },
+    {
+      "word": "머리도",
+      "start": 26.34,
+      "end": 26.82
+    },
+    {
+      "word": "지금",
+      "start": 26.82,
+      "end": 27.14
+    },
+    {
+      "word": "여행한",
+      "start": 27.14,
+      "end": 27.44
+    },
+    {
+      "word": "지",
+      "start": 27.44,
+      "end": 27.86
+    },
+    {
+      "word": "한",
+      "start": 27.86,
+      "end": 28.22
+    },
+    {
+      "word": "달이",
+      "start": 28.22,
+      "end": 28.38
+    },
+    {
+      "word": "돼가지고",
+      "start": 28.38,
+      "end": 28.72
+    },
+    {
+      "word": "한",
+      "start": 29.72,
+      "end": 30.16
+    },
+    {
+      "word": "입",
+      "start": 30.16,
+      "end": 30.28
+    },
+    {
+      "word": "먹어봐야겠는데",
+      "start": 30.28,
+      "end": 30.84
+    },
+    {
+      "word": "전혀",
+      "start": 36.54,
+      "end": 37.42
+    },
+    {
+      "word": "무서운",
+      "start": 37.42,
+      "end": 38.3
+    },
+    {
+      "word": "느낌이",
+      "start": 38.3,
+      "end": 38.5
+    },
+    {
+      "word": "없는데",
+      "start": 38.5,
+      "end": 39.62
+    },
+    {
+      "word": "카텔말라",
+      "start": 41.8,
+      "end": 42.2
+    },
+    {
+      "word": "시장이랑",
+      "start": 42.2,
+      "end": 42.5
+    },
+    {
+      "word": "다를",
+      "start": 42.5,
+      "end": 42.76
+    },
+    {
+      "word": "게",
+      "start": 42.76,
+      "end": 42.76
+    },
+    {
+      "word": "없는데",
+      "start": 42.76,
+      "end": 43.14
+    },
+    {
+      "word": "왜",
+      "start": 47.04,
+      "end": 47.08
+    },
+    {
+      "word": "이렇게",
+      "start": 47.08,
+      "end": 47.2
+    },
+    {
+      "word": "좋아해",
+      "start": 47.2,
+      "end": 47.62
+    },
+    {
+      "word": "여기",
+      "start": 47.72,
+      "end": 48.2
+    },
+    {
+      "word": "중남미",
+      "start": 48.2,
+      "end": 48.5
+    },
+    {
+      "word": "사람들은",
+      "start": 48.5,
+      "end": 49.04
+    },
+    {
+      "word": "이런",
+      "start": 49.04,
+      "end": 49.46
+    },
+    {
+      "word": "거",
+      "start": 49.46,
+      "end": 49.9
+    },
+    {
+      "word": "너무",
+      "start": 53.5,
+      "end": 53.94
+    },
+    {
+      "word": "평범한데",
+      "start": 53.94,
+      "end": 54.48
+    },
+    {
+      "word": "잘생겨지는",
+      "start": 55.68,
+      "end": 56.14
+    },
+    {
+      "word": "약",
+      "start": 56.14,
+      "end": 56.22
+    },
+    {
+      "word": "어딨어",
+      "start": 56.22,
+      "end": 56.62
+    },
+    {
+      "word": "잘생겨지는",
+      "start": 59.28,
+      "end": 60.68
+    },
+    {
+      "word": "약",
+      "start": 60.68,
+      "end": 60.68
+    },
+    {
+      "word": "잘생겨지는",
+      "start": 62.16,
+      "end": 62.86
+    },
+    {
+      "word": "약",
+      "start": 62.86,
+      "end": 64.14
+    },
+    {
+      "word": "아니요",
+      "start": 64.5,
+      "end": 65.9
+    },
+    {
+      "word": "아",
+      "start": 65.9,
+      "end": 67.28
+    },
+    {
+      "word": "아닌가",
+      "start": 67.28,
+      "end": 67.5
+    },
+    {
+      "word": "밖에서",
+      "start": 69.64,
+      "end": 69.64
+    },
+    {
+      "word": "팔고",
+      "start": 69.64,
+      "end": 71.36
+    },
+    {
+      "word": "있어요",
+      "start": 71.36,
+      "end": 71.72
+    },
+    {
+      "word": "여기",
+      "start": 71.72,
+      "end": 72.6
+    },
+    {
+      "word": "왼쪽에",
+      "start": 72.6,
+      "end": 73.32
+    },
+    {
+      "word": "고마워요",
+      "start": 74.66,
+      "end": 75.36
+    },
+    {
+      "word": "아",
+      "start": 78.52,
+      "end": 79.22
+    },
+    {
+      "word": "민망하네",
+      "start": 79.54,
+      "end": 79.84
+    },
+    {
+      "word": "물어보기가",
+      "start": 79.84,
+      "end": 80.28
+    },
+    {
+      "word": "다",
+      "start": 82.44,
+      "end": 83.14
+    },
+    {
+      "word": "비웃는다",
+      "start": 83.14,
+      "end": 83.6
+    },
+    {
+      "word": "지금",
+      "start": 83.6,
+      "end": 84.62
+    },
+    {
+      "word": "너무",
+      "start": 84.62,
+      "end": 85.42
+    },
+    {
+      "word": "무서운데",
+      "start": 85.42,
+      "end": 85.78
+    },
+    {
+      "word": "우와",
+      "start": 89.24,
+      "end": 90.64
+    },
+    {
+      "word": "그치",
+      "start": 92.0,
+      "end": 92.56
+    },
+    {
+      "word": "야",
+      "start": 92.56,
+      "end": 93.8
+    },
+    {
+      "word": "이거",
+      "start": 93.92,
+      "end": 94.0
+    },
+    {
+      "word": "무서워",
+      "start": 94.0,
+      "end": 94.9
+    },
+    {
+      "word": "여기인가",
+      "start": 95.1,
+      "end": 96.5
+    },
+    {
+      "word": "봐",
+      "start": 96.5,
+      "end": 96.58
+    },
+    {
+      "word": "주술시장",
+      "start": 96.66,
+      "end": 97.4
+    },
+    {
+      "word": "우와",
+      "start": 97.7,
+      "end": 99.1
+    },
+    {
+      "word": "뭐야",
+      "start": 99.16,
+      "end": 100.1
+    },
+    {
+      "word": "이거",
+      "start": 100.1,
+      "end": 100.8
+    },
+    {
+      "word": "마법용품",
+      "start": 107.18,
+      "end": 108.58
+    },
+    {
+      "word": "아",
+      "start": 109.22,
+      "end": 109.78
+    },
+    {
+      "word": "마법용품",
+      "start": 109.88,
+      "end": 110.6
+    },
+    {
+      "word": "여기",
+      "start": 110.6,
+      "end": 111.28
+    },
+    {
+      "word": "네",
+      "start": 111.4,
+      "end": 112.5
+    },
+    {
+      "word": "뭐",
+      "start": 113.0,
+      "end": 113.0
+    },
+    {
+      "word": "찾으세요",
+      "start": 113.0,
+      "end": 113.0
+    },
+    {
+      "word": "잘생겨지는",
+      "start": 113.86,
+      "end": 115.26
+    },
+    {
+      "word": "약",
+      "start": 115.26,
+      "end": 115.26
+    },
+    {
+      "word": "네",
+      "start": 115.48,
+      "end": 116.88
+    },
+    {
+      "word": "어디",
+      "start": 116.88,
+      "end": 117.76
+    },
+    {
+      "word": "여기",
+      "start": 117.76,
+      "end": 118.58
+    },
+    {
+      "word": "있어요",
+      "start": 118.58,
+      "end": 118.88
+    },
+    {
+      "word": "뭐야",
+      "start": 122.54,
+      "end": 123.54
+    },
+    {
+      "word": "이거",
+      "start": 123.54,
+      "end": 124.02
+    },
+    {
+      "word": "아이",
+      "start": 124.56,
+      "end": 124.74
+    },
+    {
+      "word": "난",
+      "start": 124.82,
+      "end": 124.88
+    },
+    {
+      "word": "무슨",
+      "start": 124.88,
+      "end": 125.12
+    },
+    {
+      "word": "먹는",
+      "start": 125.12,
+      "end": 125.36
+    },
+    {
+      "word": "약인",
+      "start": 125.36,
+      "end": 125.72
+    },
+    {
+      "word": "줄",
+      "start": 125.72,
+      "end": 125.8
+    },
+    {
+      "word": "알았어",
+      "start": 125.8,
+      "end": 126.28
+    },
+    {
+      "word": "아하",
+      "start": 127.52,
+      "end": 128.52
+    },
+    {
+      "word": "먹어",
+      "start": 128.56,
+      "end": 129.08
+    },
+    {
+      "word": "그래",
+      "start": 129.08,
+      "end": 129.82
+    },
+    {
+      "word": "얼마야",
+      "start": 130.52,
+      "end": 131.52
+    },
+    {
+      "word": "120원",
+      "start": 133.1,
+      "end": 134.1
+    },
+    {
+      "word": "한",
+      "start": 136.36,
+      "end": 137.36
+    },
+    {
+      "word": "입",
+      "start": 137.36,
+      "end": 137.36
+    },
+    {
+      "word": "하나",
+      "start": 137.56,
+      "end": 138.46
+    },
+    {
+      "word": "5개도",
+      "start": 139.28,
+      "end": 140.28
+    },
+    {
+      "word": "5개도",
+      "start": 141.14,
+      "end": 142.14
+    },
+    {
+      "word": "좋아",
+      "start": 142.9,
+      "end": 143.6
+    },
+    {
+      "word": "고마워요",
+      "start": 146.14,
+      "end": 147.02
+    },
+    {
+      "word": "아니",
+      "start": 148.14,
+      "end": 148.98
+    },
+    {
+      "word": "물약을",
+      "start": 149.02,
+      "end": 149.6
+    },
+    {
+      "word": "샀는데",
+      "start": 149.6,
+      "end": 149.94
+    },
+    {
+      "word": "먹어도",
+      "start": 149.94,
+      "end": 150.76
+    },
+    {
+      "word": "되나",
+      "start": 150.76,
+      "end": 150.96
+    },
+    {
+      "word": "모르겠다",
+      "start": 150.96,
+      "end": 151.48
+    },
+    {
+      "word": "안녕하세요",
+      "start": 153.18,
+      "end": 154.58
+    },
+    {
+      "word": "영어로",
+      "start": 154.58,
+      "end": 155.7
+    },
+    {
+      "word": "말해요",
+      "start": 155.7,
+      "end": 155.7
+    },
+    {
+      "word": "조금",
+      "start": 156.66,
+      "end": 157.5
+    },
+    {
+      "word": "조금",
+      "start": 157.5,
+      "end": 158.2
+    },
+    {
+      "word": "어디서",
+      "start": 158.76,
+      "end": 159.82
+    },
+    {
+      "word": "왔어요",
+      "start": 159.82,
+      "end": 159.82
+    },
+    {
+      "word": "한국에서",
+      "start": 160.48,
+      "end": 161.52
+    },
+    {
+      "word": "아",
+      "start": 161.52,
+      "end": 162.38
+    },
+    {
+      "word": "BTS",
+      "start": 162.38,
+      "end": 163.28
+    },
+    {
+      "word": "학생이에요",
+      "start": 164.46,
+      "end": 165.86
+    },
+    {
+      "word": "아니요",
+      "start": 166.5,
+      "end": 167.02
+    },
+    {
+      "word": "여행요",
+      "start": 168.32,
+      "end": 169.12
+    },
+    {
+      "word": "흥미로워요",
+      "start": 169.12,
+      "end": 170.0
+    },
+    {
+      "word": "섹스",
+      "start": 170.0,
+      "end": 170.52
+    },
+    {
+      "word": "네",
+      "start": 170.52,
+      "end": 171.98
+    },
+    {
+      "word": "섹스",
+      "start": 171.98,
+      "end": 173.18
+    },
+    {
+      "word": "섹스",
+      "start": 176.08,
+      "end": 177.48
+    },
+    {
+      "word": "섹스는",
+      "start": 177.48,
+      "end": 178.04
+    },
+    {
+      "word": "좋은",
+      "start": 178.04,
+      "end": 178.34
+    },
+    {
+      "word": "약인가요",
+      "start": 178.34,
+      "end": 178.66
+    },
+    {
+      "word": "그게",
+      "start": 179.96,
+      "end": 181.36
+    },
+    {
+      "word": "뭐예요",
+      "start": 181.36,
+      "end": 181.36
+    },
+    {
+      "word": "뭐야",
+      "start": 182.48,
+      "end": 182.58
+    },
+    {
+      "word": "펜드로",
+      "start": 183.36,
+      "end": 183.88
+    },
+    {
+      "word": "부장님",
+      "start": 184.02,
+      "end": 184.22
+    },
+    {
+      "word": "네",
+      "start": 184.22,
+      "end": 184.98
+    },
+    {
+      "word": "이게",
+      "start": 184.98,
+      "end": 186.36
+    },
+    {
+      "word": "뭐예요",
+      "start": 186.36,
+      "end": 186.52
+    },
+    {
+      "word": "이게",
+      "start": 187.38,
+      "end": 188.14
+    },
+    {
+      "word": "향수예요",
+      "start": 188.14,
+      "end": 188.9
+    },
+    {
+      "word": "향수",
+      "start": 189.56,
+      "end": 190.96
+    },
+    {
+      "word": "향수",
+      "start": 190.96,
+      "end": 191.02
+    },
+    {
+      "word": "향수",
+      "start": 192.76,
+      "end": 194.16
+    },
+    {
+      "word": "향수",
+      "start": 194.16,
+      "end": 194.22
+    },
+    {
+      "word": "아",
+      "start": 194.44,
+      "end": 195.14
+    },
+    {
+      "word": "좋아",
+      "start": 197.77,
+      "end": 198.42
+    },
+    {
+      "word": "좋아",
+      "start": 199.88,
+      "end": 200.53
+    },
+    {
+      "word": "이거",
+      "start": 201.18,
+      "end": 201.18
+    },
+    {
+      "word": "먹으면",
+      "start": 201.18,
+      "end": 201.54
+    },
+    {
+      "word": "난리",
+      "start": 201.54,
+      "end": 201.76
+    },
+    {
+      "word": "나는",
+      "start": 201.76,
+      "end": 201.96
+    },
+    {
+      "word": "것",
+      "start": 201.96,
+      "end": 202.12
+    },
+    {
+      "word": "같은데",
+      "start": 202.12,
+      "end": 202.77
+    },
+    {
+      "word": "이게",
+      "start": 203.54,
+      "end": 203.56
+    },
+    {
+      "word": "뭐예요",
+      "start": 203.56,
+      "end": 203.92
+    },
+    {
+      "word": "페로몬",
+      "start": 204.76,
+      "end": 205.66
+    },
+    {
+      "word": "약",
+      "start": 205.66,
+      "end": 206.38
+    },
+    {
+      "word": "페로몬",
+      "start": 206.38,
+      "end": 207.16
+    },
+    {
+      "word": "약",
+      "start": 207.16,
+      "end": 207.98
+    },
+    {
+      "word": "아니요",
+      "start": 208.62,
+      "end": 209.4
+    },
+    {
+      "word": "괜찮아요",
+      "start": 209.4,
+      "end": 210.1
+    },
+    {
+      "word": "아니요",
+      "start": 210.32,
+      "end": 211.62
+    },
+    {
+      "word": "아니요",
+      "start": 211.62,
+      "end": 212.2
+    },
+    {
+      "word": "아니요",
+      "start": 212.2,
+      "end": 212.96
+    },
+    {
+      "word": "아니요",
+      "start": 213.02,
+      "end": 213.46
+    },
+    {
+      "word": "아니요",
+      "start": 213.76,
+      "end": 215.06
+    },
+    {
+      "word": "아니요",
+      "start": 215.06,
+      "end": 215.52
+    },
+    {
+      "word": "아니요",
+      "start": 215.52,
+      "end": 215.62
+    },
+    {
+      "word": "아니요",
+      "start": 215.62,
+      "end": 215.68
+    },
+    {
+      "word": "아니요",
+      "start": 215.68,
+      "end": 215.7
+    },
+    {
+      "word": "아니요",
+      "start": 215.7,
+      "end": 215.76
+    },
+    {
+      "word": "이거",
+      "start": 215.76,
+      "end": 215.76
+    },
+    {
+      "word": "먹으면",
+      "start": 215.76,
+      "end": 216.3
+    },
+    {
+      "word": "난리",
+      "start": 216.3,
+      "end": 216.72
+    },
+    {
+      "word": "나는",
+      "start": 216.72,
+      "end": 216.72
+    },
+    {
+      "word": "것",
+      "start": 216.72,
+      "end": 217.52
+    },
+    {
+      "word": "같은데",
+      "start": 217.52,
+      "end": 217.52
+    },
+    {
+      "word": "네",
+      "start": 217.64,
+      "end": 217.84
+    },
+    {
+      "word": "아",
+      "start": 219.48,
+      "end": 220.22
+    },
+    {
+      "word": "네",
+      "start": 220.22,
+      "end": 220.22
+    },
+    {
+      "word": "네",
+      "start": 220.76,
+      "end": 221.48
+    },
+    {
+      "word": "이게",
+      "start": 223.26,
+      "end": 223.96
+    },
+    {
+      "word": "뭐예요",
+      "start": 223.96,
+      "end": 224.44
+    },
+    {
+      "word": "사랑과",
+      "start": 224.84,
+      "end": 225.44
+    },
+    {
+      "word": "섹스",
+      "start": 225.44,
+      "end": 225.76
+    },
+    {
+      "word": "향수",
+      "start": 227.08,
+      "end": 227.78
+    },
+    {
+      "word": "향수였어",
+      "start": 228.3,
+      "end": 229.0
+    },
+    {
+      "word": "고마워요",
+      "start": 229.38,
+      "end": 230.78
+    },
+    {
+      "word": "안녕",
+      "start": 231.36,
+      "end": 232.06
+    },
+    {
+      "word": "친구",
+      "start": 232.62,
+      "end": 232.62
+    },
+    {
+      "word": "안녕",
+      "start": 232.62,
+      "end": 233.28
+    },
+    {
+      "word": "안녕",
+      "start": 233.28,
+      "end": 233.98
+    },
+    {
+      "word": "마시는",
+      "start": 235.22,
+      "end": 235.92
+    },
+    {
+      "word": "게",
+      "start": 235.92,
+      "end": 236.04
+    },
+    {
+      "word": "아니었구나",
+      "start": 236.04,
+      "end": 236.96
+    },
+    {
+      "word": "잘생겨지는",
+      "start": 237.5,
+      "end": 238.9
+    },
+    {
+      "word": "약이",
+      "start": 238.9,
+      "end": 239.14
+    },
+    {
+      "word": "있다고",
+      "start": 239.14,
+      "end": 239.3
+    },
+    {
+      "word": "들었는데",
+      "start": 239.3,
+      "end": 240.04
+    },
+    {
+      "word": "냄새가",
+      "start": 242.26,
+      "end": 243.66
+    },
+    {
+      "word": "목욕탕에",
+      "start": 243.66,
+      "end": 244.56
+    },
+    {
+      "word": "있는",
+      "start": 244.56,
+      "end": 244.56
+    },
+    {
+      "word": "IC",
+      "start": 244.56,
+      "end": 244.8
+    },
+    {
+      "word": "로션",
+      "start": 244.8,
+      "end": 245.08
+    },
+    {
+      "word": "있잖아요",
+      "start": 245.08,
+      "end": 245.5
+    },
+    {
+      "word": "그거",
+      "start": 245.64,
+      "end": 246.58
+    },
+    {
+      "word": "냄새나",
+      "start": 246.58,
+      "end": 246.94
+    },
+    {
+      "word": "내가",
+      "start": 247.55,
+      "end": 248.02
+    },
+    {
+      "word": "생각했던",
+      "start": 248.02,
+      "end": 248.76
+    },
+    {
+      "word": "주술",
+      "start": 248.76,
+      "end": 249.84
+    },
+    {
+      "word": "시장이랑",
+      "start": 249.84,
+      "end": 250.24
+    },
+    {
+      "word": "거리가",
+      "start": 250.24,
+      "end": 250.58
+    },
+    {
+      "word": "좀",
+      "start": 250.58,
+      "end": 250.82
+    },
+    {
+      "word": "먼",
+      "start": 250.82,
+      "end": 250.84
+    },
+    {
+      "word": "해요",
+      "start": 250.84,
+      "end": 251.12
+    },
+    {
+      "word": "되게",
+      "start": 251.12,
+      "end": 251.7
+    },
+    {
+      "word": "세상에서",
+      "start": 251.7,
+      "end": 252.06
+    },
+    {
+      "word": "가장",
+      "start": 252.06,
+      "end": 252.58
+    },
+    {
+      "word": "무서운",
+      "start": 252.58,
+      "end": 253.06
+    },
+    {
+      "word": "탑",
+      "start": 253.06,
+      "end": 253.76
+    },
+    {
+      "word": "5에",
+      "start": 253.76,
+      "end": 254.04
+    },
+    {
+      "word": "든다는데",
+      "start": 254.04,
+      "end": 254.78
+    },
+    {
+      "word": "월드",
+      "start": 254.78,
+      "end": 255.52
+    },
+    {
+      "word": "클래스",
+      "start": 255.52,
+      "end": 255.72
+    },
+    {
+      "word": "절대",
+      "start": 255.72,
+      "end": 256.04
+    },
+    {
+      "word": "아닙니다",
+      "start": 256.04,
+      "end": 256.88
+    },
+    {
+      "word": "머리는",
+      "start": 257.82,
+      "end": 258.76
+    },
+    {
+      "word": "잘라야겠다",
+      "start": 258.76,
+      "end": 259.7
+    },
+    {
+      "word": "안녕하세요",
+      "start": 262.54,
+      "end": 263.48
+    },
+    {
+      "word": "안녕하세요",
+      "start": 263.52,
+      "end": 264.46
+    },
+    {
+      "word": "네",
+      "start": 265.08,
+      "end": 266.02
+    },
+    {
+      "word": "30분",
+      "start": 267.58,
+      "end": 268.52
+    },
+    {
+      "word": "40분",
+      "start": 268.52,
+      "end": 268.56
+    },
+    {
+      "word": "먹었어요",
+      "start": 268.56,
+      "end": 268.58
+    },
+    {
+      "word": "아",
+      "start": 268.58,
+      "end": 268.78
+    },
+    {
+      "word": "먹었어요",
+      "start": 268.92,
+      "end": 269.18
+    },
+    {
+      "word": "30분",
+      "start": 269.88,
+      "end": 270.34
+    },
+    {
+      "word": "40분",
+      "start": 270.34,
+      "end": 270.8
+    },
+    {
+      "word": "네",
+      "start": 270.8,
+      "end": 271.6
+    },
+    {
+      "word": "네",
+      "start": 271.78,
+      "end": 271.78
+    },
+    {
+      "word": "네",
+      "start": 272.46,
+      "end": 272.46
+    },
+    {
+      "word": "이거",
+      "start": 272.82,
+      "end": 273.52
+    },
+    {
+      "word": "뭐지",
+      "start": 273.52,
+      "end": 273.78
+    },
+    {
+      "word": "이게",
+      "start": 275.4,
+      "end": 275.54
+    },
+    {
+      "word": "뭐예요",
+      "start": 275.54,
+      "end": 275.86
+    },
+    {
+      "word": "파채요",
+      "start": 276.04,
+      "end": 276.88
+    },
+    {
+      "word": "파채요",
+      "start": 277.22,
+      "end": 278.62
+    },
+    {
+      "word": "하나",
+      "start": 279.26,
+      "end": 280.66
+    },
+    {
+      "word": "주세요",
+      "start": 280.66,
+      "end": 280.66
+    },
+    {
+      "word": "이발소",
+      "start": 285.46,
+      "end": 286.32
+    },
+    {
+      "word": "겸",
+      "start": 286.32,
+      "end": 286.62
+    },
+    {
+      "word": "종이",
+      "start": 286.62,
+      "end": 287.06
+    },
+    {
+      "word": "가방",
+      "start": 287.06,
+      "end": 287.18
+    },
+    {
+      "word": "파는",
+      "start": 287.18,
+      "end": 287.46
+    },
+    {
+      "word": "곳이야",
+      "start": 287.46,
+      "end": 288.5
+    },
+    {
+      "word": "설마",
+      "start": 288.5,
+      "end": 288.74
+    },
+    {
+      "word": "이런",
+      "start": 288.74,
+      "end": 289.04
+    },
+    {
+      "word": "헤어스타일밖에",
+      "start": 289.04,
+      "end": 289.48
+    },
+    {
+      "word": "못하나",
+      "start": 289.48,
+      "end": 290.46
+    },
+    {
+      "word": "이거",
+      "start": 293.28,
+      "end": 293.82
+    },
+    {
+      "word": "얼마예요",
+      "start": 293.82,
+      "end": 293.82
+    },
+    {
+      "word": "70만원",
+      "start": 295.1,
+      "end": 295.8
+    },
+    {
+      "word": "70만원",
+      "start": 296.18,
+      "end": 296.88
+    },
+    {
+      "word": "80만원",
+      "start": 298.3,
+      "end": 299.7
+    },
+    {
+      "word": "80만원",
+      "start": 299.88,
+      "end": 300.58
+    },
+    {
+      "word": "90만원",
+      "start": 301.8,
+      "end": 302.8
+    },
+    {
+      "word": "이런",
+      "start": 305.52,
+      "end": 306.52
+    },
+    {
+      "word": "헤어스타일밖에",
+      "start": 306.52,
+      "end": 306.82
+    },
+    {
+      "word": "안되나",
+      "start": 306.82,
+      "end": 307.24
+    },
+    {
+      "word": "조금만",
+      "start": 310.14,
+      "end": 310.64
+    },
+    {
+      "word": "이",
+      "start": 314.66,
+      "end": 315.66
+    },
+    {
+      "word": "헤어스타일은",
+      "start": 315.66,
+      "end": 316.66
+    },
+    {
+      "word": "흰색이",
+      "start": 316.66,
+      "end": 316.82
+    },
+    {
+      "word": "아니에요",
+      "start": 316.82,
+      "end": 316.82
+    },
+    {
+      "word": "흰색이",
+      "start": 318.66,
+      "end": 319.66
+    },
+    {
+      "word": "안좋아해요",
+      "start": 319.66,
+      "end": 320.04
+    },
+    {
+      "word": "흰색이",
+      "start": 320.16,
+      "end": 321.16
+    },
+    {
+      "word": "좋아요",
+      "start": 321.16,
+      "end": 321.36
+    },
+    {
+      "word": "흰색",
+      "start": 321.36,
+      "end": 321.68
+    },
+    {
+      "word": "네",
+      "start": 322.0,
+      "end": 323.0
+    },
+    {
+      "word": "네",
+      "start": 323.14,
+      "end": 323.14
+    },
+    {
+      "word": "네",
+      "start": 323.14,
+      "end": 323.66
+    },
+    {
+      "word": "조금만",
+      "start": 324.4,
+      "end": 324.9
+    },
+    {
+      "word": "여기가",
+      "start": 326.2,
+      "end": 327.2
+    },
+    {
+      "word": "흰색이래요",
+      "start": 327.2,
+      "end": 327.7
+    },
+    {
+      "word": "흰색",
+      "start": 328.2,
+      "end": 329.08
+    },
+    {
+      "word": "네",
+      "start": 329.16,
+      "end": 329.26
+    },
+    {
+      "word": "흰색",
+      "start": 329.74,
+      "end": 329.86
+    },
+    {
+      "word": "조금만",
+      "start": 343.2,
+      "end": 344.6
+    },
+    {
+      "word": "가방도",
+      "start": 345.24,
+      "end": 345.94
+    },
+    {
+      "word": "가방도",
+      "start": 347.02,
+      "end": 347.86
+    },
+    {
+      "word": "너무",
+      "start": 348.42,
+      "end": 348.42
+    },
+    {
+      "word": "많이",
+      "start": 348.42,
+      "end": 348.56
+    },
+    {
+      "word": "줄었어",
+      "start": 348.56,
+      "end": 348.98
+    },
+    {
+      "word": "이미",
+      "start": 348.98,
+      "end": 349.7
+    },
+    {
+      "word": "고마워",
+      "start": 350.84,
+      "end": 352.24
+    },
+    {
+      "word": "고마워",
+      "start": 372.22,
+      "end": 373.62
+    },
+    {
+      "word": "고마워요",
+      "start": 374.1,
+      "end": 375.5
+    },
+    {
+      "word": "네",
+      "start": 375.5,
+      "end": 375.68
+    },
+    {
+      "word": "고마워요",
+      "start": 377.34,
+      "end": 377.96
+    },
+    {
+      "word": "그",
+      "start": 382.46,
+      "end": 383.86
+    },
+    {
+      "word": "멕시코",
+      "start": 384.98,
+      "end": 386.38
+    },
+    {
+      "word": "조금이랑",
+      "start": 386.38,
+      "end": 387.02
+    },
+    {
+      "word": "우리나라",
+      "start": 387.02,
+      "end": 388.02
+    },
+    {
+      "word": "조금이랑",
+      "start": 388.02,
+      "end": 388.56
+    },
+    {
+      "word": "그",
+      "start": 388.56,
+      "end": 389.54
+    },
+    {
+      "word": "다른가봐요",
+      "start": 389.54,
+      "end": 389.84
+    },
+    {
+      "word": "조금만",
+      "start": 389.84,
+      "end": 390.68
+    },
+    {
+      "word": "잘라드렸는데",
+      "start": 390.68,
+      "end": 391.3
+    },
+    {
+      "word": "거의",
+      "start": 391.3,
+      "end": 391.66
+    },
+    {
+      "word": "호동이형",
+      "start": 391.66,
+      "end": 392.0
+    },
+    {
+      "word": "전성기머리를",
+      "start": 392.0,
+      "end": 392.7
+    },
+    {
+      "word": "이렇게",
+      "start": 392.7,
+      "end": 393.06
+    },
+    {
+      "word": "나만",
+      "start": 394.58,
+      "end": 395.3
+    },
+    {
+      "word": "북한",
+      "start": 395.3,
+      "end": 395.52
+    },
+    {
+      "word": "부르면",
+      "start": 395.52,
+      "end": 395.78
+    },
+    {
+      "word": "그냥",
+      "start": 395.78,
+      "end": 396.06
+    },
+    {
+      "word": "북한이라",
+      "start": 396.06,
+      "end": 396.38
+    },
+    {
+      "word": "해야겠다",
+      "start": 396.38,
+      "end": 396.84
+    },
+    {
+      "word": "아",
+      "start": 398.36,
+      "end": 399.08
+    },
+    {
+      "word": "시원하다",
+      "start": 399.08,
+      "end": 399.72
+    },
+    {
+      "word": "어쩜",
+      "start": 400.46,
+      "end": 401.18
+    },
+    {
+      "word": "이렇게",
+      "start": 401.18,
+      "end": 401.34
+    },
+    {
+      "word": "개운할까",
+      "start": 401.34,
+      "end": 402.24
+    },
+    {
+      "word": "악기가",
+      "start": 403.38,
+      "end": 404.1
+    },
+    {
+      "word": "다",
+      "start": 404.1,
+      "end": 404.32
+    },
+    {
+      "word": "떨어져",
+      "start": 404.32,
+      "end": 404.5
+    },
+    {
+      "word": "나온",
+      "start": 404.5,
+      "end": 404.72
+    },
+    {
+      "word": "것",
+      "start": 404.72,
+      "end": 404.84
+    },
+    {
+      "word": "같아요",
+      "start": 404.84,
+      "end": 405.2
+    },
+    {
+      "word": "오컬트가",
+      "start": 405.24,
+      "end": 405.96
+    },
+    {
+      "word": "여기",
+      "start": 405.96,
+      "end": 406.24
+    },
+    {
+      "word": "있었네",
+      "start": 406.24,
+      "end": 406.84
+    },
+    {
+      "word": "걸어서",
+      "start": 408.56,
+      "end": 409.28
+    },
+    {
+      "word": "한",
+      "start": 409.28,
+      "end": 409.38
+    },
+    {
+      "word": "30분",
+      "start": 409.38,
+      "end": 409.68
+    },
+    {
+      "word": "가면은",
+      "start": 409.68,
+      "end": 410.04
+    },
+    {
+      "word": "산후한시장이라고",
+      "start": 411.12,
+      "end": 411.84
+    },
+    {
+      "word": "거기도",
+      "start": 411.84,
+      "end": 412.56
+    },
+    {
+      "word": "또",
+      "start": 412.56,
+      "end": 412.84
+    },
+    {
+      "word": "특이한",
+      "start": 412.84,
+      "end": 413.12
+    },
+    {
+      "word": "시장인데",
+      "start": 413.12,
+      "end": 413.44
+    },
+    {
+      "word": "멕시코에",
+      "start": 413.44,
+      "end": 413.9
+    },
+    {
+      "word": "진짜",
+      "start": 413.9,
+      "end": 414.12
+    },
+    {
+      "word": "특이한",
+      "start": 414.12,
+      "end": 414.46
+    },
+    {
+      "word": "시장이",
+      "start": 414.46,
+      "end": 414.52
+    },
+    {
+      "word": "많아요",
+      "start": 414.52,
+      "end": 415.1
+    },
+    {
+      "word": "이상한",
+      "start": 415.1,
+      "end": 415.7
+    },
+    {
+      "word": "고기",
+      "start": 415.7,
+      "end": 415.76
+    },
+    {
+      "word": "많이",
+      "start": 415.76,
+      "end": 416.04
+    },
+    {
+      "word": "판다고",
+      "start": 416.04,
+      "end": 416.18
+    },
+    {
+      "word": "하더라고",
+      "start": 416.18,
+      "end": 416.48
+    },
+    {
+      "word": "막",
+      "start": 416.48,
+      "end": 417.18
+    },
+    {
+      "word": "이구아나",
+      "start": 417.18,
+      "end": 417.56
+    },
+    {
+      "word": "고기랑",
+      "start": 417.56,
+      "end": 417.92
+    },
+    {
+      "word": "호랑이",
+      "start": 418.36,
+      "end": 418.78
+    },
+    {
+      "word": "고기랑",
+      "start": 418.78,
+      "end": 419.14
+    },
+    {
+      "word": "막",
+      "start": 419.14,
+      "end": 419.22
+    },
+    {
+      "word": "그런거",
+      "start": 419.22,
+      "end": 419.82
+    },
+    {
+      "word": "안",
+      "start": 419.82,
+      "end": 420.02
+    },
+    {
+      "word": "먹어본거",
+      "start": 420.02,
+      "end": 420.62
+    },
+    {
+      "word": "와",
+      "start": 422.78,
+      "end": 423.38
+    }
+  ],
+  "full_text": "여기는 지금 멕시코 수도 멕시코 시티입니다. 여기에 세계에서 가장 무서운 광경? TOP5 안에 드는 이상한 시장이 하나 있어요. 손오라 시장이라고 이상한 약 팔고 잘생겨지는 약, 사랑이 이루어지는 약 그런 고어한 것들 좀 많이 팔고 다양한 주술용품들을 판다고 하더라고요. 그 김에 머리도 좀 자르려고요. 머리도 지금 여행한 지 한 달이 돼가지고 한 입 먹어봐야겠는데? 전혀 무서운 느낌이 없는데? 카텔말라 시장이랑 다를 게 없는데? 왜 이렇게 좋아해? 여기 중남미 사람들은 이런 거 너무 평범한데? 잘생겨지는 약 어딨어? 잘생겨지는 약 잘생겨지는 약? 아니요 아, 아닌가? 밖에서 팔고 있어요 여기 왼쪽에 고마워요 아, 민망하네 물어보기가 다 비웃는다 지금 너무 무서운데? 우와, 그치 야, 이거 무서워 여기인가 봐, 주술시장 우와, 뭐야 이거? 마법용품? 아, 마법용품 여기? 네, 뭐 찾으세요? 잘생겨지는 약 네 어디? 여기 있어요 뭐야 이거? 아이, 난 무슨 먹는 약인 줄 알았어 아하, 먹어 그래? 얼마야? 120원 한 입? 하나? 5개도 5개도 좋아 고마워요 아니, 물약을 샀는데 먹어도 되나 모르겠다 안녕하세요 영어로 말해요? 조금 조금? 어디서 왔어요? 한국에서 아, BTS? 학생이에요? 아니요, 여행요 흥미로워요 섹스 네? 섹스 섹스 섹스는 좋은 약인가요?  그게 뭐예요? 뭐야? 펜드로, 부장님 네 이게 뭐예요? 이게 향수예요 향수 향수  향수 향수 아  좋아? 좋아 이거 먹으면 난리 나는 것 같은데? 이게 뭐예요? 페로몬 약 페로몬 약? 아니요 괜찮아요? 아니요 아니요 아니요? 아니요 아니요 아니요  아니요 아니요  아니요 아니요 이거 먹으면 난리 나는 것 같은데? 네? 아, 네 네?   이게 뭐예요? 사랑과 섹스 향수 향수였어? 고마워요 안녕, 친구 안녕, 안녕 마시는 게 아니었구나 잘생겨지는 약이 있다고 들었는데 냄새가 목욕탕에 있는 IC 로션 있잖아요 그거 냄새나 내가 생각했던 주술 시장이랑 거리가 좀 먼 해요 되게 세상에서 가장 무서운 탑 5에 든다는데 월드 클래스 절대 아닙니다 머리는 잘라야겠다 안녕하세요 안녕하세요 네? 30분 40분 먹었어요 아, 먹었어요? 30분 40분 네, 네, 네 이거 뭐지? 이게 뭐예요? 파채요 파채요? 하나 주세요 이발소 겸 종이 가방 파는 곳이야 설마 이런 헤어스타일밖에 못하나? 이거 얼마예요? 70만원 70만원? 80만원 80만원? 90만원?  이런 헤어스타일밖에 안되나? 조금만 이 헤어스타일은 흰색이 아니에요 흰색이 안좋아해요 흰색이 좋아요 흰색? 네, 네, 네 조금만 여기가 흰색이래요 흰색? 네, 흰색 조금만  가방도? 가방도 너무 많이 줄었어 이미 고마워 고마워 고마워요 네, 고마워요 그... 멕시코 조금이랑 우리나라 조금이랑 그... 다른가봐요            조금만 잘라드렸는데 거의 호동이형 전성기머리를 이렇게 나만 북한 부르면 그냥 북한이라 해야겠다 아 시원하다 어쩜 이렇게 개운할까 악기가 다 떨어져 나온 것 같아요 오컬트가 여기 있었네 걸어서 한 30분 가면은 산후한시장이라고 거기도 또 특이한 시장인데 멕시코에 진짜 특이한 시장이 많아요 이상한 고기 많이 판다고 하더라고 막 이구아나 고기랑 호랑이 고기랑 막 그런거 안 먹어본거 와",
+  "scenes": [
+    {
+      "id": 1,
+      "start": 0.0,
+      "end": 3.3,
+      "summary": "남성이 택시 뒷좌석에 앉아 멕시코시티에 도착했음을 알린다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "medium",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "멕시코시티, 멕시코의 수도"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#282828",
+        "#c0c0c0"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "인트로 부분으로 차분하게 시작"
+    },
+    {
+      "id": 2,
+      "start": 3.3,
+      "end": 6.0,
+      "summary": "남성이 멕시코 시티에 위치한 소노라 시장을 설명한다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "medium",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "여기는 지금 멕시코 수도 멕시코시티입니다"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#282828",
+        "#c0c0c0",
+        "#87ceeb"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "시장에 대한 정보 제공, 중요 내용"
+    },
+    {
+      "id": 3,
+      "start": 6.0,
+      "end": 29.6,
+      "summary": "남성이 멕시코시티의 소노라 시장에 대해 더 자세히 설명한다. 특히 '잘생겨지는 약', '사랑이 이루어지는 약' 등 주술용품을 언급하며 기대감을 표현하고, 머리를 자르려는 계획도 덧붙인다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "car",
+        "city_view"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "curious"
+        }
+      ],
+      "shot_type": "medium",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "여기에 세상에서 가장 무서운 광경?",
+        "탑 파이브 안에 드는",
+        "이상한 시장이 하나 있어요",
+        "소노라 시장이라고",
+        "이상한 약 팔고 막",
+        "잘생겨지는 약 그 다음 사랑이 이루어지는 약",
+        "그런 고어한 것들 좀 많이 팔고",
+        "뭐 다양한 주술용품들 판다고 하더라고요",
+        "간김에 머리도 좀 자르라고",
+        "머리도 지금 여행한지 한 달이 돼가지고"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#282828",
+        "#c0c0c0",
+        "#a9a9a9"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "시장 방문 동기 및 기대감 설명, 흥미로운 주제"
+    },
+    {
+      "id": 4,
+      "start": 29.6,
+      "end": 33.7,
+      "summary": "택시에서 바라본 멕시코 시티의 거리 풍경과 맑은 하늘이 보인다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "city_view",
+        "outdoor",
+        "car_interior",
+        "street",
+        "traffic"
+      ],
+      "people": [],
+      "shot_type": "wide",
+      "camera_movement": "tracking",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "하늘이 너무 예쁜데?",
+        "맑은 멕시코의 하늘"
+      ],
+      "dominant_colors": [
+        "#87ceeb",
+        "#008000",
+        "#ff0000"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "배경 설명"
+    },
+    {
+      "id": 5,
+      "start": 33.7,
+      "end": 36.4,
+      "summary": "택시에서 내린 후, 시장 입구로 보이는 곳에 도착. 남성이 운전사에게 감사 인사를 전하고 운전사는 천만에요라고 답한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "outdoor",
+        "car_interior",
+        "street",
+        "market_stall"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "감사합니다",
+        "천만에요"
+      ],
+      "dominant_colors": [
+        "#87ceeb",
+        "#ffa500",
+        "#f0f8ff"
+      ],
+      "energy": 0.4,
+      "pacing": "normal",
+      "edit_notes": "시장 도착"
+    },
+    {
+      "id": 6,
+      "start": 36.4,
+      "end": 41.8,
+      "summary": "소노라 주술 시장 입구를 보여준다. 남성은 겉보기에는 전혀 무서운 느낌이 없다고 말한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "outdoor",
+        "market_stall",
+        "people_walking"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "surprised"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "전혀 무서운 느낌이 없는데?",
+        "[소노라 주술시장 입구]"
+      ],
+      "dominant_colors": [
+        "#ffff00",
+        "#ffa500",
+        "#a9a9a9"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "시장 첫인상, 기대감과의 대비"
+    },
+    {
+      "id": 7,
+      "start": 41.8,
+      "end": 43.7,
+      "summary": "시장 안으로 들어선다. 남성은 과테말라 시장과 다를 바 없다고 말한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "vendors",
+        "merchandise"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "과테말라 시장이랑 다를 게 없는데?"
+      ],
+      "dominant_colors": [
+        "#ffa500",
+        "#a9a9a9",
+        "#f0f8ff",
+        "#800080"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "시장 내부 진입"
+    },
+    {
+      "id": 8,
+      "start": 43.7,
+      "end": 50.0,
+      "summary": "시장의 좁은 통로를 따라 걸으며 다양한 캐릭터 복장이 진열된 상점을 지난다. 남성은 중남미 사람들이 이런 것을 좋아하는 이유를 궁금해한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "costumes",
+        "merchandise",
+        "people_walking"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "curious"
+        }
+      ],
+      "shot_type": "medium",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "[좀 더 안쪽으로]",
+        "왜 이렇게 좋아해 여기 중남미 사람들은?",
+        "이런거"
+      ],
+      "dominant_colors": [
+        "#ff0000",
+        "#0000ff",
+        "#ffff00",
+        "#800080"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "시각적으로 다채로운 장면"
+    },
+    {
+      "id": 9,
+      "start": 50.0,
+      "end": 53.3,
+      "summary": "시장 통로를 더 깊이 들어간다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "people_walking",
+        "merchandise"
+      ],
+      "people": [],
+      "shot_type": "medium",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "[좀 더 안쪽]"
+      ],
+      "dominant_colors": [
+        "#c0c0c0",
+        "#ff00ff",
+        "#008000"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "단순 이동"
+    },
+    {
+      "id": 10,
+      "start": 53.3,
+      "end": 56.0,
+      "summary": "시장 통로의 모습이 일반적인 시장과 다를 바 없어 남성은 '너무 평범한데?'라며 실망감을 표한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "merchandise"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "disappointed"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "너무 평범한데?"
+      ],
+      "dominant_colors": [
+        "#c0c0c0",
+        "#ff00ff",
+        "#008000",
+        "#ffa500"
+      ],
+      "energy": 0.5,
+      "pacing": "slow",
+      "edit_notes": "기대와 다른 시장 모습"
+    },
+    {
+      "id": 11,
+      "start": 56.0,
+      "end": 84.9,
+      "summary": "남성이 '잘생겨지는 약'을 찾기 위해 시장 상인에게 스페인어로 묻는다. 상인들은 대화 내용을 듣고 어이없어하며 출구 쪽 다른 가게를 알려주지만, 결국 남성이 뭘 원하는지 이해하고 웃는다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "merchandise"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "curious"
+        },
+        {
+          "label": "P2",
+          "description": "분홍색 티셔츠의 남성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "amused"
+        },
+        {
+          "label": "P3",
+          "description": "모자를 쓴 여성 상인",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "amused"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "잘생겨지는 약 어디 있어",
+        "아",
+        "어디 있습니까",
+        "잘생겨지는 약이..",
+        "잘생겨지는 약이요?",
+        "아 아니요 아니요 아니요 진짜로",
+        "저쪽 출구로 가보세요",
+        "여기 왼쪽 구석으로 가세요",
+        "아",
+        "감사합니다 감사합니다 감사합니다",
+        "네",
+        "아씨 민망하네 물어보기가 씨",
+        "(하지만 모두가 바로 이해했던 몰골)",
+        "비웃는다 지금씨"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#ffa500",
+        "#f0f8ff"
+      ],
+      "energy": 0.8,
+      "pacing": "fast",
+      "edit_notes": "중요한 대화 구간, 재미있는 상황 연출. P1의 표정 변화와 상인들의 반응을 잘 보여줘야 함."
+    },
+    {
+      "id": 12,
+      "start": 84.9,
+      "end": 88.9,
+      "summary": "주술 시장으로 보이는 곳으로 진입한다. 새장 안에 갇힌 동물들이 보이고, 남성은 '동물 무서운데?'라고 말하며 주술에 쓰이는 제물용 동물도 판매된다고 자막으로 설명한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "animals",
+        "cages",
+        "merchandise"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "nervous"
+        },
+        {
+          "label": "P4",
+          "description": "파란색 셔츠의 남성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "동물 무서운데?",
+        "[주술에 쓰이는 제물용 동물도 판매한다고 한다]"
+      ],
+      "dominant_colors": [
+        "#0000ff",
+        "#808080",
+        "#a9a9a9"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "시장의 특이한 면모를 보여주는 전환점"
+    },
+    {
+      "id": 13,
+      "start": 88.9,
+      "end": 95.9,
+      "summary": "해골 형상의 인형들과 다양한 주술 용품이 가득한 가게를 비춘다. 남성은 '와씨', '이거 무서워'라며 놀란다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "dolls",
+        "skulls",
+        "religious_items",
+        "strange_items"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "surprised"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "mixed",
+      "on_screen_text": [
+        "곽튜브",
+        "우와씨",
+        "그치",
+        "야 이거 무서워"
+      ],
+      "dominant_colors": [
+        "#ffc0cb",
+        "#800080",
+        "#c0c0c0",
+        "#a9a9a9"
+      ],
+      "energy": 0.8,
+      "pacing": "fast",
+      "edit_notes": "시장의 '무서운 광경'을 보여주는 핵심 시퀀스"
+    },
+    {
+      "id": 14,
+      "start": 95.9,
+      "end": 106.0,
+      "summary": "진짜 주술 시장으로 보이는 곳으로 더 깊이 들어간다. 죽음의 인형들과 다양한 용품들이 진열된 가게 안이 보인다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "market",
+        "dolls",
+        "potion_bottles",
+        "shelves",
+        "dark_area"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "nervous"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "여긴가봐 주술시장",
+        "와씨",
+        "뭐야 이거?",
+        "안녕하세요",
+        "[죽음의 인형들]"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#282828",
+        "#ff00ff",
+        "#008000"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "어둡고 기괴한 분위기 연출"
+    },
+    {
+      "id": 15,
+      "start": 106.0,
+      "end": 120.0,
+      "summary": "남성이 마법 용품을 파는 곳인지 물어본다. 상인이 '잘생겨지는 약'이 있냐는 질문에 진짜로 약을 보여준다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "potions",
+        "herbs"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "curious"
+        },
+        {
+          "label": "P5",
+          "description": "검은색 앞치마의 남성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "helpful"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "아",
+        "마법 용품 있어요?",
+        "아 마법 용품요?",
+        "네",
+        "여기 맞아요",
+        "잘생겨지는 약 있어요?",
+        "네",
+        "어디에요?",
+        "보여드릴게요"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#008000",
+        "#ffa500"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "드디어 '잘생겨지는 약'을 찾는 과정"
+    },
+    {
+      "id": 16,
+      "start": 120.0,
+      "end": 126.5,
+      "summary": "상인이 남성에게 '잘생겨지는 약'을 건네준다. 약은 작은 병에 담긴 액체 형태였다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_holding_object",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "curious"
+        },
+        {
+          "label": "P5",
+          "description": "검은색 앞치마의 남성 상인",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "(시크하게 약하나 집어주는 아저씨)",
+        "뭐야 이거?"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#ffa500"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "약을 받는 순간의 긴장감"
+    },
+    {
+      "id": 17,
+      "start": 126.5,
+      "end": 148.2,
+      "summary": "남성이 약이 마시는 것이 아니라 뿌리는 향수였음을 깨닫고 놀란다. 상인에게 어떻게 사용하는지 물어보고, 상인은 다섯 방울을 뿌리라고 알려준다. 남성은 일단 뿌린 후 구매를 완료한다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "surprised"
+        },
+        {
+          "label": "P5",
+          "description": "검은색 앞치마의 남성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "helpful"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "아니 난 무슨 먹는 약인 줄 알았어",
+        "아",
+        "네 마시는 거예요",
+        "진짜요?",
+        "얼마에요?",
+        "120이요 (약 9천원)",
+        "와우",
+        "원샷?",
+        "한번에 피슉?",
+        "아 다섯입이요",
+        "이아씨",
+        "[일단 홀린듯 구매완료]",
+        "감사합니다",
+        "천만에요"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#ffa500"
+      ],
+      "energy": 0.8,
+      "pacing": "normal",
+      "edit_notes": "상황 반전, 재미있는 대화"
+    },
+    {
+      "id": 18,
+      "start": 148.2,
+      "end": 152.4,
+      "summary": "남성이 물약을 샀지만 먹어도 되는지 모르겠다고 혼잣말하며 다른 가게로 이동한다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "shelves"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "confused"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "아니 물약을 샀는데 먹어도 되나 모르겠다"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#ff00ff"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "구매 후 혼란스러움 표현"
+    },
+    {
+      "id": 19,
+      "start": 152.4,
+      "end": 158.9,
+      "summary": "남성이 다른 가게 상인에게 영어가 가능한지 묻자, 상인은 '조금 한다'고 답한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor",
+        "shelves"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "neutral"
+        },
+        {
+          "label": "P6",
+          "description": "앞치마를 맨 여성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "medium",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "안녕하세요",
+        "영어 하실 수 있어요?",
+        "조금 해요",
+        "조금이요?"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#ff00ff",
+        "#c0c0c0"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "새로운 상인과의 대화 시작"
+    },
+    {
+      "id": 20,
+      "start": 158.9,
+      "end": 164.9,
+      "summary": "상인이 남성에게 어디서 왔냐고 묻자, 남성은 한국에서 왔다고 답한다. 상인은 즉시 BTS를 언급하며 익숙한 반응을 보인다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        },
+        {
+          "label": "P6",
+          "description": "앞치마를 맨 여성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "happy"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "어디서 오셨어요?",
+        "한국이요",
+        "아",
+        "BTS?",
+        "(이제는 익숙한 한국인사)"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#ff00ff"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "K-팝의 영향력을 보여주는 유머러스한 순간"
+    },
+    {
+      "id": 21,
+      "start": 164.9,
+      "end": 169.0,
+      "summary": "상인이 남성에게 학생이냐고 묻자, 남성은 여행 중이라고 답한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "vendor"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        },
+        {
+          "label": "P6",
+          "description": "앞치마를 맨 여성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "학생이에요?",
+        "아니요 아니요 아니요",
+        "여행 여행중이에요"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#ff00ff"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "짧은 대화"
+    },
+    {
+      "id": 22,
+      "start": 169.0,
+      "end": 179.0,
+      "summary": "남성이 구매했던 '잘생겨지는 약'을 다시 꺼내 보여주며, 이 약이 '성관계'에 좋은 약인지 상인에게 묻는다. 상인은 놀라며 대답을 회피한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "curious"
+        },
+        {
+          "label": "P6",
+          "description": "앞치마를 맨 여성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "surprised"
+        },
+        {
+          "label": "P7",
+          "description": "주황색 상의를 입은 남성 손님",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "신기한 거 샀어요",
+        "성관계",
+        "너의 성관계?",
+        "(바퀴입 1년 멤버도 당황한 워딩)",
+        "성관계에요?",
+        "성관계에 좋은 약이에요?"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#a9a9a9"
+      ],
+      "energy": 0.8,
+      "pacing": "normal",
+      "edit_notes": "다시 한번 민망하고 재미있는 상황 연출. P1의 표정과 상인의 반응 대비가 중요."
+    },
+    {
+      "id": 23,
+      "start": 179.0,
+      "end": 184.9,
+      "summary": "상인이 남성의 질문에 '아니요'라고 대답하지만, 남성은 여전히 이 약이 무엇인지 궁금해하며 상인에게 재차 묻는다. 상인은 다른 손님을 응대하며 대답을 미룬다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "confused"
+        },
+        {
+          "label": "P6",
+          "description": "앞치마를 맨 여성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "evasive"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "아니요",
+        "이거 뭐에요?",
+        "뭐야?",
+        "(궁금증만 남긴채 다른 손님 응대)"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#a9a9a9"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "궁금증 증폭"
+    },
+    {
+      "id": 24,
+      "start": 184.9,
+      "end": 202.3,
+      "summary": "남성이 다른 남성 상인에게 '잘생겨지는 약'이 무엇인지 묻자, 상인은 '다른 사람이나 여자를 유혹하는 향수'라고 설명한다. 남성은 단호하게 '가질실?'이라며 거절하고, '무슨 이거 먹으면 난리 나는 거 같은데?'라며 혼잣말한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "disgusted"
+        },
+        {
+          "label": "P8",
+          "description": "Lakers 모자를 쓴 남성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "이거 뭐에요?",
+        "뿌리는 향수에",
+        "유혹하는 거에요",
+        "유혹이요?",
+        "다른 사람이나 여자요",
+        "아",
+        "다가오게 하는 거요",
+        "가지실?",
+        "(격하게 거절)",
+        "무슨 이거 먹으면 난리나는 거 같은데?"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#a9a9a9",
+        "#000080"
+      ],
+      "energy": 0.8,
+      "pacing": "normal",
+      "edit_notes": "약의 진짜 용도를 알게 된 후의 P1의 반응이 중요"
+    },
+    {
+      "id": 25,
+      "start": 202.3,
+      "end": 235.0,
+      "summary": "남성이 여성 상인에게 '페로몬 향수'라는 것을 확인하고 먹는 것이 아니라는 것을 다시 한번 확인한다. 상인은 '사랑과 성관계를 위한 것'이라고 알려주자, 남성은 자신이 속았다고 자책하며 가게를 떠난다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "surprised"
+        },
+        {
+          "label": "P9",
+          "description": "초록색 상의의 여성 상인",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        },
+        {
+          "label": "P7",
+          "description": "주황색 상의를 입은 남성 손님",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "이거 뭐에요?",
+        "음 이거 페로몬 향수에요",
+        "페로몬 약이에요?",
+        "아니요",
+        "뿌리는거에요",
+        "아니요 아니요 먹는 거 아니에요",
+        "(저기서 먹었는데?)",
+        "그게 효과가 있는지 모르겠어요",
+        "먹는 거라던데?",
+        "아 맞아요",
+        "맞아요? 맞아요?",
+        "네 맞아요",
+        "사랑과 성관계를 위한거에요",
+        "(사기 당했네 씨 향수였어)",
+        "감사합니다 감사합니다",
+        "안녕히 계세요 안녕히 계세요"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#a9a9a9"
+      ],
+      "energy": 0.8,
+      "pacing": "normal",
+      "edit_notes": "약에 대한 오해가 풀리는 결정적 순간. P1의 감정 변화를 잘 나타내야 함."
+    },
+    {
+      "id": 26,
+      "start": 235.0,
+      "end": 250.5,
+      "summary": "남성이 물약이 마시는 게 아니었음을 후회하며 '잘생겨지는 약'에 대한 미련을 보인다. 그 와중에 페로몬 향수를 뿌리는 동작을 취하고, 목욕탕 로션 냄새 같다고 언급한다. 주술 시장이 예상보다 멀리 있었다는 점을 깨닫는다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "potion_bottle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "regretful"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "마시는 게 아니었구나 아이씨",
+        "잘생겨지는 약 있다고 들었는데",
+        "(그와중에 혹시몰라 페로몬 뿌리기 완료)",
+        "냄새가",
+        "목욕탕에 있는 아저씨 로션 있잖아여",
+        "그거 냄새나",
+        "내가 생각했던 주술시장 거리가 좀 머네요"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#ffa500"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "시장 탐방의 마무리와 아쉬움"
+    },
+    {
+      "id": 27,
+      "start": 250.5,
+      "end": 259.8,
+      "summary": "남성이 소노라 시장이 '세상에서 가장 무서운 탑 파이브'라는 명성에 못 미친다고 평가한다. 그래도 '머리는 잘라야겠다'고 말하며 다음 목적지를 정한다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "market",
+        "people_walking"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "disappointed"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "여기 세상에서 가장 무서운 뭐",
+        "탑 파이브 안에 든다는데",
+        "월드클래스 절대 아닙니다",
+        "(곽용정의 오컬트시장탐방 종료)",
+        "머리는 잘라야겠다"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#87ceeb",
+        "#ffa500"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "시장에 대한 최종 평가와 다음 행동 예고"
+    },
+    {
+      "id": 28,
+      "start": 259.8,
+      "end": 272.4,
+      "summary": "시장 골목 안쪽에서 작은 이발소를 발견한다. 남성이 이발사에게 커트할 수 있는지 묻지만, 이발사는 식사 중이라 30~40분 후에 오라고 답한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "customer",
+        "paper_bags"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        },
+        {
+          "label": "P10",
+          "description": "흰색 셔츠의 남성 이발사",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "medium",
+      "camera_movement": "handheld",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "[시장골목 이발소 발견]",
+        "안녕 하세요",
+        "커트하시게요?",
+        "네",
+        "식사중이라서 3-40분 후에 오세요",
+        "아 식사요?",
+        "3-40분 뒤에요",
+        "네 네 네"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#c0c0c0",
+        "#ffc0cb"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "이발소를 찾았지만 바로 이용할 수 없는 상황"
+    },
+    {
+      "id": 29,
+      "start": 272.4,
+      "end": 284.2,
+      "summary": "남성이 시간을 때우기 위해 테파체 음료를 구매하여 마신다. 매실차 같은 평범한 맛이라고 언급한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_drinking",
+        "indoor",
+        "market",
+        "drink_stall",
+        "drinks"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "이건 뭐지?",
+        "이거 뭐에요?",
+        "테파체",
+        "테파체",
+        "하나 주세요",
+        "(일단 먹으면서 시간때우기)",
+        "(평범한 매실차느낌의 맛)"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#ff0000",
+        "#ffa500"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "시간 때우기 위한 활동"
+    },
+    {
+      "id": 30,
+      "start": 284.2,
+      "end": 292.0,
+      "summary": "다시 이발소로 돌아와 이발을 시작한다. 이발소는 종이 가방도 함께 파는 곳이며, 남성은 벽에 붙은 헤어스타일 사진들을 보며 '설마 이런 헤어스타일 밖에 못 하나?'라고 걱정한다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters",
+        "paper_bags"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "worried"
+        },
+        {
+          "label": "P10",
+          "description": "흰색 셔츠의 남성 이발사",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "static",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "[돌아온 이발소]",
+        "이발소겸 종이가방 파는 곳이야",
+        "설마 이런 헤어스타일 밖에 못하나?",
+        "(면상컷 전문샵)"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#c0c0c0",
+        "#ffc0cb"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "이발 시작 전 불안감 조성"
+    },
+    {
+      "id": 31,
+      "start": 292.0,
+      "end": 307.4,
+      "summary": "남성이 이발사에게 커트 비용을 묻는다. 이발사는 다양한 헤어스타일에 따라 70~90페소(약 5천~7천원)라고 설명한다. 남성은 벽의 사진들을 보며 어떤 스타일을 할지 고민하고, 옆머리는 하얗게 밀지 말고 검게 해달라고 요청한다.",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop",
+        "barber",
+        "hairstyle_posters"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "deciding"
+        },
+        {
+          "label": "P10",
+          "description": "흰색 셔츠의 남성 이발사",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "helpful"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "얼마에요?",
+        "70이요 (약 5천원)",
+        "이건",
+        "80이요 (약 6천원)",
+        "90이요 (약 7천원)",
+        "(옆머리 스타일에 따라 달라지는 가격)",
+        "아",
+        "이런 스타일 밖에 안되나?",
+        "(언어의 장벽)",
+        "아 조금만요 어",
+        "여기를 다 밀어요",
+        "하얀거 안돼요",
+        "하얀색 싫어요",
+        "검은색 좋아요",
+        "검게",
+        "(대충 옆머리 설명완료)"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#c0c0c0",
+        "#000000"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "헤어스타일 선택 과정, 의사소통 어려움"
+    },
+    {
+      "id": 32,
+      "start": 307.4,
+      "end": 352.2,
+      "summary": "이발사가 남성의 머리를 깎기 시작한다. 남성은 조금만 잘라달라고 요청하지만, 이발사는 이미 너무 많이 잘랐고, 결국 포기하는 표정을 짓는다. (앞머리도 그냥 다 밀어버리는 듯한 모습)",
+      "content_type": "interaction",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "worried"
+        },
+        {
+          "label": "P10",
+          "description": "흰색 셔츠의 남성 이발사",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "neutral"
+        },
+        {
+          "label": "P11",
+          "description": "이발소 여자아이",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "surprised"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "아 여기도 조금만요",
+        "아 네",
+        "여기 검게 하는거 맞죠?",
+        "검게 네 네",
+        "하얗게 말고요",
+        "조.. 조금만요",
+        "더 짧게요?",
+        "아니요 어..",
+        "너무 많이 잘랐어",
+        "이미",
+        "(포기)"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#8b0000",
+        "#282828"
+      ],
+      "energy": 0.8,
+      "pacing": "normal",
+      "edit_notes": "이발 과정의 위기. P1의 절망적인 표정과 자막을 통해 상황의 심각성을 강조."
+    },
+    {
+      "id": 33,
+      "start": 352.2,
+      "end": 373.0,
+      "summary": "이발사가 거의 '명예 중국인' 스타일로 남성의 머리를 다 자르고 드라이, 왁스까지 발라 완성한다. 남성의 표정은 완전히 체념한 듯 보인다.",
+      "content_type": "barber_cutting_hair",
+      "visual_tags": [
+        "barber_cutting_hair",
+        "indoor",
+        "barber_shop",
+        "hair_dryer"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "resigned"
+        },
+        {
+          "label": "P10",
+          "description": "흰색 셔츠의 남성 이발사",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "proud"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "(점점 PTSD가 올라오는 멕시코 이발소)",
+        "(M자와 함께 돌아온 명예중국인)",
+        "(이상한 왁스로 머리세워주기까지)",
+        "뭐야 이 거미줄 뭐야?",
+        "[완성]"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#8b0000",
+        "#282828"
+      ],
+      "energy": 0.9,
+      "pacing": "fast",
+      "edit_notes": "이발의 하이라이트/피크. P1의 충격적인 변화를 강조."
+    },
+    {
+      "id": 34,
+      "start": 373.0,
+      "end": 380.1,
+      "summary": "이발이 끝난 후 남성이 이발사에게 감사 인사를 전하고 가게를 떠난다. (아무 말도 못하고 퇴장)",
+      "content_type": "interaction",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "barber_shop"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "resigned"
+        },
+        {
+          "label": "P10",
+          "description": "흰색 셔츠의 남성 이발사",
+          "face_visible": true,
+          "speaking": false,
+          "emotion": "neutral"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "static",
+      "lighting": "dim",
+      "on_screen_text": [
+        "곽튜브",
+        "감사합니다",
+        "정말 감사합니다",
+        "감사합니다",
+        "(아무말도 못하고 퇴장)"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9"
+      ],
+      "energy": 0.4,
+      "pacing": "slow",
+      "edit_notes": "이발 후 허탈함"
+    },
+    {
+      "id": 35,
+      "start": 380.1,
+      "end": 393.8,
+      "summary": "거울로 머리를 다시 한번 확인한 후, 남성은 멕시코의 '조금'과 한국의 '조금'이 다른 것 같다며, 호동이형 전성기 머리가 되었다고 말하며 좌절한다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "indoor",
+        "market",
+        "new_hairstyle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "frustrated"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "(거울 한번 더 확인)",
+        "그",
+        "(호동이형 빡친짤)",
+        "멕시코 조금이랑 우리나라 조금이랑 그 다른가봐",
+        "조금만 잘라달라고 했는데 거의 호동이형 전성기 머리를 이렇게"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#c0c0c0"
+      ],
+      "energy": 0.8,
+      "pacing": "normal",
+      "edit_notes": "이발 결과에 대한 유머러스한 평"
+    },
+    {
+      "id": 36,
+      "start": 393.8,
+      "end": 408.9,
+      "summary": "남성이 새로운 헤어스타일로 '남한 북한 물으면 그냥 북한이라 해야겠다'고 말하며, 시원하고 개운하다고 역설적으로 말한다. 악귀가 다 떨어져 나간 것 같고 오컬트가 여기 있었다고 말하며 허탈하게 웃는다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "new_hairstyle"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "ironic"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "남한 북한 물으면 그냥 북한이라 해야겠다",
+        "아 시원하다",
+        "어쩜 이리 개운할까?",
+        "(개운한 톤으로)",
+        "악귀가 다 떨어져 나간 것 같아요",
+        "오컬트가 여기 있었네",
+        "(아무튼 잘생겨지는 약)"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#87ceeb"
+      ],
+      "energy": 0.7,
+      "pacing": "normal",
+      "edit_notes": "이발 후 감상 및 오컬트 시장에 대한 새로운 해석"
+    },
+    {
+      "id": 37,
+      "start": 408.9,
+      "end": 421.3,
+      "summary": "남성이 30분 걸어가면 나오는 산 후안 시장에 대해 설명한다. 그곳은 특이한 시장으로 이구아나, 호랑이 고기 등 특이한 고기를 많이 판다고 덧붙인다.",
+      "content_type": "talking_head",
+      "visual_tags": [
+        "person_talking",
+        "outdoor",
+        "city_view",
+        "street",
+        "buildings"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": true,
+          "speaking": true,
+          "emotion": "informative"
+        }
+      ],
+      "shot_type": "close_up",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "걸어서 한 30분 가면은 산 후안 시장이라고",
+        "거기도 또 특이한 시장인데 멕시코에 진짜 특이한 시장이 많아요",
+        "이상한고기 많이 판다고 하더라고 막",
+        "이구아나고기랑 호랑이고기랑 뭐 그런거",
+        "안먹어본거"
+      ],
+      "dominant_colors": [
+        "#8b0000",
+        "#a9a9a9",
+        "#87ceeb"
+      ],
+      "energy": 0.6,
+      "pacing": "normal",
+      "edit_notes": "다음 시장에 대한 정보 제공"
+    },
+    {
+      "id": 38,
+      "start": 421.3,
+      "end": 425.4,
+      "summary": "산 후안 시장 입구를 보여준다.",
+      "content_type": "b_roll",
+      "visual_tags": [
+        "outdoor",
+        "market_entrance",
+        "street",
+        "people_walking"
+      ],
+      "people": [
+        {
+          "label": "P1",
+          "description": "빨간색/검은색 셔츠의 남성",
+          "face_visible": false,
+          "speaking": true,
+          "emotion": "curious"
+        }
+      ],
+      "shot_type": "wide",
+      "camera_movement": "handheld",
+      "lighting": "bright",
+      "on_screen_text": [
+        "곽튜브",
+        "[산 후안 시장]",
+        "우와"
+      ],
+      "dominant_colors": [
+        "#a9a9a9",
+        "#282828",
+        "#ffff00"
+      ],
+      "energy": 0.5,
+      "pacing": "normal",
+      "edit_notes": "다음 시장 진입"
+    }
+  ],
+  "people_index": [
+    {
+      "label": "P1",
+      "description": "남성 유튜버 (곽튜브), 빨간색/검은색 셔츠, 메인 화자",
+      "first_appearance": 0.0,
+      "total_screen_time_estimate": "6분 30초"
+    },
+    {
+      "label": "P2",
+      "description": "소노라 시장 남성 상인, 분홍색 티셔츠",
+      "first_appearance": 64.0,
+      "total_screen_time_estimate": "5초"
+    },
+    {
+      "label": "P3",
+      "description": "소노라 시장 여성 상인, 모자",
+      "first_appearance": 65.0,
+      "total_screen_time_estimate": "5초"
+    },
+    {
+      "label": "P4",
+      "description": "동물 상점 남성 상인, 파란색 셔츠",
+      "first_appearance": 87.0,
+      "total_screen_time_estimate": "2초"
+    },
+    {
+      "label": "P5",
+      "description": "주술 용품점 남성 상인 (약 판매), 검은색 앞치마",
+      "first_appearance": 109.0,
+      "total_screen_time_estimate": "30초"
+    },
+    {
+      "label": "P6",
+      "description": "주술 용품점 여성 상인 (향수 판매), 앞치마",
+      "first_appearance": 155.0,
+      "total_screen_time_estimate": "40초"
+    },
+    {
+      "label": "P7",
+      "description": "주술 용품점 손님 (P6 옆), 주황색 상의",
+      "first_appearance": 172.0,
+      "total_screen_time_estimate": "20초"
+    },
+    {
+      "label": "P8",
+      "description": "주술 용품점 남성 상인 (향수 판매), Lakers 모자",
+      "first_appearance": 187.0,
+      "total_screen_time_estimate": "15초"
+    },
+    {
+      "label": "P9",
+      "description": "주술 용품점 여성 상인 (향수 재확인), 초록색 상의",
+      "first_appearance": 204.0,
+      "total_screen_time_estimate": "10초"
+    },
+    {
+      "label": "P10",
+      "description": "시장 이발사, 흰색 셔츠, 검은 모자",
+      "first_appearance": 264.0,
+      "total_screen_time_estimate": "2분 30초"
+    },
+    {
+      "label": "P11",
+      "description": "이발소 여자아이 (이발사의 딸), 놀란 표정",
+      "first_appearance": 334.0,
+      "total_screen_time_estimate": "5초"
+    }
+  ],
+  "visual_flow": {
+    "overall_structure": "멕시코시티 도착 -> 소노라 주술 시장 방문 (주술 용품 구매 및 오해) -> 시장 내 이발 (충격적인 헤어스타일 변화) -> 시장에 대한 소감 및 다음 시장 소개로 이어지는 브이로그 형식",
+    "transitions": [
+      {
+        "time": 3.3,
+        "from_scene": 1,
+        "to_scene": 2,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 6.0,
+        "from_scene": 2,
+        "to_scene": 3,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 29.6,
+        "from_scene": 3,
+        "to_scene": 4,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 33.7,
+        "from_scene": 4,
+        "to_scene": 5,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 36.4,
+        "from_scene": 5,
+        "to_scene": 6,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 41.8,
+        "from_scene": 6,
+        "to_scene": 7,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 43.7,
+        "from_scene": 7,
+        "to_scene": 8,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 50.0,
+        "from_scene": 8,
+        "to_scene": 9,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 53.3,
+        "from_scene": 9,
+        "to_scene": 10,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 56.0,
+        "from_scene": 10,
+        "to_scene": 11,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 84.9,
+        "from_scene": 11,
+        "to_scene": 12,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 88.9,
+        "from_scene": 12,
+        "to_scene": 13,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 95.9,
+        "from_scene": 13,
+        "to_scene": 14,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 106.0,
+        "from_scene": 14,
+        "to_scene": 15,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 120.0,
+        "from_scene": 15,
+        "to_scene": 16,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 126.5,
+        "from_scene": 16,
+        "to_scene": 17,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 148.2,
+        "from_scene": 17,
+        "to_scene": 18,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 152.4,
+        "from_scene": 18,
+        "to_scene": 19,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 158.9,
+        "from_scene": 19,
+        "to_scene": 20,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 164.9,
+        "from_scene": 20,
+        "to_scene": 21,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 169.0,
+        "from_scene": 21,
+        "to_scene": 22,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 179.0,
+        "from_scene": 22,
+        "to_scene": 23,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 184.9,
+        "from_scene": 23,
+        "to_scene": 24,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 202.3,
+        "from_scene": 24,
+        "to_scene": 25,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 235.0,
+        "from_scene": 25,
+        "to_scene": 26,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 250.5,
+        "from_scene": 26,
+        "to_scene": 27,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 259.8,
+        "from_scene": 27,
+        "to_scene": 28,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 272.4,
+        "from_scene": 28,
+        "to_scene": 29,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 284.2,
+        "from_scene": 29,
+        "to_scene": 30,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 292.0,
+        "from_scene": 30,
+        "to_scene": 31,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 307.4,
+        "from_scene": 31,
+        "to_scene": 32,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 352.2,
+        "from_scene": 32,
+        "to_scene": 33,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 373.0,
+        "from_scene": 33,
+        "to_scene": 34,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 380.1,
+        "from_scene": 34,
+        "to_scene": 35,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 393.8,
+        "from_scene": 35,
+        "to_scene": 36,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 408.9,
+        "from_scene": 36,
+        "to_scene": 37,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      },
+      {
+        "time": 421.3,
+        "from_scene": 37,
+        "to_scene": 38,
+        "type": "hard_cut",
+        "smoothness": "smooth"
+      }
+    ],
+    "repetitive_sections": []
+  },
+  "background_elements": {
+    "music_segments": [
+      {
+        "start": 0.0,
+        "end": 425.4,
+        "type": "background",
+        "mood": "upbeat"
+      }
+    ],
+    "ambient_noise": [
+      {
+        "start": 29.6,
+        "end": 36.4,
+        "type": "traffic",
+        "intensity": "medium"
+      },
+      {
+        "start": 36.4,
+        "end": 425.4,
+        "type": "crowd",
+        "intensity": "medium"
+      }
+    ]
+  },
+  "key_moments": [
+    {
+      "time": 56.0,
+      "duration": 8.0,
+      "type": "funny",
+      "description": "'잘생겨지는 약'을 찾는 독특한 요청과 상인의 반응",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 81.0,
+      "duration": 3.9,
+      "type": "funny",
+      "description": "상인들이 남성의 의도를 바로 이해하고 비웃는 상황",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 93.0,
+      "duration": 2.9,
+      "type": "surprising",
+      "description": "해골 인형 등 무서운 주술 용품에 대한 P1의 직접적인 놀람 반응",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 113.0,
+      "duration": 2.0,
+      "type": "funny",
+      "description": "상인에게 '잘생겨지는 약'을 직접적으로 물어보는 순간",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 126.5,
+      "duration": 3.0,
+      "type": "surprising",
+      "description": "먹는 약인 줄 알았던 것이 뿌리는 향수임을 깨닫는 반전",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 141.0,
+      "duration": 4.0,
+      "type": "funny",
+      "description": "'일단 홀린듯 구매완료' 자막과 함께 약 구매 완료",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 162.0,
+      "duration": 2.9,
+      "type": "funny",
+      "description": "BTS를 알아보고 반가워하는 상인의 익숙한 반응",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 171.5,
+      "duration": 7.5,
+      "type": "funny",
+      "description": "'성관계'에 대한 직설적인 질문과 상인의 당황스러운 반응",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 190.5,
+      "duration": 2.5,
+      "type": "funny",
+      "description": "'다른 사람이나 여자를 유혹하는 것'이라는 약 설명에 P1의 반응",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 198.5,
+      "duration": 3.8,
+      "type": "funny",
+      "description": "P1의 격한 거절과 약에 대한 혼잣말",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 212.0,
+      "duration": 1.5,
+      "type": "funny",
+      "description": "이전에 먹는 약인 줄 알고 복용했던 사실에 P1이 당황하는 순간",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 227.0,
+      "duration": 2.0,
+      "type": "funny",
+      "description": "'사기 당했네 씨 향수였어'라는 자막과 함께 P1의 허탈한 표정",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 232.0,
+      "duration": 3.0,
+      "type": "funny",
+      "description": "상인의 'Good bye my friend'와 P1의 씁쓸한 퇴장",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 239.5,
+      "duration": 3.0,
+      "type": "funny",
+      "description": "페로몬 향수를 혹시 몰라 뿌리는 P1의 행동",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 358.5,
+      "duration": 4.0,
+      "type": "funny",
+      "description": "완성된 헤어스타일에 'M자와 함께 돌아온 명예중국인' 자막이 올라오는 순간",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 364.5,
+      "duration": 8.5,
+      "type": "funny",
+      "description": "이발사의 왁스 시술과 최종 완성된 충격적인 헤어스타일",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 389.0,
+      "duration": 4.8,
+      "type": "funny",
+      "description": "멕시코와 한국의 '조금'의 문화적 차이를 '호동이형 전성기 머리'에 비유",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 395.0,
+      "duration": 2.0,
+      "type": "funny",
+      "description": "새 헤어스타일에 '남한 북한 물으면 그냥 북한이라 해야겠다'는 자조적 유머",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    },
+    {
+      "time": 403.0,
+      "duration": 5.9,
+      "type": "funny",
+      "description": "이발을 통해 악귀가 떨어져 나갔다는 비유와 '오컬트가 여기 있었네'라는 역설",
+      "edit_suggestion": "하이라이트 클립으로 뽑기 좋음"
+    }
+  ],
+  "boring_candidates": [],
+  "highlight_candidates": [
+    {
+      "start": 56.0,
+      "end": 64.0,
+      "reason": "'잘생겨지는 약'을 찾는 독특한 요청과 상인의 반응",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 81.0,
+      "end": 84.9,
+      "reason": "상인들이 남성의 의도를 바로 이해하고 비웃는 상황",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 93.0,
+      "end": 95.9,
+      "reason": "해골 인형 등 무서운 주술 용품에 대한 P1의 직접적인 놀람 반응",
+      "confidence": 0.8,
+      "type": "surprising"
+    },
+    {
+      "start": 113.0,
+      "end": 115.0,
+      "reason": "상인에게 '잘생겨지는 약'을 직접적으로 물어보는 순간",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 126.5,
+      "end": 129.5,
+      "reason": "먹는 약인 줄 알았던 것이 뿌리는 향수임을 깨닫는 반전",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 141.0,
+      "end": 145.0,
+      "reason": "'일단 홀린듯 구매완료' 자막과 함께 약 구매 완료",
+      "confidence": 0.8,
+      "type": "funny"
+    },
+    {
+      "start": 162.0,
+      "end": 164.9,
+      "reason": "BTS를 알아보고 반가워하는 상인의 익숙한 반응",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 171.5,
+      "end": 179.0,
+      "reason": "'성관계'에 대한 직설적인 질문과 상인의 당황스러운 반응",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 190.5,
+      "end": 193.0,
+      "reason": "'다른 사람이나 여자를 유혹하는 것'이라는 약 설명에 P1의 반응",
+      "confidence": 0.8,
+      "type": "funny"
+    },
+    {
+      "start": 198.5,
+      "end": 202.3,
+      "reason": "P1의 격한 거절과 약에 대한 혼잣말",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 212.0,
+      "end": 213.5,
+      "reason": "이전에 먹는 약인 줄 알고 복용했던 사실에 P1이 당황하는 순간",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 227.0,
+      "end": 229.0,
+      "reason": "'사기 당했네 씨 향수였어'라는 자막과 함께 P1의 허탈한 표정",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 232.0,
+      "end": 235.0,
+      "reason": "상인의 'Good bye my friend'와 P1의 씁쓸한 퇴장",
+      "confidence": 0.8,
+      "type": "funny"
+    },
+    {
+      "start": 239.5,
+      "end": 242.5,
+      "reason": "페로몬 향수를 혹시 몰라 뿌리는 P1의 행동",
+      "confidence": 0.8,
+      "type": "funny"
+    },
+    {
+      "start": 358.5,
+      "end": 362.5,
+      "reason": "완성된 헤어스타일에 'M자와 함께 돌아온 명예중국인' 자막이 올라오는 순간",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 364.5,
+      "end": 373.0,
+      "reason": "이발사의 왁스 시술과 최종 완성된 충격적인 헤어스타일",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 389.0,
+      "end": 393.8,
+      "reason": "멕시코와 한국의 '조금'의 문화적 차이를 '호동이형 전성기 머리'에 비유",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 395.0,
+      "end": 397.0,
+      "reason": "새 헤어스타일에 '남한 북한 물으면 그냥 북한이라 해야겠다'는 자조적 유머",
+      "confidence": 0.9,
+      "type": "funny"
+    },
+    {
+      "start": 403.0,
+      "end": 408.9,
+      "reason": "이발을 통해 악귀가 떨어져 나갔다는 비유와 '오컬트가 여기 있었네'라는 역설",
+      "confidence": 0.9,
+      "type": "funny"
+    }
+  ],
+  "events": {
+    "fillers": [
+      {
+        "word": "좀",
+        "start": 21.04,
+        "end": 21.2
+      },
+      {
+        "word": "그",
+        "start": 24.94,
+        "end": 24.94
+      },
+      {
+        "word": "좀",
+        "start": 25.36,
+        "end": 25.7
+      },
+      {
+        "word": "아",
+        "start": 65.9,
+        "end": 67.28
+      },
+      {
+        "word": "아",
+        "start": 78.52,
+        "end": 79.22
+      },
+      {
+        "word": "아",
+        "start": 109.22,
+        "end": 109.78
+      },
+      {
+        "word": "뭐",
+        "start": 113.0,
+        "end": 113.0
+      },
+      {
+        "word": "아",
+        "start": 161.52,
+        "end": 162.38
+      },
+      {
+        "word": "아",
+        "start": 194.44,
+        "end": 195.14
+      },
+      {
+        "word": "아",
+        "start": 219.48,
+        "end": 220.22
+      },
+      {
+        "word": "좀",
+        "start": 250.58,
+        "end": 250.82
+      },
+      {
+        "word": "아",
+        "start": 268.58,
+        "end": 268.78
+      },
+      {
+        "word": "그",
+        "start": 382.46,
+        "end": 383.86
+      },
+      {
+        "word": "그",
+        "start": 388.56,
+        "end": 389.54
+      },
+      {
+        "word": "아",
+        "start": 398.36,
+        "end": 399.08
+      },
+      {
+        "word": "진짜",
+        "start": 413.9,
+        "end": 414.12
+      }
+    ],
+    "silences": []
+  },
+  "speech_pace": [
+    {
+      "start": 0.0,
+      "end": 10.0,
+      "word_count": 11,
+      "wpm": 66.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 10.0,
+      "end": 20.0,
+      "word_count": 17,
+      "wpm": 102.0,
+      "pace": "slow"
+    },
+    {
+      "start": 20.0,
+      "end": 30.0,
+      "word_count": 21,
+      "wpm": 126.0,
+      "pace": "normal"
+    },
+    {
+      "start": 30.0,
+      "end": 40.0,
+      "word_count": 6,
+      "wpm": 36.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 40.0,
+      "end": 50.0,
+      "word_count": 13,
+      "wpm": 78.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 50.0,
+      "end": 60.0,
+      "word_count": 5,
+      "wpm": 30.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 60.0,
+      "end": 70.0,
+      "word_count": 7,
+      "wpm": 42.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 70.0,
+      "end": 80.0,
+      "word_count": 6,
+      "wpm": 36.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 80.0,
+      "end": 90.0,
+      "word_count": 5,
+      "wpm": 30.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 90.0,
+      "end": 100.0,
+      "word_count": 8,
+      "wpm": 48.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 100.0,
+      "end": 110.0,
+      "word_count": 3,
+      "wpm": 18.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 110.0,
+      "end": 120.0,
+      "word_count": 10,
+      "wpm": 60.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 120.0,
+      "end": 130.0,
+      "word_count": 12,
+      "wpm": 72.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 130.0,
+      "end": 140.0,
+      "word_count": 5,
+      "wpm": 30.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 140.0,
+      "end": 150.0,
+      "word_count": 6,
+      "wpm": 36.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 150.0,
+      "end": 160.0,
+      "word_count": 9,
+      "wpm": 54.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 160.0,
+      "end": 170.0,
+      "word_count": 7,
+      "wpm": 42.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 170.0,
+      "end": 180.0,
+      "word_count": 7,
+      "wpm": 42.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 180.0,
+      "end": 190.0,
+      "word_count": 9,
+      "wpm": 54.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 190.0,
+      "end": 200.0,
+      "word_count": 5,
+      "wpm": 30.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 200.0,
+      "end": 210.0,
+      "word_count": 13,
+      "wpm": 78.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 210.0,
+      "end": 220.0,
+      "word_count": 17,
+      "wpm": 102.0,
+      "pace": "slow"
+    },
+    {
+      "start": 220.0,
+      "end": 230.0,
+      "word_count": 8,
+      "wpm": 48.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 230.0,
+      "end": 240.0,
+      "word_count": 10,
+      "wpm": 60.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 240.0,
+      "end": 250.0,
+      "word_count": 11,
+      "wpm": 66.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 250.0,
+      "end": 260.0,
+      "word_count": 17,
+      "wpm": 102.0,
+      "pace": "slow"
+    },
+    {
+      "start": 260.0,
+      "end": 270.0,
+      "word_count": 8,
+      "wpm": 48.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 270.0,
+      "end": 280.0,
+      "word_count": 10,
+      "wpm": 60.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 280.0,
+      "end": 290.0,
+      "word_count": 10,
+      "wpm": 60.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 290.0,
+      "end": 300.0,
+      "word_count": 5,
+      "wpm": 30.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 300.0,
+      "end": 310.0,
+      "word_count": 4,
+      "wpm": 24.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 310.0,
+      "end": 320.0,
+      "word_count": 6,
+      "wpm": 36.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 320.0,
+      "end": 330.0,
+      "word_count": 12,
+      "wpm": 72.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 340.0,
+      "end": 350.0,
+      "word_count": 7,
+      "wpm": 42.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 350.0,
+      "end": 360.0,
+      "word_count": 1,
+      "wpm": 6.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 370.0,
+      "end": 380.0,
+      "word_count": 4,
+      "wpm": 24.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 380.0,
+      "end": 390.0,
+      "word_count": 7,
+      "wpm": 42.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 390.0,
+      "end": 400.0,
+      "word_count": 13,
+      "wpm": 78.0,
+      "pace": "very_slow"
+    },
+    {
+      "start": 400.0,
+      "end": 410.0,
+      "word_count": 15,
+      "wpm": 90.0,
+      "pace": "slow"
+    },
+    {
+      "start": 410.0,
+      "end": 420.0,
+      "word_count": 22,
+      "wpm": 132.0,
+      "pace": "normal"
+    },
+    {
+      "start": 420.0,
+      "end": 423.4,
+      "word_count": 2,
+      "wpm": 35.5,
+      "pace": "very_slow"
+    }
+  ],
+  "volume_profile": [
+    {
+      "start": 0.0,
+      "end": 5.0,
+      "mean_db": -19.4,
+      "peak_db": -9.6
+    },
+    {
+      "start": 5.0,
+      "end": 10.0,
+      "mean_db": -20.3,
+      "peak_db": -7.9
+    },
+    {
+      "start": 10.0,
+      "end": 15.0,
+      "mean_db": -21.2,
+      "peak_db": -6.8
+    },
+    {
+      "start": 15.0,
+      "end": 20.0,
+      "mean_db": -21.4,
+      "peak_db": -4.2
+    },
+    {
+      "start": 20.0,
+      "end": 25.0,
+      "mean_db": -21.4,
+      "peak_db": -5.1
+    },
+    {
+      "start": 25.0,
+      "end": 30.0,
+      "mean_db": -20.9,
+      "peak_db": -6.2
+    },
+    {
+      "start": 30.0,
+      "end": 35.0,
+      "mean_db": -19.3,
+      "peak_db": -5.7
+    },
+    {
+      "start": 35.0,
+      "end": 40.0,
+      "mean_db": -18.8,
+      "peak_db": -3.1
+    },
+    {
+      "start": 40.0,
+      "end": 45.0,
+      "mean_db": -20.8,
+      "peak_db": -5.1
+    },
+    {
+      "start": 45.0,
+      "end": 50.0,
+      "mean_db": -21.9,
+      "peak_db": -3.0
+    },
+    {
+      "start": 50.0,
+      "end": 55.0,
+      "mean_db": -24.4,
+      "peak_db": -5.1
+    },
+    {
+      "start": 55.0,
+      "end": 60.0,
+      "mean_db": -21.3,
+      "peak_db": -4.6
+    },
+    {
+      "start": 60.0,
+      "end": 65.0,
+      "mean_db": -21.6,
+      "peak_db": -4.9
+    },
+    {
+      "start": 65.0,
+      "end": 70.0,
+      "mean_db": -19.0,
+      "peak_db": -3.3
+    },
+    {
+      "start": 70.0,
+      "end": 75.0,
+      "mean_db": -19.4,
+      "peak_db": -4.0
+    },
+    {
+      "start": 75.0,
+      "end": 80.0,
+      "mean_db": -24.4,
+      "peak_db": -6.9
+    },
+    {
+      "start": 80.0,
+      "end": 85.0,
+      "mean_db": -26.9,
+      "peak_db": -6.2
+    },
+    {
+      "start": 85.0,
+      "end": 90.0,
+      "mean_db": -23.1,
+      "peak_db": -6.2
+    },
+    {
+      "start": 90.0,
+      "end": 95.0,
+      "mean_db": -26.2,
+      "peak_db": -5.7
+    },
+    {
+      "start": 95.0,
+      "end": 100.0,
+      "mean_db": -26.2,
+      "peak_db": -7.3
+    },
+    {
+      "start": 100.0,
+      "end": 105.0,
+      "mean_db": -28.1,
+      "peak_db": -5.3
+    },
+    {
+      "start": 105.0,
+      "end": 110.0,
+      "mean_db": -23.7,
+      "peak_db": -5.7
+    },
+    {
+      "start": 110.0,
+      "end": 115.0,
+      "mean_db": -23.0,
+      "peak_db": -5.5
+    },
+    {
+      "start": 115.0,
+      "end": 120.0,
+      "mean_db": -28.8,
+      "peak_db": -7.5
+    },
+    {
+      "start": 120.0,
+      "end": 125.0,
+      "mean_db": -27.9,
+      "peak_db": -4.4
+    },
+    {
+      "start": 125.0,
+      "end": 130.0,
+      "mean_db": -25.5,
+      "peak_db": -4.7
+    },
+    {
+      "start": 130.0,
+      "end": 135.0,
+      "mean_db": -31.6,
+      "peak_db": -11.8
+    },
+    {
+      "start": 135.0,
+      "end": 140.0,
+      "mean_db": -30.6,
+      "peak_db": -10.3
+    },
+    {
+      "start": 140.0,
+      "end": 145.0,
+      "mean_db": -32.6,
+      "peak_db": -10.2
+    },
+    {
+      "start": 145.0,
+      "end": 150.0,
+      "mean_db": -24.2,
+      "peak_db": -0.5
+    },
+    {
+      "start": 150.0,
+      "end": 155.0,
+      "mean_db": -26.5,
+      "peak_db": -5.8
+    },
+    {
+      "start": 155.0,
+      "end": 160.0,
+      "mean_db": -27.1,
+      "peak_db": -6.3
+    },
+    {
+      "start": 160.0,
+      "end": 165.0,
+      "mean_db": -26.7,
+      "peak_db": -5.5
+    },
+    {
+      "start": 165.0,
+      "end": 170.0,
+      "mean_db": -26.7,
+      "peak_db": -5.4
+    },
+    {
+      "start": 170.0,
+      "end": 175.0,
+      "mean_db": -25.7,
+      "peak_db": -8.5
+    },
+    {
+      "start": 175.0,
+      "end": 180.0,
+      "mean_db": -25.1,
+      "peak_db": -8.4
+    },
+    {
+      "start": 180.0,
+      "end": 185.0,
+      "mean_db": -23.3,
+      "peak_db": -3.2
+    },
+    {
+      "start": 185.0,
+      "end": 190.0,
+      "mean_db": -27.3,
+      "peak_db": -6.6
+    },
+    {
+      "start": 190.0,
+      "end": 195.0,
+      "mean_db": -27.1,
+      "peak_db": -7.2
+    },
+    {
+      "start": 195.0,
+      "end": 200.0,
+      "mean_db": -26.2,
+      "peak_db": -7.2
+    },
+    {
+      "start": 200.0,
+      "end": 205.0,
+      "mean_db": -27.9,
+      "peak_db": -6.1
+    },
+    {
+      "start": 205.0,
+      "end": 210.0,
+      "mean_db": -28.3,
+      "peak_db": -8.3
+    },
+    {
+      "start": 210.0,
+      "end": 215.0,
+      "mean_db": -25.2,
+      "peak_db": -7.2
+    },
+    {
+      "start": 215.0,
+      "end": 220.0,
+      "mean_db": -29.7,
+      "peak_db": -8.0
+    },
+    {
+      "start": 220.0,
+      "end": 225.0,
+      "mean_db": -25.3,
+      "peak_db": -8.6
+    },
+    {
+      "start": 225.0,
+      "end": 230.0,
+      "mean_db": -26.1,
+      "peak_db": -6.1
+    },
+    {
+      "start": 230.0,
+      "end": 235.0,
+      "mean_db": -26.4,
+      "peak_db": -0.4
+    },
+    {
+      "start": 235.0,
+      "end": 240.0,
+      "mean_db": -25.9,
+      "peak_db": -5.6
+    },
+    {
+      "start": 240.0,
+      "end": 245.0,
+      "mean_db": -24.1,
+      "peak_db": -6.4
+    },
+    {
+      "start": 245.0,
+      "end": 250.0,
+      "mean_db": -23.6,
+      "peak_db": -6.4
+    },
+    {
+      "start": 250.0,
+      "end": 255.0,
+      "mean_db": -20.9,
+      "peak_db": -4.1
+    },
+    {
+      "start": 255.0,
+      "end": 260.0,
+      "mean_db": -24.6,
+      "peak_db": -3.9
+    },
+    {
+      "start": 260.0,
+      "end": 265.0,
+      "mean_db": -22.0,
+      "peak_db": -5.3
+    },
+    {
+      "start": 265.0,
+      "end": 270.0,
+      "mean_db": -20.9,
+      "peak_db": -5.8
+    },
+    {
+      "start": 270.0,
+      "end": 275.0,
+      "mean_db": -20.6,
+      "peak_db": -5.7
+    },
+    {
+      "start": 275.0,
+      "end": 280.0,
+      "mean_db": -19.9,
+      "peak_db": -4.4
+    },
+    {
+      "start": 280.0,
+      "end": 285.0,
+      "mean_db": -21.4,
+      "peak_db": -8.9
+    },
+    {
+      "start": 285.0,
+      "end": 290.0,
+      "mean_db": -20.7,
+      "peak_db": -2.8
+    },
+    {
+      "start": 290.0,
+      "end": 295.0,
+      "mean_db": -21.2,
+      "peak_db": -6.3
+    },
+    {
+      "start": 295.0,
+      "end": 300.0,
+      "mean_db": -21.3,
+      "peak_db": -6.1
+    },
+    {
+      "start": 300.0,
+      "end": 305.0,
+      "mean_db": -21.0,
+      "peak_db": -5.1
+    },
+    {
+      "start": 305.0,
+      "end": 310.0,
+      "mean_db": -20.6,
+      "peak_db": -4.2
+    },
+    {
+      "start": 310.0,
+      "end": 315.0,
+      "mean_db": -19.0,
+      "peak_db": -5.3
+    },
+    {
+      "start": 315.0,
+      "end": 320.0,
+      "mean_db": -20.0,
+      "peak_db": -4.9
+    },
+    {
+      "start": 320.0,
+      "end": 325.0,
+      "mean_db": -19.1,
+      "peak_db": -4.9
+    },
+    {
+      "start": 325.0,
+      "end": 330.0,
+      "mean_db": -21.4,
+      "peak_db": -2.7
+    },
+    {
+      "start": 330.0,
+      "end": 335.0,
+      "mean_db": -21.7,
+      "peak_db": -9.7
+    },
+    {
+      "start": 335.0,
+      "end": 340.0,
+      "mean_db": -20.1,
+      "peak_db": -7.6
+    },
+    {
+      "start": 340.0,
+      "end": 345.0,
+      "mean_db": -19.8,
+      "peak_db": -7.2
+    },
+    {
+      "start": 345.0,
+      "end": 350.0,
+      "mean_db": -20.5,
+      "peak_db": -6.7
+    },
+    {
+      "start": 350.0,
+      "end": 355.0,
+      "mean_db": -23.3,
+      "peak_db": -7.8
+    },
+    {
+      "start": 355.0,
+      "end": 360.0,
+      "mean_db": -23.5,
+      "peak_db": -9.3
+    },
+    {
+      "start": 360.0,
+      "end": 365.0,
+      "mean_db": -21.8,
+      "peak_db": -7.8
+    },
+    {
+      "start": 365.0,
+      "end": 370.0,
+      "mean_db": -20.3,
+      "peak_db": -7.7
+    },
+    {
+      "start": 370.0,
+      "end": 375.0,
+      "mean_db": -20.1,
+      "peak_db": -6.8
+    },
+    {
+      "start": 375.0,
+      "end": 380.0,
+      "mean_db": -21.9,
+      "peak_db": -6.8
+    },
+    {
+      "start": 380.0,
+      "end": 385.0,
+      "mean_db": -20.7,
+      "peak_db": -4.7
+    },
+    {
+      "start": 385.0,
+      "end": 390.0,
+      "mean_db": -20.1,
+      "peak_db": -4.2
+    },
+    {
+      "start": 390.0,
+      "end": 395.0,
+      "mean_db": -19.2,
+      "peak_db": -3.9
+    },
+    {
+      "start": 395.0,
+      "end": 400.0,
+      "mean_db": -20.1,
+      "peak_db": -4.5
+    },
+    {
+      "start": 400.0,
+      "end": 405.0,
+      "mean_db": -21.0,
+      "peak_db": -3.8
+    },
+    {
+      "start": 405.0,
+      "end": 410.0,
+      "mean_db": -22.0,
+      "peak_db": -3.9
+    },
+    {
+      "start": 410.0,
+      "end": 415.0,
+      "mean_db": -23.3,
+      "peak_db": -4.6
+    },
+    {
+      "start": 415.0,
+      "end": 420.0,
+      "mean_db": -23.1,
+      "peak_db": -4.8
+    },
+    {
+      "start": 420.0,
+      "end": 425.0,
+      "mean_db": -25.0,
+      "peak_db": -5.0
+    }
+  ]
+}
