@@ -48,13 +48,15 @@ python -c "from agent.graph import build_graph; build_graph(); print('OK')"
 
 ---
 
-## 3. 브랜치 규칙 (CLAUDE.md 의 솔로 default 가 아닌 *팀 모드*)
+## 3. 브랜치 규칙 (팀 모드)
 
-머지 흐름: `main ← dev ← <작업 브랜치>`
+현재 머지 흐름: `main ← <작업 브랜치>` (각자 브랜치 → main 직접 PR, #8~#12 관행)
 
-- **main** : 데모데이 배포 / 시연용 stable. 직접 push 절대 X.
-- **dev**  : staging. 모든 작업 브랜치가 여기로 머지됨.
-- **작업 브랜치** : 반드시 dev 에서 분기.
+- **main** : 통합 브랜치. 직접 push 금지, PR 로만.
+- **작업 브랜치** : main 에서 분기, 각자 작업 후 main 으로 PR.
+
+> dev (staging) 브랜치 도입은 2026-06-02 회의에서 검토 예정.
+> 도입되면 `main ← dev ← 작업브랜치` 로 전환하고 이 문서 갱신.
 
 ### 브랜치명 규칙
 
@@ -74,14 +76,14 @@ python -c "from agent.graph import build_graph; build_graph(); print('OK')"
 ### 작업 시작
 
 ```bash
-git checkout dev
-git pull origin dev
+git checkout main
+git pull origin main
 git checkout -b feat/<본인>-<설명>
 # 작업 ...
 git add <본인 파일들>
 git commit -m "feat: ..."
 git push -u origin feat/<본인>-<설명>
-# GitHub 에서 PR (base=dev) 만들고 다른 팀원에게 review 요청
+# GitHub 에서 PR (base=main) 만들고 다른 팀원에게 review 요청
 ```
 
 ### Commit 메시지
@@ -174,7 +176,7 @@ print(result.as_tool_result_text())
 ## 6. PR 흐름
 
 1. 본인 브랜치에서 작업 + commit + push.
-2. GitHub 에서 PR 만듦 (base = `dev`).
+2. GitHub 에서 PR 만듦 (base = `main`).
 3. PR 본문에 `Closes #<이슈번호>` (있으면).
 4. **다른 팀원 1 명 이상 review** — 솔로 self-approve X.
 5. 머지 후 본인 브랜치 삭제 (`git branch -d feat/...`, `git push origin --delete feat/...`).
