@@ -1,0 +1,77 @@
+{
+  "_meta": {
+    "purpose": "Supervisor 가 사용자에게 제시할 TTS 선택지. agent/prompt_builder.py 가 stable prefix 에 주입.",
+    "engine_default": "edge-tts",
+    "engine_alternatives": ["openai-tts", "elevenlabs", "google-cloud-tts"],
+    "updated": "2026-05-25",
+    "owner": "audio_expert (ML dev)"
+  },
+  "voices": [
+    {
+      "id": "male_ko_general",
+      "engine": "edge-tts",
+      "engine_voice": "ko-KR-InJoonNeural",
+      "lang": "ko-KR",
+      "gender": "male",
+      "style": "neutral",
+      "use_cases": ["youtube", "shorts", "general"],
+      "description": "한국어 남성, 자연스러운 톤. 일반 나래이션 default."
+    },
+    {
+      "id": "male_ko_energetic",
+      "engine": "edge-tts",
+      "engine_voice": "ko-KR-HyunsuNeural",
+      "lang": "ko-KR",
+      "gender": "male",
+      "style": "energetic",
+      "use_cases": ["shorts", "reels"],
+      "description": "한국어 남성, 밝고 빠른 톤. 쇼츠/릴스 후킹에 적합."
+    },
+    {
+      "id": "female_ko_general",
+      "engine": "edge-tts",
+      "engine_voice": "ko-KR-SunHiNeural",
+      "lang": "ko-KR",
+      "gender": "female",
+      "style": "neutral",
+      "use_cases": ["youtube", "shorts", "general"],
+      "description": "한국어 여성, 부드럽고 또렷한 톤."
+    },
+    {
+      "id": "male_en_general",
+      "engine": "edge-tts",
+      "engine_voice": "en-US-GuyNeural",
+      "lang": "en-US",
+      "gender": "male",
+      "style": "neutral",
+      "use_cases": ["youtube", "general"],
+      "description": "외국인 (영어) 남성, 일반 톤. 영문 자막 / 외국인 ver."
+    },
+    {
+      "id": "female_en_general",
+      "engine": "edge-tts",
+      "engine_voice": "en-US-JennyNeural",
+      "lang": "en-US",
+      "gender": "female",
+      "style": "neutral",
+      "use_cases": ["youtube", "general"],
+      "description": "외국인 (영어) 여성, 일반 톤."
+    },
+    {
+      "id": "male_ja_general",
+      "engine": "edge-tts",
+      "engine_voice": "ja-JP-KeitaNeural",
+      "lang": "ja-JP",
+      "gender": "male",
+      "style": "neutral",
+      "use_cases": ["youtube", "general"],
+      "description": "일본어 남성 (확장용)."
+    }
+  ],
+  "default_by_format": {
+    "shorts": "male_ko_energetic",
+    "reels": "male_ko_energetic",
+    "youtube": "male_ko_general",
+    "general": "male_ko_general"
+  }
+}
