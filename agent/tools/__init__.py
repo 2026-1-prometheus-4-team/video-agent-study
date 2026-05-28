@@ -1,13 +1,3 @@
-
-tools = [
-    *scene_tools,
-    *cut_tools,
-    *transcribe_tools,
-    *tts_tools,
-]
-
-tool_map = {t.name: t for t in tools}
-=======
 """
 Tool 자동 수집 모듈
 
@@ -17,7 +7,7 @@ Tool 자동 수집 모듈
 3. 파일 마지막에 TOOLS = [내함수1, 내함수2] 리스트 노출
 4. 이 파일 아래 IMPORTS 섹션에 한 줄 추가
 
-이 파일에서 충돌 가능성이 있으니 PR 시 주의
+PR 시 충돌 가능성 큰 파일이므로 본인 import 줄만 깔끔하게 추가.
 """
 
 # ===== IMPORTS (각자 본인 파일만 추가) =====
@@ -41,14 +31,15 @@ tools = [
 
 tool_map = {t.name: t for t in tools}
 
-# --- Agent 도메인별 그룹 ---
+# --- Sub-Agent 도메인별 그룹 ---
 # graph.py 에서 각 sub-agent 에 할당할 때 사용
 # 새 도메인 tool 추가 시 해당 그룹에 등록
+# OpenClaw 식: sub-agent 는 자기 그룹 도구만 받음 (격리)
 tool_groups = {
     "edit": [*cut_tools],
     "audio": [*transcribe_tools, *tts_tools],
     "text": [],       # TODO: subtitle, caption tool 추가 시
     "effect": [],     # TODO: fade, transition tool 추가 시
-    "analysis": [*scene_tools, *video_understanding_tools],
+    "analysis": [*scene_tools, *video_understanding_tools, *video_analysis_tools],
     "research": [],   # TODO: web_search, trend tool 추가 시
 }

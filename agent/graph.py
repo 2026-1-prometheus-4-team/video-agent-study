@@ -1,219 +1,364 @@
 """
-LangGraph Supervisor + Sub-Agent 구조 (성민)
+LangGraph 메인 그래프
 
-아키텍처:
-    Supervisor (라우팅 + 파일 관리)
-      -> Edit Agent    : cut, trim, merge, speed ...
-      -> Audio Agent   : tts, stt, bgm, denoise ...
-      -> Text Agent    : subtitle, caption, overlay ...
-      -> Effect Agent  : fade, zoom, blur, transition ...
-      -> Analysis Agent: scene detect, video info ...
-      -> Research Agent: web search, trend ...
+흐름 (사진과 일치):
 
-각 Sub-Agent 는 create_agent 로 생성 (내부 ReAct 루프 내장).
-Supervisor 는 create_supervisor 로 생성 (handoff tool 자동 생성).
+    START
+      ↓
+    [analysis_node]    ← video_context 가 없고 video_paths 있으면 사전 분석
+      ↓
+    [script_node]      ← 6 단계 plan JSON 생성
+      ↓ (questions 있거나 gate 정책 켜져 있으면)
+    [interrupt_gate]   ← LangGraph interrupt(): 사용자 승인 / 수정 피드백
+      ↓ (OK)
+    [supervisor_node]  ← ReAct 루프, spawn_tools 로 sub-agent 격리 호출
+      ↓
+    [critic_node]      ← PASS / RETRY
+      ↓
+    END (PASS) | supervisor (RETRY)
+
+설계 결정 (이전 토의 결과 반영):
+- 결정 1: sub-agent 완전 격리 (OpenClaw ACP 패턴) — handoff X, tool-style spawn 만
+- 결정 2: 캐싱은 Gemini implicit 우선 — cache_boundary 마커로 stable prefix 유도
+- 결정 3: Script + interrupt 를 별도 노드로 (사진 그대로)
 """
+
+from __future__ import annotations
 
 import json
 import logging
-from typing import Optional
+import time
+from typing import Any, Optional
 
-from langchain.agents import create_agent
-from langgraph_supervisor import create_supervisor
+from langchain_core.messages import HumanMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.types import interrupt
 from langgraph.checkpoint.memory import MemorySaver
 
-from agent.llm import llm
-from agent.tools import tool_groups
-from agent.state import VideoContext
+from agent.llm import make_llm
+from agent.nodes import (
+    script_node,
+    critic_node,
+    should_interrupt_for_questions,
+    route_after_critic,
+)
+from agent.prompt_builder import build_supervisor_system_prompt
+from agent.state import AgentState, ExecutionStep, VideoContext
+from agent.sub_agent import make_spawn_tools
 
 logger = logging.getLogger(__name__)
 
 
 # =============================================================
-# Supervisor prompt
+# analysis_node — 사전 영상 분석
 # =============================================================
 
-SUPERVISOR_PROMPT = """\
-너는 영상 편집 에이전트 팀의 Supervisor 다.
-사용자의 요청을 분석해서 적절한 전문가에게 작업을 위임하라.
+def analysis_node(state: AgentState) -> dict[str, Any]:
+    """video_context 가 없고 video_paths 가 있으면 사전 분석.
 
-팀 구성:
-- edit_expert    : 영상 자르기, 붙이기, 속도 조절, 크롭 등 구조 편집
-- audio_expert   : 음성 합성(TTS), 음성 인식(STT), BGM, 노이즈 제거
-- text_expert    : 자막, 타이틀, 캡션, 텍스트 오버레이
-- effect_expert  : 페이드, 줌, 블러, 색보정, 트랜지션
-- analysis_expert: 장면 감지, 얼굴 인식, 영상 메타 정보 조회
-- research_expert: 웹 검색, 트렌드 분석, 레퍼런스 수집
+    실제 구현은 tools/video_understanding_eun.analyze_video 또는
+    tools/video_analysis.analyze_video_scenes 호출.
+    여기서는 *얇은 wrapper* 만. 무거운 호출은 ML 팀원이 채움.
+    """
+    if state.get("video_context"):
+        logger.info("analysis_node: video_context 이미 있음 -> skip")
+        return {}
 
-원칙:
-1. 복합 요청은 의존 관계를 파악해서 순서대로 위임하라.
-2. 독립적인 작업은 가능하면 병렬로 위임하라.
-3. 불명확한 요청은 사용자에게 되물어라.
-4. 위임 전 어떤 전문가에게 왜 보내는지 한 줄 설명하라.
-"""
+    video_paths = state.get("video_paths") or []
+    if not video_paths:
+        logger.warning("analysis_node: video_paths 비어 있음. analysis skip.")
+        return {}
+
+    # 1차 구현: 빈 스켈레톤 context 만 채움. (real 분석은 ML 팀 PR 에서)
+    first = video_paths[0]
+    ctx: VideoContext = {
+        "file_path": first,
+        "duration": 0.0,
+        "scenes": [],
+        "transcript": [],
+    }
+    logger.info("analysis_node: skeleton context for %s (TODO: ML 팀 real analysis)", first)
+    return {"video_context": ctx}
 
 
 # =============================================================
-# Sub-Agent 생성 (video_context 주입 가능)
+# interrupt_gate — 사용자 승인 / 수정
 # =============================================================
 
-def _build_context_prefix(video_context: Optional[VideoContext]) -> str:
-    """sub-agent system_prompt 앞에 붙일 영상 컨텍스트 문자열."""
-    if not video_context:
-        return ""
-    return (
-        f"현재 편집 중인 영상 정보:\n"
-        f"- 파일: {video_context['file_path']}\n"
-        f"- 길이: {video_context['duration']}초\n"
-        f"- 장면 수: {len(video_context.get('scenes', []))}개\n"
-        f"- 자막 수: {len(video_context.get('transcript', []))}개\n\n"
+def interrupt_gate(state: AgentState) -> dict[str, Any]:
+    """사용자 승인 게이트.
+
+    LangGraph 의 `interrupt()` 를 부르면 graph 가 멈추고
+    클라이언트는 `Command(resume=<value>)` 로 재개한다.
+
+    resume value 예:
+    - {"approved": True}                              -> supervisor 로
+    - {"approved": False, "feedback": "음~ 추가"}      -> script 재생성
+    """
+    plan = state.get("script_plan") or {}
+    questions = plan.get("questions") or []
+
+    payload = {
+        "type": "script_approval",
+        "plan": plan,
+        "questions": questions,
+        "instructions": "이 plan 대로 진행할까요? 수정사항이 있으면 feedback 에 자연어로 적어주세요.",
+    }
+
+    user_response = interrupt(payload)
+    if not isinstance(user_response, dict):
+        user_response = {"approved": True}
+
+    if user_response.get("approved"):
+        return {"script_feedback": None}
+
+    return {"script_feedback": user_response.get("feedback") or "사용자가 수정 요청 (구체 없음)"}
+
+
+def route_after_interrupt(state: AgentState) -> str:
+    """interrupt 결과로 라우팅."""
+    return "script" if state.get("script_feedback") else "supervisor"
+
+
+# =============================================================
+# supervisor_node — ReAct 루프, sub-agent spawn
+# =============================================================
+
+def _format_execution_trace(trace: list[ExecutionStep]) -> str:
+    if not trace:
+        return "(아직 실행된 step 없음)"
+    lines = []
+    for s in trace:
+        lines.append(
+            f"- step {s.get('step_id','?')}: {s.get('expert','?')}.{s.get('action','?')} "
+            f"-> {s.get('status','?')}"
+        )
+    return "\n".join(lines)
+
+
+def _step_completed(step: dict, trace: list[ExecutionStep]) -> bool:
+    sid = step.get("step_id")
+    return any(t.get("step_id") == sid and t.get("status") == "ok" for t in trace)
+
+
+def _extract_final_output(text: str) -> Optional[str]:
+    """supervisor 의 마지막 응답에서 FINAL_OUTPUT 경로 추출."""
+    import re
+    m = re.search(r"FINAL_OUTPUT:\s*(\S+)", text)
+    return m.group(1) if m else None
+
+
+def _build_trace_from_messages(messages: list, plan: dict) -> list[ExecutionStep]:
+    """supervisor 의 spawn tool 호출 메시지에서 ExecutionStep 들 추출."""
+    from langchain_core.messages import ToolMessage
+    import re
+
+    steps_by_expert = {s.get("expert"): s for s in plan.get("steps", [])}
+    path_pat = re.compile(r"\b[\w./\-]+\.(?:mp4|mov|wav|mp3|aac|srt|vtt|png|jpg|json)\b", re.I)
+
+    out: list[ExecutionStep] = []
+    for m in messages:
+        if not isinstance(m, ToolMessage):
+            continue
+        tool_name = getattr(m, "name", "?")
+        expert = f"{tool_name}_expert"
+        content = getattr(m, "content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                (p.get("text", "") if isinstance(p, dict) else str(p)) for p in content
+            )
+        paths = path_pat.findall(str(content))
+        plan_step = steps_by_expert.get(expert, {})
+        out.append({
+            "step_id": plan_step.get("step_id", -1),
+            "expert": expert,
+            "action": plan_step.get("action", tool_name),
+            "status": "ok" if "error" not in str(content).lower() else "error",
+            "summary": str(content)[:200],
+            "output_paths": list(dict.fromkeys(paths)),
+            "duration_sec": 0.0,
+        })
+    return out
+
+
+def supervisor_node(state: AgentState) -> dict[str, Any]:
+    """ReAct 루프 안에서 sub-agent 들을 tool 처럼 부른다.
+
+    `langchain.agents.create_agent` 의 내장 ReAct loop 사용.
+    한 번 invoke 하면 모든 step 이 끝날 때까지 자체적으로 돈다.
+    """
+    started = time.monotonic()
+    plan = state.get("script_plan") or {}
+    video_context = state.get("video_context")
+    trace = list(state.get("execution_trace", []))
+
+    spawn_tools = make_spawn_tools(
+        video_context=video_context,
+        parent_depth=state.get("spawn_depth", 0),
+        parent_session_id=state.get("session_id"),
     )
 
-
-def _create_agents(video_context: Optional[VideoContext] = None):
-    """video_context 를 포함한 sub-agent 6개를 생성해서 반환."""
-    ctx = _build_context_prefix(video_context)
-
-    edit_agent = create_agent(
-        model=llm,
-        tools=tool_groups["edit"],
-        name="edit_expert",
-        system_prompt=(
-            f"{ctx}"
-            "너는 영상 구조 편집 전문가다. "
-            "cut, trim, split, merge, speed, reverse, crop, resize 를 담당한다. "
-            "tool 호출 시 정확한 타임스탬프(초 단위)를 사용하라."
-        ),
+    sys_text = build_supervisor_system_prompt(
+        video_context=video_context,
+        session_memory=_format_execution_trace(trace),
+        script_plan=plan,
     )
 
-    audio_agent = create_agent(
-        model=llm,
-        tools=tool_groups["audio"],
-        name="audio_expert",
-        system_prompt=(
-            f"{ctx}"
-            "너는 오디오 전문가다. "
-            "tts, stt(자막 추출), bgm, denoise, volume, voice clone 을 담당한다. "
-            "음성 합성 시 자연스러운 한국어를 우선하라."
-        ),
+    from langchain.agents import create_agent
+    supervisor_llm = make_llm("supervisor")
+    react_agent = create_agent(
+        model=supervisor_llm,
+        tools=spawn_tools,
+        name="supervisor",
+        system_prompt=sys_text,
     )
 
-    text_agent = create_agent(
-        model=llm,
-        tools=tool_groups["text"],
-        name="text_expert",
-        system_prompt=(
-            f"{ctx}"
-            "너는 텍스트/자막 전문가다. "
-            "subtitle, title, caption, overlay 를 담당한다. "
-            "가독성과 타이밍을 최우선으로 고려하라."
-        ),
+    pending_steps = [s for s in plan.get("steps", []) if not _step_completed(s, trace)]
+    if not pending_steps:
+        logger.info("supervisor: 모든 step 완료. critic 으로.")
+        return {}
+
+    next_brief = json.dumps(pending_steps, ensure_ascii=False, indent=2)
+    user_text = (
+        "# 아직 실행 안 된 step 들\n\n"
+        f"```json\n{next_brief}\n```\n\n"
+        "각 step 의 expert 를 *spawn tool* 로 부르고, 의존 관계에 따라 순서대로/병렬로 실행하라.\n"
+        "한 step 끝나면 결과 (특히 산출 파일 경로) 를 다음 step task 에 명시적으로 박아라.\n"
+        "모든 step 산출물이 나오면 마지막 영상 경로를 'FINAL_OUTPUT: <path>' 형식으로 보고하라."
     )
 
-    effect_agent = create_agent(
-        model=llm,
-        tools=tool_groups["effect"],
-        name="effect_expert",
-        system_prompt=(
-            f"{ctx}"
-            "너는 시각 이펙트 전문가다. "
-            "fade, zoom, blur, color grade, transition 을 담당한다. "
-            "효과가 영상 흐름을 방해하지 않도록 자연스럽게 적용하라."
-        ),
+    try:
+        result_state = react_agent.invoke(
+            {"messages": [HumanMessage(content=user_text)]},
+            config={"recursion_limit": 40},
+        )
+    except Exception as e:
+        logger.exception("supervisor invoke failed")
+        return {
+            "critic_verdict": {
+                "verdict": "RETRY",
+                "issues": [f"supervisor 오류: {e}"],
+                "message_to_user": "Supervisor 실행 중 오류. 다시 시도 필요.",
+            }
+        }
+
+    new_messages = result_state.get("messages", [])
+    last_text = ""
+    if new_messages:
+        last = new_messages[-1]
+        c = getattr(last, "content", "")
+        if isinstance(c, list):
+            c = " ".join((p.get("text", "") if isinstance(p, dict) else str(p)) for p in c)
+        last_text = str(c)
+
+    final_output = _extract_final_output(last_text) or state.get("final_output_path")
+    new_trace = trace + _build_trace_from_messages(new_messages, plan)
+
+    duration = time.monotonic() - started
+    logger.info(
+        "supervisor done in %.2fs (trace=%d, final=%s)",
+        duration, len(new_trace), final_output,
     )
 
-    analysis_agent = create_agent(
-        model=llm,
-        tools=tool_groups["analysis"],
-        name="analysis_expert",
-        system_prompt=(
-            f"{ctx}"
-            "너는 영상 분석 전문가다. "
-            "scene detect, face detect, object track, video info 를 담당한다. "
-            "분석 결과는 타임스탬프와 함께 구조화해서 반환하라."
-        ),
-    )
-
-    research_agent = create_agent(
-        model=llm,
-        tools=tool_groups["research"],
-        name="research_expert",
-        system_prompt=(
-            f"{ctx}"
-            "너는 리서치 전문가다. "
-            "web search, trend 분석, reference 검색을 담당한다. "
-            "영상 편집에 도움이 되는 트렌드와 레퍼런스를 찾아 요약하라."
-        ),
-    )
-
-    return [edit_agent, audio_agent, text_agent, effect_agent, analysis_agent, research_agent]
+    return {
+        "execution_trace": new_trace,
+        "final_output_path": final_output,
+        "messages": new_messages,
+    }
 
 
 # =============================================================
 # Graph 빌드
 # =============================================================
 
-def build_graph(video_context: Optional[VideoContext] = None, checkpointer=None):
-    """Supervisor graph 를 빌드해서 반환한다.
+def build_graph(checkpointer=None):
+    """전체 그래프 빌드.
 
     Args:
-        video_context: 현재 편집 중인 영상 정보.
-                       supervisor + 모든 sub-agent 에게 주입됨.
-        checkpointer: LangGraph checkpointer (세션 대화 유지용).
-                      None 이면 단발성 실행.
+        checkpointer: LangGraph checkpointer. interrupt 사용하려면 *반드시* 필요.
+                      None 이면 MemorySaver 자동 부착.
     """
-    agents = _create_agents(video_context)
+    if checkpointer is None:
+        checkpointer = MemorySaver()
 
-    prompt = SUPERVISOR_PROMPT
-    if video_context:
-        context_str = json.dumps(video_context, ensure_ascii=False, indent=2)
-        prompt += f"\n현재 편집 중인 영상 정보:\n```json\n{context_str}\n```\n"
+    g = StateGraph(AgentState)
 
-    workflow = create_supervisor(
-        agents=agents,
-        model=llm,
-        prompt=prompt,
-        output_mode="full_history",
+    g.add_node("analysis", analysis_node)
+    g.add_node("script", script_node)
+    g.add_node("interrupt_gate", interrupt_gate)
+    g.add_node("supervisor", supervisor_node)
+    g.add_node("critic", critic_node)
+
+    g.add_edge(START, "analysis")
+    g.add_edge("analysis", "script")
+
+    g.add_conditional_edges(
+        "script",
+        should_interrupt_for_questions,
+        {"interrupt": "interrupt_gate", "supervisor": "supervisor"},
     )
 
-    return workflow.compile(checkpointer=checkpointer)
+    g.add_conditional_edges(
+        "interrupt_gate",
+        route_after_interrupt,
+        {"script": "script", "supervisor": "supervisor"},
+    )
+
+    g.add_edge("supervisor", "critic")
+
+    g.add_conditional_edges(
+        "critic",
+        route_after_critic,
+        {"end": END, "supervisor": "supervisor"},
+    )
+
+    return g.compile(checkpointer=checkpointer)
 
 
 # =============================================================
 # 실행 헬퍼
 # =============================================================
 
-def run_agent(user_input: str, video_context: Optional[VideoContext] = None):
-    """단발성 실행 (테스트용)."""
-    app = build_graph(video_context)
+def run_agent(
+    user_request: str,
+    video_paths: Optional[list[str]] = None,
+    video_context: Optional[VideoContext] = None,
+    thread_id: str = "default",
+):
+    """단발성 실행 (interrupt 안 만나는 시나리오 위주, 테스트용)."""
+    app = build_graph()
+    initial: AgentState = {
+        "user_request": user_request,
+        "video_paths": video_paths or [],
+        "video_context": video_context,
+        "execution_trace": [],
+        "script_revision": 0,
+        "spawn_depth": 0,
+        "session_id": thread_id,
+    }
+    return app.invoke(initial, config={"configurable": {"thread_id": thread_id}})
 
-    result = app.invoke({
-        "messages": [{"role": "user", "content": user_input}]
-    })
 
-    return result
-
-
-def run_agent_stream(user_input: str, video_context: Optional[VideoContext] = None):
-    """스트리밍 실행 (각 agent 단계별 출력)."""
-    app = build_graph(video_context)
-
-    print(f"\n[입력] {user_input}")
-    print("-" * 60)
-
+def run_agent_stream(
+    user_request: str,
+    video_paths: Optional[list[str]] = None,
+    video_context: Optional[VideoContext] = None,
+    thread_id: str = "default",
+):
+    """스트리밍 실행. 각 노드 산출물을 차례로 yield."""
+    app = build_graph()
+    initial: AgentState = {
+        "user_request": user_request,
+        "video_paths": video_paths or [],
+        "video_context": video_context,
+        "execution_trace": [],
+        "script_revision": 0,
+        "spawn_depth": 0,
+        "session_id": thread_id,
+    }
     for chunk in app.stream(
-        {"messages": [{"role": "user", "content": user_input}]},
+        initial,
+        config={"configurable": {"thread_id": thread_id}},
         stream_mode="updates",
     ):
-        for node_name, state in chunk.items():
-            print(f"\n>> [{node_name}]")
-            if "messages" in state:
-                for msg in state["messages"]:
-                    if hasattr(msg, "content") and msg.content:
-                        content = msg.content if isinstance(msg.content, str) else str(msg.content)
-                        print(f"   {content[:200]}")
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        for tc in msg.tool_calls:
-                            print(f"   -> tool: {tc['name']}({tc['args']})")
-
-    print("\n" + "-" * 60)
+        yield chunk

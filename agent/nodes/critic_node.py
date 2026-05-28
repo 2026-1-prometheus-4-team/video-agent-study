@@ -1,0 +1,141 @@
+"""
+Critic 노드
+
+Supervisor 가 모든 step 을 끝냈다고 알린 뒤 호출.
+PASS / RETRY 결정.
+
+- PASS  -> END
+- RETRY -> Supervisor 로 다시 (특정 step 부터)
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+from typing import Any
+
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from agent import config
+from agent.llm import make_llm
+from agent.prompt_builder import build_critic_system_prompt
+from agent.state import AgentState
+
+logger = logging.getLogger(__name__)
+
+
+_JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+
+
+def _extract_json(text: str) -> dict[str, Any]:
+    m = _JSON_BLOCK.search(text)
+    payload = m.group(1) if m else text
+    if not m:
+        start = payload.find("{")
+        end = payload.rfind("}")
+        if start != -1 and end != -1:
+            payload = payload[start : end + 1]
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        return {"verdict": "RETRY", "issues": ["critic JSON parse 실패"], "raw": payload[:1000]}
+
+
+def _summarize_trace(state: AgentState) -> str:
+    trace = state.get("execution_trace", []) or []
+    if not trace:
+        return "(execution_trace 비어 있음)"
+    lines = []
+    for step in trace:
+        lines.append(
+            f"- step {step.get('step_id','?')}: "
+            f"{step.get('expert','?')} . {step.get('action','?')} "
+            f"-> {step.get('status','?')} ({step.get('duration_sec', 0):.1f}s)"
+        )
+        if step.get("output_paths"):
+            for p in step["output_paths"]:
+                lines.append(f"    output: {p}")
+        if step.get("summary"):
+            lines.append(f"    summary: {step['summary'][:200]}")
+    return "\n".join(lines)
+
+
+def critic_node(state: AgentState) -> dict[str, Any]:
+    """결과 검증. PASS / RETRY 결정."""
+    final_path = state.get("final_output_path")
+    script_plan = state.get("script_plan")
+    trace_text = _summarize_trace(state)
+
+    # 1. 객관 가드: 파일 존재 여부 같은 *기계적* 체크는 LLM 부르기 전에 먼저
+    objective_issues: list[str] = []
+    if not final_path:
+        objective_issues.append("final_output_path 가 비어 있음 (supervisor 가 출력 경로를 보고하지 않음)")
+    elif not os.path.exists(final_path):
+        objective_issues.append(f"final_output_path 가 file system 에 없음: {final_path}")
+
+    # 객관 가드만으로도 명백한 실패면 LLM 안 부르고 즉시 RETRY
+    if objective_issues and not final_path:
+        verdict = {
+            "verdict": "RETRY",
+            "issues": objective_issues,
+            "retry_from_step_id": None,
+            "message_to_user": "최종 결과물이 만들어지지 않음. 처음부터 다시 실행 권장.",
+        }
+        logger.warning("critic objective fail: %s", objective_issues)
+        return {"critic_verdict": verdict}
+
+    # 2. LLM 검증
+    sys_text = build_critic_system_prompt(
+        video_context=state.get("video_context"),
+        script_plan=script_plan,
+        session_memory=trace_text,
+    )
+
+    user_text = "\n".join([
+        "# 검증 요청",
+        f"최종 영상 경로: {final_path}",
+        f"파일 존재: {os.path.exists(final_path) if final_path else False}",
+        "",
+        "위 트레이스를 보고 PASS / RETRY 를 결정하라. JSON 만 출력.",
+    ])
+
+    llm = make_llm("critic")
+    try:
+        ai_msg = llm.invoke([
+            SystemMessage(content=sys_text),
+            HumanMessage(content=user_text),
+        ])
+    except Exception as e:
+        logger.exception("critic LLM failed")
+        return {
+            "critic_verdict": {
+                "verdict": "RETRY",
+                "issues": [f"critic LLM 오류: {e}"],
+                "message_to_user": "검증 단계 LLM 호출 실패. 다시 시도 필요.",
+            }
+        }
+
+    raw = ai_msg.content
+    if isinstance(raw, list):
+        raw = " ".join((p.get("text", "") if isinstance(p, dict) else str(p)) for p in raw)
+
+    verdict = _extract_json(str(raw))
+    verdict.setdefault("verdict", "RETRY")
+    verdict.setdefault("issues", [])
+    verdict["issues"].extend(objective_issues)
+    verdict.setdefault("message_to_user", "")
+
+    logger.info("critic verdict: %s, issues=%d", verdict.get("verdict"), len(verdict["issues"]))
+    return {"critic_verdict": verdict}
+
+
+def route_after_critic(state: AgentState) -> str:
+    """critic 결과로 라우팅.
+
+    Returns:
+        "end" | "supervisor"
+    """
+    verdict = (state.get("critic_verdict") or {}).get("verdict", "RETRY")
+    return "end" if verdict == "PASS" else "supervisor"
