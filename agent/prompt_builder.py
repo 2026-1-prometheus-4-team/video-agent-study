@@ -272,16 +272,30 @@ def build_sub_agent_system_prompt(
 
     sections_stable: list[str] = []
 
-    soul = _read_cached(role_dir / "SOUL.md")
-    agents_md = _read_cached(role_dir / "AGENTS.md")
-    tools_md = _read_cached(role_dir / "TOOLS.md")
+    # 표준 3 파일 (SOUL/AGENTS/TOOLS) 우선 — 정해진 순서로
+    standard_files = [
+        ("SOUL.md", "Role Identity"),
+        ("AGENTS.md", "Role Governance"),
+        ("TOOLS.md", "Role Tools"),
+    ]
+    standard_names = {name for name, _ in standard_files}
+    for filename, heading in standard_files:
+        content = _read_cached(role_dir / filename)
+        if content:
+            sections_stable.append(f"# {heading}\n\n" + content)
 
-    if soul:
-        sections_stable.append("# Role Identity\n\n" + soul)
-    if agents_md:
-        sections_stable.append("# Role Governance\n\n" + agents_md)
-    if tools_md:
-        sections_stable.append("# Role Tools\n\n" + tools_md)
+    # 추가 도메인 파일 (예: MOTION_DIRECTING.md / REMOTION_RULES.md / TREND_RESEARCH.md)
+    # 알파벳 순으로 로드. 파일명에서 heading 추출 (snake -> Title Case).
+    if role_dir.exists():
+        extras = sorted(
+            p for p in role_dir.glob("*.md")
+            if p.name not in standard_names
+        )
+        for path in extras:
+            content = _read_cached(path)
+            if content:
+                heading = path.stem.replace("_", " ").replace("-", " ").title()
+                sections_stable.append(f"# {heading}\n\n" + content)
 
     if not sections_stable:
         # fallback: sub_agents/<role>/ 파일 안 만들어졌어도 동작

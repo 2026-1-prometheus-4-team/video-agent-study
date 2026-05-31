@@ -13,8 +13,8 @@ CLAUDE.md 의 team composition 을 sub-agent 구조에 매핑한 결과 (스택 
 
 | 팀원   | 책임 영역                                                            | 작업 폴더 / 파일                                                                 |
 |--------|----------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| 성민   | Supervisor + Script + Critic + graph 골조 + research_expert + UI    | `agent/{graph,prompt_builder,sub_agent,config,llm,state}.py`, `agent/nodes/`, `agent/workspace/`, `agent/sub_agents/research_expert/`, Next.js |
-| 병건   | edit_expert + effect_expert (FFmpeg 헤비)                            | `agent/sub_agents/edit_expert/`, `agent/sub_agents/effect_expert/`, `agent/tools/cut.py` 외 신규 FFmpeg tool |
+| 성민   | Supervisor + Script + Critic + graph 골조 + research_expert + UI    | `agent/{graph,prompt_builder,sub_agent,config,llm,state}.py`, `agent/nodes/`, `agent/workspace/`, `agent/sub_agents/research_expert/`, `agent/tools/research_llm.py`, `agent/tools/research_external.py`, Next.js |
+| 병건   | edit_expert + effect_expert (FFmpeg + Remotion)                      | `agent/sub_agents/edit_expert/`, `agent/sub_agents/effect_expert/`, `agent/tools/cut.py` 외 신규 FFmpeg tool, `agent/tools/remotion_render.py`, `agent/effects/`, `remotion/` |
 | 은서   | audio_expert (Whisper + TTS + BGM + SFX) + 영상 사전 분석           | `agent/sub_agents/audio_expert/`, `agent/tools/transcribe.py`, `tts.py`, `video_understanding_eun.py`, `video_analysis.py` |
 | 은채   | text_expert (자막/타이틀/캡션) + audio_expert.tts 보조              | `agent/sub_agents/text_expert/`, 자막 관련 신규 tool, `agent/tools/tts.py` 협업 |
 
@@ -204,15 +204,17 @@ print(result.as_tool_result_text())
 
 ## 7. 충돌 가능 zone (주의)
 
-| 파일                          | 충돌 위험 | 룰                                                    |
-|-------------------------------|-----------|-------------------------------------------------------|
-| `agent/tools/__init__.py`     | **높음**  | 본인 import 줄만. tool_groups 본인 그룹만.            |
-| `agent/workspace/*.md`        | 중간      | 성민 우선. 수정 필요하면 PR comment 로 요청.          |
-| `agent/graph.py`              | 중간      | 성민 영역. sub-agent owner 는 수정 X.                 |
-| `agent/prompt_builder.py`     | 낮음      | 성민 영역.                                            |
-| `agent/sub_agents/<자기>/*`   | **0**     | 본인만 만짐.                                          |
-| `agent/tools/<자기>_*.py`     | **0**     | 본인만 만짐.                                          |
-| `assets/tts_voices.json`      | 낮음      | 은서 owner. 새 voice 추가는 PR.                       |
+| 파일 / 폴더                       | 충돌 위험 | 룰                                                    |
+|-----------------------------------|-----------|-------------------------------------------------------|
+| `agent/tools/__init__.py`         | **높음**  | 본인 import 줄만. tool_groups 본인 그룹만.            |
+| `agent/workspace/*.md`            | 중간      | 성민 우선. 수정 필요하면 PR comment 로 요청.          |
+| `agent/graph.py`                  | 중간      | 성민 영역. sub-agent owner 는 수정 X.                 |
+| `agent/prompt_builder.py`         | 낮음      | 성민 영역.                                            |
+| `agent/sub_agents/<자기>/*`       | **0**     | 본인만 만짐.                                          |
+| `agent/tools/<자기>_*.py`         | **0**     | 본인만 만짐.                                          |
+| `agent/effects/`                  | 낮음      | 병건 owner (effect 카탈로그). 새 패턴 추가는 PR.       |
+| `remotion/`                       | 낮음      | 병건 owner. Remotion 컴포넌트는 `src/effects/*.tsx`.   |
+| `assets/tts_voices.json`          | 낮음      | 은서 owner. 새 voice 추가는 PR.                       |
 
 ---
 

@@ -1,0 +1,22 @@
+{
+  "name": "video-agent-remotion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Remotion 프로젝트 — 영상 편집 에이전트의 effect_expert 가 호출하는 모션 효과 라이브러리. scene24 의 craft/patterns 에서 carve-out.",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.457",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.457"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}
