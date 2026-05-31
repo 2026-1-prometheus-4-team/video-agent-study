@@ -13,4 +13,16 @@ videos/*.mov
 videos/*.avi
 videos/*.mkv
 videos/*.json
+videos/effects/
 audio_files/
+
+# Remotion 빌드 / 의존성
+remotion/node_modules/
+remotion/out/
+remotion/.remotion/
+
+# Scene24 reference dump (carve-out 끝나면 로컬에만)
+agent/effects/*_scene24_full.*
+
+# Research cache (트렌드 검색 결과 24h TTL)
+.cache/research/
