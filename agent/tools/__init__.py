@@ -20,6 +20,7 @@ from agent.tools.video_understanding_eun import TOOLS as video_understanding_too
 from agent.tools.remotion_render import TOOLS as remotion_tools
 from agent.tools.research_llm import TOOLS as research_llm_tools
 from agent.tools.research_external import TOOLS as research_external_tools
+from agent.tools.subtitle import TOOLS as subtitle_tools
 # ===========================================
 
 # --- 전체 tool 리스트 (하위 호환) ---
@@ -33,6 +34,7 @@ tools = [
     *remotion_tools,
     *research_llm_tools,
     *research_external_tools,
+    *subtitle_tools,
 ]
 
 tool_map = {t.name: t for t in tools}
@@ -44,7 +46,7 @@ tool_map = {t.name: t for t in tools}
 tool_groups = {
     "edit": [*cut_tools],
     "audio": [*transcribe_tools, *tts_tools],
-    "text": [],       # TODO: subtitle, caption tool 추가 시 (은채)
+    "text": [*subtitle_tools],
     "effect": [*remotion_tools],   # Remotion render + 카탈로그 조회 (병건)
     "analysis": [*scene_tools, *video_understanding_tools, *video_analysis_tools],
     "research": [*research_llm_tools, *research_external_tools],  # LLM + Tavily + YouTube (성민)
