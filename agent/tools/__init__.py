@@ -12,21 +12,29 @@ PR 시 충돌 가능성 큰 파일이므로 본인 import 줄만 깔끔하게 �
 
 # ===== IMPORTS (각자 본인 파일만 추가) =====
 from agent.tools.scene import TOOLS as scene_tools
-from agent.tools.cut import TOOLS as cut_tools
+from agent.tools.edit import TOOLS as edit_tools
 from agent.tools.transcribe import TOOLS as transcribe_tools
 from agent.tools.tts import TOOLS as tts_tools
 from agent.tools.video_analysis import TOOLS as video_analysis_tools
 from agent.tools.video_understanding_eun import TOOLS as video_understanding_tools
+from agent.tools.remotion_render import TOOLS as remotion_tools
+from agent.tools.research_llm import TOOLS as research_llm_tools
+from agent.tools.research_external import TOOLS as research_external_tools
+from agent.tools.subtitle import TOOLS as subtitle_tools
 # ===========================================
 
 # --- 전체 tool 리스트 (하위 호환) ---
 tools = [
     *scene_tools,
-    *cut_tools,
+    *edit_tools,
     *transcribe_tools,
     *tts_tools,
     *video_analysis_tools,
     *video_understanding_tools,
+    *remotion_tools,
+    *research_llm_tools,
+    *research_external_tools,
+    *subtitle_tools,
 ]
 
 tool_map = {t.name: t for t in tools}
@@ -36,10 +44,10 @@ tool_map = {t.name: t for t in tools}
 # 새 도메인 tool 추가 시 해당 그룹에 등록
 # OpenClaw 식: sub-agent 는 자기 그룹 도구만 받음 (격리)
 tool_groups = {
-    "edit": [*cut_tools],
+    "edit": [*edit_tools],
     "audio": [*transcribe_tools, *tts_tools],
-    "text": [],       # TODO: subtitle, caption tool 추가 시
-    "effect": [],     # TODO: fade, transition tool 추가 시
+    "text": [*subtitle_tools],
+    "effect": [*remotion_tools],   # Remotion render + 카탈로그 조회 (병건)
     "analysis": [*scene_tools, *video_understanding_tools, *video_analysis_tools],
-    "research": [],   # TODO: web_search, trend tool 추가 시
+    "research": [*research_llm_tools, *research_external_tools],  # LLM + Tavily + YouTube (성민)
 }

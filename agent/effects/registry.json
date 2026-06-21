@@ -1,0 +1,531 @@
+{
+  "_description": "Pattern Registry — the knowledge base that Visual Creator Agent reads to decide which effects to use and how to combine them. Each pattern has usage context, brand energy parameters, combination rules, and anti-patterns. LLM selects patterns based on brand DNA + emotion curve, never by copying a specific reference video. (carved-out for video-agent-study: 20 patterns from scene24.)",
+  "_source": "scene24-codebase/frontend/src/craft/registry/pattern-registry.json",
+  "_carved_at": "2026-05-25",
+  "patterns": {
+    "BlurSlideIn": {
+      "category": "entrance",
+      "description": "Element enters with large size + strong blur, then settles to normal. 3 properties change simultaneously: position (slide), scale (shrink), blur (resolve). Creates a 'materializing' or 'coming into focus' impression.",
+      "properties_animated": [
+        "translateX/Y",
+        "scale",
+        "blur",
+        "opacity"
+      ],
+      "simultaneous_count": 4,
+      "usage_context": "Strong first impression for important text or UI elements. The 'hero entrance.' Use for primary keywords, product names, main claims.",
+      "brand_energy_behavior": {
+        "restrained": "Slow entrance (0.8s), large starting blur (35px), gentle settle. Feels deliberate, premium.",
+        "moderate": "Medium entrance (0.5s), moderate blur (25px). Balanced impact.",
+        "high": "Fast entrance (0.3s), sharp resolve. Punchy, immediate attention."
+      },
+      "default_params": {
+        "offsetPx": 200,
+        "startScale": 1.5,
+        "startBlur": 30,
+        "from": "right"
+      },
+      "combines_well_with": [
+        {
+          "pattern": "Hold",
+          "note": "Always follow with 0.3-1.0s hold before next action"
+        },
+        {
+          "pattern": "BlurSlideOut",
+          "note": "Natural exit pair. Can overlap entrance of next element."
+        },
+        {
+          "pattern": "WordAppend",
+          "note": "After settling, a secondary word can join."
+        },
+        {
+          "pattern": "GradientTransfer",
+          "note": "Gradient color can move to the next entering word."
+        }
+      ],
+      "avoid": [
+        "Using more than 3x consecutively — becomes repetitive. Alternate with other entrance types.",
+        "Combining with HardCut — the blur IS the transition, hard cut kills it.",
+        "Blur resolving in < 6 frames (< 0.2s) — feels glitchy, not smooth.",
+        "Starting blur and scale at exactly the same value ratio — vary them for organic feel."
+      ],
+      "typical_duration_frames": {
+        "restrained": 24,
+        "moderate": 18,
+        "high": 12
+      }
+    },
+    "BlurSlideOut": {
+      "category": "exit",
+      "description": "Element exits with simultaneous slide + blur + scale + fade. 4 properties change. CRITICAL: scale starts first, blur follows 2-3 frames later, opacity follows after blur is visible.",
+      "properties_animated": [
+        "translateX/Y",
+        "scale",
+        "blur",
+        "opacity"
+      ],
+      "simultaneous_count": 4,
+      "usage_context": "Element departure. The layered timing (scale → blur → fade) prevents mechanical feel.",
+      "timing_critical": {
+        "scale_starts": "frame 0",
+        "blur_starts": "frame +2 to +3 (lag behind scale)",
+        "opacity_starts": "frame +6 to +8 (after blur is clearly visible)",
+        "why": "If all start at once, it looks like a single fade-out. The stagger creates depth."
+      },
+      "brand_energy_behavior": {
+        "restrained": "Slow exit, gentle blur ramp. Element lingers gracefully.",
+        "moderate": "Medium exit speed. Clean departure.",
+        "high": "Fast exit, sharp blur. Gets out of the way quickly."
+      },
+      "combines_well_with": [
+        {
+          "pattern": "BlurSlideIn",
+          "note": "Overlap exit with next element's entrance (2-6 frames overlap)."
+        },
+        {
+          "pattern": "GradientToBlack",
+          "note": "Gradient color fades to dark BEFORE the exit motion starts."
+        }
+      ],
+      "avoid": [
+        "Starting blur at the same frame as scale — must lag.",
+        "Opacity fading before blur is visible — blur becomes invisible.",
+        "Exit direction opposite to entrance direction of next element — confusing motion path."
+      ]
+    },
+    "ConfettiExplosion": {
+      "category": "celebration",
+      "description": "Colored rectangular paper pieces burst outward then fall with gravity + wobble. Celebration moment.",
+      "properties_animated": [
+        "position (radial burst → gravity)",
+        "rotation (continuous)",
+        "opacity (fade at end)"
+      ],
+      "usage_context": "Achievement/completion moments ONLY. Progress bar hitting 100%, task complete, sign-up success. Maximum 1x per video.",
+      "physics": {
+        "burst_speed": "~2000px/sec initial",
+        "gravity": "0.15 px/frame^2",
+        "air_resistance": "0.96 velocity decay per frame",
+        "wobble": "sin wave, ±5-10px, random phase per piece",
+        "piece_count": "30-40 optimal"
+      },
+      "combines_well_with": [
+        {
+          "pattern": "CheckmarkDraw",
+          "note": "Check animation completes → confetti triggers."
+        },
+        {
+          "pattern": "ProgressBar",
+          "note": "Bar hits 100% → morph to circle → confetti."
+        }
+      ],
+      "avoid": [
+        "More than 1x per video — loses impact.",
+        "For non-celebration moments — confusing.",
+        "> 60 pieces — messy. < 20 pieces — weak."
+      ]
+    },
+    "ProgressBar": {
+      "category": "data",
+      "description": "Animated fill bar with count-up number. Deceleration pattern: fast 0-70, medium 70-90, slow 90-99, pause at 99, then 100.",
+      "properties_animated": [
+        "width (fill)",
+        "text content (counter)",
+        "glow intensity"
+      ],
+      "usage_context": "Processing, progress, loading, goal tracking. The deceleration creates anticipation before completion.",
+      "timing_pattern": "0→70 in 0.2s, 70→90 in 0.5s, 90→99 ease-out, 99 pause 0.1s, 100.",
+      "combines_well_with": [
+        {
+          "pattern": "LiquidMorph",
+          "note": "Bar morphs to circle after reaching 100%."
+        },
+        {
+          "pattern": "ConfettiExplosion",
+          "note": "Celebrate completion."
+        }
+      ]
+    },
+    "DeviceMockup": {
+      "category": "showcase",
+      "description": "Product screenshot inside a 3D device frame (iPhone, MacBook, iPad, browser). CSS 3D perspective with shadow.",
+      "properties_animated": [
+        "position (entrance slide)",
+        "rotateX/Y/Z",
+        "scale",
+        "opacity"
+      ],
+      "usage_context": "Show the product in context. Device frame adds credibility. Angle adds premium feel.",
+      "device_selection_guide": {
+        "iphone": "Mobile-first products, apps, consumer SaaS.",
+        "macbook": "Developer tools, dashboards, productivity SaaS.",
+        "ipad": "Content creation, reading, media apps.",
+        "browser": "Web tools, any SaaS (most universal)."
+      },
+      "combines_well_with": [
+        {
+          "pattern": "DeviceCascade",
+          "note": "4 devices from 4 corners for 'multi-platform.'"
+        },
+        {
+          "pattern": "ZoomIntoScreen",
+          "note": "Camera pushes into device screen for demo."
+        },
+        {
+          "pattern": "HandCursor",
+          "note": "Cursor interacts with content inside device."
+        }
+      ]
+    },
+    "FilmGrain": {
+      "category": "ambient",
+      "description": "Subtle noise overlay changing every frame. Makes video feel 'alive' and cinematic.",
+      "usage_context": "Apply to EVERY scene as topmost layer. Opacity 2-5%. If clearly visible, it's too strong.",
+      "always_on": true
+    },
+    "TypewriterText": {
+      "category": "entrance",
+      "description": "Characters appear one by one at ~0.1s intervals. Optional blinking cursor.",
+      "usage_context": "URLs, domain names, code-like text. Creates 'being typed' feel.",
+      "timing": "~0.1s per character. Total duration = text.length * 0.1s."
+    },
+    "LiquidMorph": {
+      "category": "transition",
+      "description": "Shape smoothly transforms: rectangle → pill → circle, or button → star. Organic, fluid feel.",
+      "usage_context": "State transitions (progress bar → done, button → sparkle). Should feel like liquid, not mechanical.",
+      "combines_well_with": [
+        {
+          "pattern": "ConfettiExplosion",
+          "note": "After morph completes."
+        },
+        {
+          "pattern": "SparkleFloat",
+          "note": "Sparkle is 'born' from the morph."
+        }
+      ]
+    },
+    "ColorSweep": {
+      "category": "color",
+      "description": "Color sweeps across an element from one side to the other. Like a wave of paint.",
+      "usage_context": "State change (disabled → active, dark → branded). Directional, not uniform.",
+      "timing": "0.15-0.25s for the sweep to cross the element."
+    },
+    "HandCursor": {
+      "category": "interaction",
+      "description": "Stylized hand cursor that hovers and clicks. Mac grab-hand style, not system pointer.",
+      "properties_animated": [
+        "position (path to target)",
+        "state (hover → grab → click)"
+      ],
+      "usage_context": "Demonstrate interactivity. Cursor moves to element, clicks, element reacts.",
+      "combines_well_with": [
+        {
+          "pattern": "DeviceMockup",
+          "note": "Cursor interacts with device screen content."
+        },
+        {
+          "pattern": "ClickBounce",
+          "note": "Element bounces when cursor clicks."
+        }
+      ]
+    },
+    "NumberTicker": {
+      "category": "data",
+      "description": "Smoothly counting number that simulates live data. Ease-out deceleration (fast start, slow settle).",
+      "properties_animated": [
+        "number value (interpolated)"
+      ],
+      "usage_context": "Dashboard metrics, revenue counters, progress percentages. Creates 'this is a real, live product' impression. Use in mockup screenshots to make static UI feel dynamic.",
+      "default_params": {
+        "format": "integer",
+        "durationFrames": 30
+      },
+      "combines_well_with": [
+        {
+          "pattern": "DeviceMockup",
+          "note": "Tickers inside device screens make mockups feel alive."
+        },
+        {
+          "pattern": "MultiWidgetDashboard",
+          "note": "Multiple tickers simultaneously."
+        },
+        {
+          "pattern": "ProgressBar",
+          "note": "Counter above the bar."
+        }
+      ],
+      "avoid": [
+        "Counting from 0 unless it's a progress bar. Start from realistic value.",
+        "Uniform speed — must decelerate toward end.",
+        "More than 4 tickers visible simultaneously — overwhelming."
+      ]
+    },
+    "BreathingDots": {
+      "category": "ambient",
+      "description": "8-10 dots arranged in a pattern that slowly expand and contract (breathing animation). Mindfulness/wellness visual.",
+      "properties_animated": [
+        "scale (0.8 ↔ 1.2, slow cycle)",
+        "opacity (subtle pulse)"
+      ],
+      "usage_context": "Meditation apps, breathing exercises, calm/wellness contexts. The dots' rhythm suggests 'breathe in, breathe out.'",
+      "combines_well_with": [
+        {
+          "pattern": "NumberTicker",
+          "note": "Timer counting alongside breathing dots."
+        }
+      ]
+    },
+    "FadeIn": {
+      "category": "entrance",
+      "description": "Simple opacity 0 → 1 entrance. The most basic entrance — use when the content should appear without drawing attention to the transition itself.",
+      "properties_animated": [
+        "opacity"
+      ],
+      "simultaneous_count": 1,
+      "usage_context": "Secondary elements (labels, captions, icons) that should appear quietly. Also for scene-ending logo marks. When you want the CONTENT to be the focus, not the motion.",
+      "brand_energy_behavior": {
+        "restrained": "Slow fade (0.5-0.8s). Graceful, deliberate.",
+        "moderate": "Medium fade (0.3-0.5s).",
+        "high": "Quick fade (0.15-0.3s). Snappy."
+      },
+      "default_params": {
+        "durationFrames": 12
+      },
+      "combines_well_with": [
+        {
+          "pattern": "Breathing",
+          "note": "After fade-in completes, element breathes."
+        },
+        {
+          "pattern": "Hold",
+          "note": "Fade in → hold for impact."
+        }
+      ],
+      "avoid": [
+        "For hero/primary text — too weak. Use BlurSlideIn or TextReveal instead.",
+        "More than 4 consecutive FadeIns — monotonous."
+      ]
+    },
+    "Hold": {
+      "category": "timing",
+      "description": "Element stays on screen for a specified duration. NOT truly static — MUST include Breathing micro-motion (scale 0.998-1.002, position +/-1px). A hold without breathing feels dead.",
+      "properties_animated": [
+        "none (but Breathing layer active)"
+      ],
+      "usage_context": "After every entrance, before every exit. Gives viewer time to read/absorb. Duration varies by content length and brand energy.",
+      "brand_energy_behavior": {
+        "restrained": "Long holds (0.8-1.5s). Let words linger.",
+        "moderate": "Medium holds (0.4-0.8s).",
+        "high": "Short holds (0.2-0.4s). Keep pace up."
+      },
+      "default_params": {
+        "durationFrames": 18
+      },
+      "combines_well_with": [
+        {
+          "pattern": "Breathing",
+          "note": "ALWAYS pair. Hold without Breathing = dead frame."
+        },
+        {
+          "pattern": "FilmGrain",
+          "note": "Grain keeps the hold visually alive."
+        }
+      ],
+      "avoid": [
+        "Hold > 2.0s for non-brand-recall text — viewer attention drops.",
+        "Hold without Breathing — the #1 rule violation."
+      ]
+    },
+    "TextReveal": {
+      "category": "entrance",
+      "description": "Text appears via mask wipe — a horizontal or vertical bar sweeps across, revealing text behind it. Clean, editorial feel.",
+      "properties_animated": [
+        "clip-path or mask position (sweep)",
+        "optional opacity"
+      ],
+      "usage_context": "Feature names, category labels, taglines. More editorial than BlurSlideIn. Often paired with SparkleFloat tracing the reveal path.",
+      "brand_energy_behavior": {
+        "restrained": "Slow sweep (0.5s). Elegant editorial.",
+        "moderate": "Medium sweep (0.3s).",
+        "high": "Fast sweep (0.15s). Sharp reveal."
+      },
+      "combines_well_with": [
+        {
+          "pattern": "SparkleFloat",
+          "note": "Sparkle traces the reveal path."
+        },
+        {
+          "pattern": "Hold",
+          "note": "After reveal, hold for reading."
+        }
+      ]
+    },
+    "ZoomIntoScreen": {
+      "category": "transition",
+      "description": "Camera pushes into a device screen — device frame scales up and off-screen, revealing the content inside at full resolution. Creates 'entering the product' feel.",
+      "properties_animated": [
+        "scale (device frame grows)",
+        "position (frame pushes off edges)",
+        "opacity (frame fades)"
+      ],
+      "usage_context": "After DeviceMockup entrance. Transition from 'looking at the product' to 'being inside the product.' Reverse (zoom OUT) also works for exiting a demo.",
+      "timing": "0.5-0.8s for the zoom. Ease-out for entering, ease-in for exiting.",
+      "combines_well_with": [
+        {
+          "pattern": "DeviceMockup",
+          "note": "Device enters → zoom into its screen."
+        },
+        {
+          "pattern": "HandCursor",
+          "note": "After zoom-in, cursor interacts with content."
+        },
+        {
+          "pattern": "NumberTicker",
+          "note": "Live data inside the zoomed screen."
+        }
+      ]
+    },
+    "CheckmarkDraw": {
+      "category": "feedback",
+      "description": "SVG checkmark drawn with stroke-dasharray animation. Progressive stroke from left to right with ease-out. Success/completion signal.",
+      "properties_animated": [
+        "stroke-dashoffset (0% → 100% draw)",
+        "optional circle background scale"
+      ],
+      "usage_context": "Task completion, form submission success, goal achieved. Usually followed by ConfettiExplosion for celebration moments. The stroke animation (not instant appear) creates 'just completed' live signal.",
+      "timing": "0.2-0.4s for stroke completion. ease-out (fast start, slow finish at tip).",
+      "default_params": {
+        "strokeColor": "#4285F4",
+        "strokeWidth": 4,
+        "circleBackground": true,
+        "circleFill": "#E5EFFA",
+        "durationFrames": 9
+      },
+      "combines_well_with": [
+        {
+          "pattern": "ConfettiExplosion",
+          "note": "Check completes → confetti bursts."
+        },
+        {
+          "pattern": "ProgressBar",
+          "note": "Bar hits 100% → morphs → checkmark."
+        },
+        {
+          "pattern": "PromptBubble",
+          "note": "Prompt fades → loading dot → checkmark appears."
+        }
+      ],
+      "avoid": [
+        "Instant appear (no stroke animation) — loses the 'live completion' feel.",
+        "Using for non-completion moments — misleading.",
+        "Bounce after draw — keep it ease-out only, minimal and premium."
+      ]
+    },
+    "KineticWordSwap": {
+      "category": "entrance",
+      "description": "Hard 1-frame word replacement with kinetic spacing animation. Words swap instantly (no cross-fade), but the NEW arrangement animates into place via spacing/position spring. The swap is instant, the SETTLE is animated.",
+      "properties_animated": [
+        "text content (instant swap)",
+        "letter-spacing or word gap (spring settle)",
+        "position per word (ease-out slide to final position)"
+      ],
+      "simultaneous_count": 3,
+      "usage_context": "Building phrases step-by-step. 'New' → 'New way of' (words appear, then spacing closes). Different from WordAppend (which opens space). KineticWordSwap replaces the ENTIRE text content in 1 frame, then animates spacing.",
+      "brand_energy_behavior": {
+        "restrained": "Spacing settles over 0.3s. Gentle, precise.",
+        "moderate": "Spacing settles over 0.2s. Clean.",
+        "high": "Spacing settles over 0.1s. Snappy."
+      },
+      "default_params": {
+        "initialSpacingMultiplier": 3.0,
+        "settleFrames": 9,
+        "settleEasing": "ease-out"
+      },
+      "combines_well_with": [
+        {
+          "pattern": "GradientMorphBackground",
+          "note": "Background ambient panning continues during swap."
+        },
+        {
+          "pattern": "Hold",
+          "note": "After spacing settles, hold for reading."
+        },
+        {
+          "pattern": "SlotMachineReveal",
+          "note": "Dramatic word can use slot machine instead of simple swap."
+        }
+      ],
+      "avoid": [
+        "Cross-fading between words — the hard swap IS the signature. Instant content change + animated spacing.",
+        "More than 4 consecutive swaps — use a different entrance pattern to break monotony.",
+        "Initial spacing too small (< 2x) — the kinetic effect becomes invisible."
+      ]
+    },
+    "HardCut": {
+      "category": "transition",
+      "description": "Instant 1-frame scene change. Background color, text, and all elements swap simultaneously in a single frame. No fade, no blur, no animation. The ABSENCE of transition IS the effect — creates dramatic rhythm and urgency.",
+      "properties_animated": [
+        "none — all properties change in 1 frame"
+      ],
+      "usage_context": "Scene-to-scene transitions in high-energy or kinetic typography videos. Creates rhythm: content-hold-CUT-content-hold-CUT. Best for short text reveals (1-3 words per cut). Different from cross-fade which softens transitions.",
+      "combines_well_with": [
+        {
+          "pattern": "KineticWordSwap",
+          "note": "Hard cut to new scene → kinetic spacing settle."
+        },
+        {
+          "pattern": "SlotMachineReveal",
+          "note": "Hard cut to dramatic word with blur residue."
+        },
+        {
+          "pattern": "GradientMorphBackground",
+          "note": "Hard cut between different gradient moods."
+        },
+        {
+          "pattern": "DesignThemeSwap",
+          "note": "Hard cut IS the theme swap."
+        }
+      ],
+      "avoid": [
+        "More than 6 consecutive hard cuts without a softer transition — becomes exhausting.",
+        "Hard cut FROM a blur transition — the blur needs to complete first.",
+        "Hard cut on the very first frame of the video — jarring cold open. Start with FadeIn."
+      ]
+    },
+    "FadeOut": {
+      "category": "exit",
+      "description": "Simple opacity 1 → 0 exit. The counterpart to FadeIn. Use when the element should disappear without drawing attention to the exit.",
+      "properties_animated": [
+        "opacity"
+      ],
+      "simultaneous_count": 1,
+      "usage_context": "Secondary elements departing, labels clearing, scene endings. When the ABSENCE of the element should be noticed, not the exit motion.",
+      "brand_energy_behavior": {
+        "restrained": "Slow fade (0.5-0.8s). Graceful departure.",
+        "moderate": "Medium fade (0.3-0.5s).",
+        "high": "Quick fade (0.15-0.3s). Snappy exit."
+      },
+      "default_params": {
+        "durationFrames": 12
+      },
+      "combines_well_with": [
+        {
+          "pattern": "FadeIn",
+          "note": "FadeOut current + FadeIn next = cross-dissolve when overlapped."
+        },
+        {
+          "pattern": "HardCut",
+          "note": "FadeOut followed by HardCut to new scene = soft ending → sharp beginning."
+        },
+        {
+          "pattern": "IconClusterReveal",
+          "note": "Non-focal icons FadeOut during cluster reduction."
+        }
+      ],
+      "avoid": [
+        "For hero/primary text — too weak. Use BlurSlideOut for dramatic exits.",
+        "FadeOut duration shorter than 3 frames — becomes a hard cut, use HardCut explicitly."
+      ]
+    }
+  }
+}
