@@ -1,4 +1,5 @@
 venv/
+.venv/
 .env
 __pycache__/
 *.pyc
@@ -8,13 +9,17 @@ dist/
 build/
 .idea/
 .vscode/
+
 videos/*.mp4
 videos/*.mov
 videos/*.avi
 videos/*.mkv
 videos/*.json
 videos/effects/
+
 audio_files/
+video_files/
+output/
 outputs/
 
 # Remotion 빌드 / 의존성

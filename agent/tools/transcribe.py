@@ -1,138 +1,195 @@
-"""
-음성 -> 자막 추출 Tool (은서)
+"""Whisper transcription tool for audio_expert."""
 
-TODO
-- OpenAI Whisper API로 transcribe 구현 완료
-- 결과를 VideoContext.transcript 형식으로 반환
-"""
+from __future__ import annotations
 
 import json
 import logging
 import os
-import subprocess
 import tempfile
-from langchain_core.tools import tool
-from openai import OpenAI
+from pathlib import Path
+from typing import Any
+
 from dotenv import load_dotenv
+from langchain_core.tools import tool
 
-# --- 환경 변수 로드 (.env 파일에서 API 키를 읽어옵니다) ---
+from agent.tools.audio_common import probe_duration, resolve_input_path, run_ffmpeg
+
 load_dotenv()
-
-# 터미널에서 로그를 볼 수 있도록 로깅 기본 설정 추가
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
-# OpenAI 클라이언트 초기화 
-client = OpenAI()
 
-def _normalize_audio(file_path: str) -> str:
-    """Whisper 최적 포맷으로 오디오 정규화 (16kHz mono 64kbps)"""
-    logger.info("FFmpeg 오디오 정규화 진행 중...")
-    out_path = os.path.join(tempfile.gettempdir(), "normalized.m4a")
-    subprocess.run([
-        "ffmpeg", "-i", file_path,
-        "-vn",
-        "-acodec", "aac",
-        "-ab", "64k",
-        "-ar", "16000",
-        "-ac", "1",
-        "-y", out_path,
-    ], check=True, capture_output=True)
-    return out_path
+def _normalize_audio(video_path: Path) -> Path:
+    handle = tempfile.NamedTemporaryFile(prefix="whisper_", suffix=".m4a", delete=False)
+    handle.close()
+    output = Path(handle.name)
+    run_ffmpeg(
+        "-i", str(video_path),
+        "-vn", "-acodec", "aac", "-ab", "64k", "-ar", "16000", "-ac", "1",
+        "-y", str(output),
+    )
+    return output
+
+
+def _split_audio(audio_path: Path) -> list[tuple[Path, float]]:
+    """Split normalized audio into API-friendly chunks and return start offsets."""
+    duration = probe_duration(audio_path)
+    chunk_seconds = float(os.getenv("WHISPER_CHUNK_SECONDS", "120"))
+    if not duration or chunk_seconds <= 0 or duration <= chunk_seconds:
+        return [(audio_path, 0.0)]
+
+    chunks: list[tuple[Path, float]] = []
+    offset = 0.0
+    while offset < duration:
+        handle = tempfile.NamedTemporaryFile(prefix="whisper_chunk_", suffix=".m4a", delete=False)
+        handle.close()
+        chunk_path = Path(handle.name)
+        run_ffmpeg(
+            "-ss", str(offset),
+            "-t", str(min(chunk_seconds, duration - offset)),
+            "-i", str(audio_path),
+            "-c", "copy",
+            "-y", str(chunk_path),
+        )
+        chunks.append((chunk_path, offset))
+        offset += chunk_seconds
+    return chunks
+
+
+def _segment_dict(segment: Any, offset: float = 0.0) -> dict:
+    def read(name: str) -> Any:
+        return segment[name] if isinstance(segment, dict) else getattr(segment, name)
+
+    return {
+        "start": round(float(read("start")) + offset, 2),
+        "end": round(float(read("end")) + offset, 2),
+        "text": str(read("text")).strip(),
+    }
+
+
+def _gemini_transcribe(chunks: list[tuple[Path, float]]) -> tuple[list[dict], str]:
+    from google import genai
+
+    client = genai.Client()
+    segments: list[dict] = []
+    language = "unknown"
+
+    prompt = """
+    Transcribe this audio.
+    Return JSON only:
+    {
+      "language": "detected language",
+      "segments": [
+        {"start": 0.0, "end": 1.2, "text": "spoken text"}
+      ]
+    }
+    Timestamps must be seconds relative to the start of this audio file.
+    """
+
+    for chunk_path, offset in chunks:
+        uploaded_file = client.files.upload(file=chunk_path)
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.5-flash",
+                contents=[prompt, uploaded_file],
+                config={"response_mime_type": "application/json"},
+            )
+            result = json.loads(response.text)
+        finally:
+            client.files.delete(name=uploaded_file.name)
+
+        segments.extend(
+            _segment_dict(segment, offset)
+            for segment in result["segments"]
+        )
+        language = result.get("language", language)
+
+    return segments, language
+
+
+def _local_whisper(audio_path: Path) -> tuple[list[dict], str]:
+    from faster_whisper import WhisperModel
+
+    model = WhisperModel(
+        os.getenv("FASTER_WHISPER_MODEL", "base"),
+        device=os.getenv("FASTER_WHISPER_DEVICE", "auto"),
+        compute_type=os.getenv("FASTER_WHISPER_COMPUTE_TYPE", "int8"),
+    )
+    segments, info = model.transcribe(
+    str(audio_path),
+    vad_filter=True,
+    language="ko",
+    )
+    return [_segment_dict(segment) for segment in segments], info.language
 
 
 @tool
-def transcribe_video(file_path: str) -> str:
-    """영상 파일의 음성을 텍스트로 변환하고 타임스탬프 자막을 반환.
+def transcribe_video(video_path: str) -> str:
+    """Return Whisper transcript as a clean segment list with timestamps.
 
     Args:
-        file_path: 영상 파일 경로
+        video_path: Absolute path or project-root-relative video path.
     """
-    logger.info(f"transcribe_video 호출 - {file_path}")
-
-    # 파일 존재 여부 확인
-    if not os.path.exists(file_path):
-        return json.dumps({"error": f"파일을 찾을 수 없습니다: {file_path}"}, ensure_ascii=False)
-    
-    # 실제 음성 인식 처리 (OpenAI API 호출)
     try:
-        # 1. 오디오 정규화 (최적화)
-        normalized_path = _normalize_audio(file_path)
-        
-        logger.info("OpenAI Whisper API로 최적화된 파일 전송 중...")
-        
-        # 2. 정규화된 파일로 API 호출
-        with open(normalized_path, "rb") as audio_file:
-            # 타임스탬프(start, end)를 받기 위해 response_format="verbose_json" 사용
-            transcript_response = client.audio.transcriptions.create(
-                file=audio_file,
-                model="whisper-1",
-                response_format="verbose_json",
-                timestamp_granularities=["segment"]
-            )
+        source = resolve_input_path(video_path)
+    except FileNotFoundError as error:
+        return json.dumps({"status": "error", "segments": [], "error": str(error)}, ensure_ascii=False)
 
-        # 응답 객체에서 언어 정보 가져오기 (기본값 설정)
-        language = getattr(transcript_response, 'language', 'unknown')
-        logger.info(f"언어 감지: {language}")
+    normalized_path: Path | None = None
+    chunks: list[tuple[Path, float]] = []
+    primary = os.getenv("WHISPER_ENGINE", "openai").strip().lower()
+    engines = [primary]
+    fallback = "faster-whisper" if primary == "openai" else "openai"
+    if os.getenv("WHISPER_DISABLE_FALLBACK", "").lower() not in {"1", "true", "yes"}:
+        engines.append(fallback)
 
-        # 결과를 VideoContext.transcript 형식으로 변환
-        transcript_results = []
-        
-        # API 응답에서 segments 배열 추출
-        segments = getattr(transcript_response, 'segments', [])
-        for segment in segments:
-            # dict 형태와 객체 형태 모두 대응
-            start = segment['start'] if isinstance(segment, dict) else segment.start
-            end = segment['end'] if isinstance(segment, dict) else segment.end
-            text = segment['text'] if isinstance(segment, dict) else segment.text
-            
-            transcript_results.append({
-                "start": round(start, 2),
-                "end": round(end, 2),
-                "text": text.strip()
-            })
+    errors: list[str] = []
+    try:
+        normalized_path = _normalize_audio(source)
+        chunks = _split_audio(normalized_path)
+        for index, engine in enumerate(engines):
+            try:
+                if engine == "openai":
+                    segments, language = _openai_whisper(chunks)
+                elif engine == "faster-whisper":
+                    segments, language = _local_whisper(normalized_path)
+                else:
+                    raise ValueError(f"unsupported Whisper engine: {engine}")
 
-        # 최종 반환 형식 구성
-        result = {
-            "file_path": file_path,
-            "language": language,
-            "transcript": transcript_results,
-        }
-        
-        # 3. 임시 파일 삭제 (용량 확보)
-        try:
-            os.remove(normalized_path)
-            logger.info("임시 오디오 파일 삭제 완료.")
-        except OSError:
-            pass
+                segments = [segment for segment in segments if segment["text"]]
+                duration = max((segment["end"] for segment in segments), default=0.0)
+                return json.dumps(
+                    {
+                        "status": "success",
+                        "segments": segments,
+                        "segment_count": len(segments),
+                        "total_duration": duration,
+                        "language": language,
+                        "engine": engine,
+                        "chunk_count": len(chunks),
+                        "fallback_used": index > 0,
+                        "report": (
+                            f"segments: {len(segments)}, total_duration: {duration}, "
+                            f"language: {language}"
+                        ),
+                    },
+                    ensure_ascii=False,
+                )
+            except Exception as error:
+                logger.exception("Whisper engine failed: %s", engine)
+                errors.append(f"{engine}: {error}")
+    except Exception as error:
+        errors.append(f"audio normalization: {error}")
+    finally:
+        if normalized_path:
+            normalized_path.unlink(missing_ok=True)
+        for chunk_path, _ in chunks:
+            if chunk_path != normalized_path:
+                chunk_path.unlink(missing_ok=True)
 
-        return json.dumps(result, ensure_ascii=False) 
+    return json.dumps(
+        {"status": "error", "segments": [], "fallback_used": len(engines) > 1, "error": "; ".join(errors)},
+        ensure_ascii=False,
+    )
 
-    except subprocess.CalledProcessError as e:
-        logger.error(f"FFmpeg 에러 발생: {e.stderr.decode('utf-8', errors='ignore')}")
-        return json.dumps({"error": "오디오 추출 실패. FFmpeg가 설치되어 있는지 확인해주세요."}, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"Transcription 에러 발생: {e}")
-        return json.dumps({"error": str(e)}, ensure_ascii=False)   
 
 TOOLS = [transcribe_video]
-
-if __name__ == "__main__":
-    # 테스트할 샘플 영상 파일 경로
-    sample_file = "/home/cheeyak/eunseo/video-agent-study/agent/sample/KakaoTalk_20260504_171515926.mp4" 
-
-    print("=== 자막 추출 테스트 시작 ===")
-    
-    # LangChain Tool 실행 (.invoke() 사용)
-    try:
-        result = transcribe_video.invoke({"file_path": sample_file})
-        
-        print("\n=== 추출 결과 ===")
-        parsed_result = json.loads(result)
-        print(json.dumps(parsed_result, indent=4, ensure_ascii=False))
-        
-    except Exception as e:
-        print(f"실행 중 오류 발생: {e}")
