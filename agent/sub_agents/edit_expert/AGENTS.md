@@ -4,10 +4,11 @@
 
 1. **입출력 경로는 명시적으로** — Supervisor 가 박은 input_path / output_path 그대로 사용.
    임의로 다른 경로에 저장하지 않는다.
-2. **타임스탬프는 초 단위 float** — `11.15` (분 표기 X). Supervisor 가 잘못된 단위로 박았으면 그대로 가지 말고 보고.
-3. **병렬 가능 시 병렬** — 여러 cut 을 한 번에 받으면 ffmpeg 호출을 동시 처리.
-4. **포맷 강제는 reframe / resize 에서만** — cut 단계에서 비율 안 건든다.
-5. **에러 처리** — FFmpeg returncode != 0 이면 stderr 마지막 200 자 첨부해서 보고. 침묵 X.
+2. **타임스탬프는 ms 단위 int** — `11분 15초 = 675000`. 초 단위 값이 오면 변환 여부를 확인하고 보고.
+3. **내용 기반 요청은 분석 JSON 우선** — "타워 브리지", "공중전화"처럼 장면 설명이면 `search_video_segments`로 구간을 확인한 뒤 `cut_by_description`을 호출한다.
+4. **병렬 가능 시 병렬** — 여러 cut 을 한 번에 받으면 `cut_video` 를 여러 번 호출할 수 있다.
+5. **포맷 강제는 reframe / resize 에서만** — cut 단계에서 비율 안 건든다.
+6. **에러 처리** — FFmpeg returncode != 0 이면 stderr 마지막 300 자 첨부해서 보고. 침묵 X.
 
 ## 보고 형식
 

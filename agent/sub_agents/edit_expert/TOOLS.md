@@ -4,14 +4,16 @@
 
 ## 구현됨
 
-- `cut_video(input_path, start, end, output_path)` — 구간 cut. 병렬 호출 가능.
-- `cut_scene(scene_id)` — analysis.json 의 scene index 로 cut.
+- `cut_video(video_path, start_ms, end_ms, output_path=None)` — ms 기준 구간 cut. 병렬 호출 가능.
+- `merge_video(clip_paths, output_path=None)` — 여러 클립 concat. stream copy 우선, 해상도/fps가 다르면 reencode fallback.
+- `search_video_segments(video_path, query, analysis_path=None, max_results=5)` — 분석 JSON에서 장면 설명/객체/자막 기반 구간 검색.
+- `cut_by_description(video_path, query, analysis_path=None, merge=False, padding_ms=0, max_segments=5, output_path=None)` — 내용 검색 후 자동 cut, 필요 시 merge.
+- `cut_scene(video_path, scene_name=None, scene_index=None, analysis_path=None, output_path=None)` — 기존 scene 이름 또는 분석 JSON segment index 기반 cut.
 
 ## TODO (owner 가 채울 것)
 
 다음은 시그니처만 명시. 구현은 별도 PR.
 
-- `merge_video(paths: list[str], output: str)` — concat (재인코딩 없이 stream copy 우선)
 - `resize(path, width, height, mode)` — 해상도. mode: pad / crop / stretch
 - `reframe(path, target_aspect)` — subject-aware 9:16 / 16:9 리프레임
 - `change_speed(path, factor)` — 0.25x ~ 4x
@@ -26,3 +28,4 @@
 - `agent/tools/__init__.py` 의 `tool_groups["edit"]` 에 추가.
 - FFmpeg 호출은 subprocess.run, stderr 캡처 필수.
 - 경로는 모두 절대 경로 또는 프로젝트 루트 기준 (`videos/clips/cut_0.mp4`).
+- 분석 JSON은 기본적으로 `videos/<영상명>_analysis.json` 을 자동 탐색한다.

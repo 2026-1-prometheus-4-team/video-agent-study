@@ -15,6 +15,7 @@ videos/*.mkv
 videos/*.json
 videos/effects/
 audio_files/
+outputs/
 
 # Remotion 빌드 / 의존성
 remotion/node_modules/
