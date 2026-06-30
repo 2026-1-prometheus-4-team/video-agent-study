@@ -25,7 +25,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage
 
 from agent import config
@@ -194,11 +194,10 @@ def spawn_sub_agent(envelope: SubAgentEnvelope) -> SubAgentResult:
         )
 
     # ── 5. Mini ReAct agent 생성 (격리됨) ──
-    child_agent = create_agent(
+    child_agent = create_react_agent(
         model=sub_llm,
         tools=tools,
-        name=role,
-        system_prompt=system_prompt,
+        prompt=system_prompt,
     )
 
     # ── 6. Invoke (child 에게는 envelope.task 만이 유일한 input) ──
