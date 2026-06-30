@@ -19,8 +19,15 @@ load_dotenv(Path(__file__).parents[2] / ".env")
 
 logger = logging.getLogger(__name__)
 
-_client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+_client = None
 _MODEL = "gemini-2.5-flash"
+
+
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+    return _client
 
 _PROMPT = """\
 이 영상을 처음부터 끝까지 분석해서 장면(scene) 단위로 분할해줘.
@@ -60,14 +67,14 @@ def analyze_video_scenes(file_path: str) -> str:
         logger.info(f"영상 업로드 시작: {file_path}")
         # 한글 경로 인코딩 문제를 피하기 위해 바이너리로 직접 열어서 전달
         with open(file_path, "rb") as f:
-            video_file = _client.files.upload(
+            video_file = _get_client().files.upload(
                 file=f,
                 config={"mime_type": "video/mp4", "display_name": Path(file_path).name},
             )
 
         while video_file.state.name == "PROCESSING":
             time.sleep(3)
-            video_file = _client.files.get(name=video_file.name)
+            video_file = _get_client().files.get(name=video_file.name)
 
         if video_file.state.name != "ACTIVE":
             return json.dumps(
@@ -76,7 +83,7 @@ def analyze_video_scenes(file_path: str) -> str:
             )
 
         logger.info("업로드 완료, Gemini 장면 분석 시작")
-        response = _client.models.generate_content(
+        response = _get_client().models.generate_content(
             model=_MODEL,
             contents=[video_file, _PROMPT],
         )

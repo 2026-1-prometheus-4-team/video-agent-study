@@ -15,6 +15,11 @@ from agent.tools.scene import TOOLS as scene_tools
 from agent.tools.cut import TOOLS as cut_tools
 from agent.tools.transcribe import TOOLS as transcribe_tools
 from agent.tools.tts import TOOLS as tts_tools
+from agent.tools.bgm import TOOLS as bgm_tools
+from agent.tools.sfx import TOOLS as sfx_tools
+from agent.tools.audio_denoise import TOOLS as audio_denoise_tools
+from agent.tools.audio_mix import TOOLS as audio_mix_tools
+from agent.tools.audio_normalize import TOOLS as audio_normalize_tools
 from agent.tools.video_analysis import TOOLS as video_analysis_tools
 from agent.tools.video_understanding_eun import TOOLS as video_understanding_tools
 from agent.tools.remotion_render import TOOLS as remotion_tools
@@ -29,6 +34,11 @@ tools = [
     *cut_tools,
     *transcribe_tools,
     *tts_tools,
+    *bgm_tools,
+    *sfx_tools,
+    *audio_denoise_tools,
+    *audio_mix_tools,
+    *audio_normalize_tools,
     *video_analysis_tools,
     *video_understanding_tools,
     *remotion_tools,
@@ -45,9 +55,10 @@ tool_map = {t.name: t for t in tools}
 # OpenClaw 식: sub-agent 는 자기 그룹 도구만 받음 (격리)
 tool_groups = {
     "edit": [*cut_tools],
-    "audio": [*transcribe_tools, *tts_tools],
+    "audio": [*transcribe_tools, *tts_tools, *bgm_tools, *sfx_tools,
+              *audio_denoise_tools, *audio_mix_tools, *audio_normalize_tools],
     "text": [*subtitle_tools],
-    "effect": [*remotion_tools],   # Remotion render + 카탈로그 조회 (병건)
+    "effect": [*remotion_tools],
     "analysis": [*scene_tools, *video_understanding_tools, *video_analysis_tools],
-    "research": [*research_llm_tools, *research_external_tools],  # LLM + Tavily + YouTube (성민)
+    "research": [*research_llm_tools, *research_external_tools],
 }
