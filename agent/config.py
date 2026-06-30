@@ -35,9 +35,9 @@ VIDEOS_DIR: Path = PROJECT_ROOT / "videos"
 #                      gemini-2.0-flash, gemini-2.0-flash-lite
 # =============================================================
 
-MODEL_SUPERVISOR: str = os.getenv("MODEL_SUPERVISOR", "gemini-3.1-pro-preview")
-MODEL_SCRIPT: str = os.getenv("MODEL_SCRIPT", "gemini-3.1-pro-preview")
-MODEL_CRITIC: str = os.getenv("MODEL_CRITIC", "gemini-3.1-pro-preview")
+MODEL_SUPERVISOR: str = os.getenv("MODEL_SUPERVISOR", "gemini-3.5-flash")
+MODEL_SCRIPT: str = os.getenv("MODEL_SCRIPT", "gemini-3.5-flash")
+MODEL_CRITIC: str = os.getenv("MODEL_CRITIC", "gemini-3.5-flash")
 MODEL_SUB_AGENT: str = os.getenv("MODEL_SUB_AGENT", "gemini-3.5-flash")
 
 # Gemini 3+ 는 temperature 미지정 시 1.0 으로 강제 됨.

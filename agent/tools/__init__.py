@@ -12,7 +12,7 @@ PR 시 충돌 가능성 큰 파일이므로 본인 import 줄만 깔끔하게 �
 
 # ===== IMPORTS (각자 본인 파일만 추가) =====
 from agent.tools.scene import TOOLS as scene_tools
-from agent.tools.cut import TOOLS as cut_tools
+from agent.tools.edit import TOOLS as edit_tools
 from agent.tools.transcribe import TOOLS as transcribe_tools
 from agent.tools.tts import TOOLS as tts_tools
 from agent.tools.bgm import TOOLS as bgm_tools
@@ -31,7 +31,7 @@ from agent.tools.subtitle import TOOLS as subtitle_tools
 # --- 전체 tool 리스트 (하위 호환) ---
 tools = [
     *scene_tools,
-    *cut_tools,
+    *edit_tools,
     *transcribe_tools,
     *tts_tools,
     *bgm_tools,
@@ -57,6 +57,8 @@ tool_groups = {
     "edit": [*cut_tools],
     "audio": [*transcribe_tools, *tts_tools, *bgm_tools, *sfx_tools,
               *audio_denoise_tools, *audio_mix_tools, *audio_normalize_tools],
+    "edit": [*edit_tools],
+    "audio": [*transcribe_tools, *tts_tools],
     "text": [*subtitle_tools],
     "effect": [*remotion_tools],
     "analysis": [*scene_tools, *video_understanding_tools, *video_analysis_tools],
