@@ -54,12 +54,7 @@ logger = logging.getLogger(__name__)
 # =============================================================
 
 def analysis_node(state: AgentState) -> dict[str, Any]:
-    """video_context 가 없고 video_paths 가 있으면 사전 분석.
-
-    실제 구현은 tools/video_understanding_eun.analyze_video 또는
-    tools/video_analysis.analyze_video_scenes 호출.
-    여기서는 *얇은 wrapper* 만. 무거운 호출은 ML 팀원이 채움.
-    """
+    """video_context 가 없고 video_paths 가 있으면 사전 분석."""
     if state.get("video_context"):
         logger.info("analysis_node: video_context 이미 있음 -> skip")
         return {}
@@ -69,15 +64,41 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         logger.warning("analysis_node: video_paths 비어 있음. analysis skip.")
         return {}
 
-    # 1차 구현: 빈 스켈레톤 context 만 채움. (real 분석은 ML 팀 PR 에서)
+    import json as _json
+    from pathlib import Path
+    from agent.tools.video_analysis import analyze_video
+
     first = video_paths[0]
-    ctx: VideoContext = {
-        "file_path": first,
-        "duration": 0.0,
-        "scenes": [],
-        "transcript": [],
-    }
-    logger.info("analysis_node: skeleton context for %s (TODO: ML 팀 real analysis)", first)
+    filename = Path(first).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
+
+    try:
+        raw = analyze_video.invoke({"video_path": filename})
+        data = _json.loads(raw)
+
+        if "error" in data:
+            logger.warning("analysis_node: analyze_video 오류 -> skeleton. %s", data["error"])
+            ctx: VideoContext = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
+        else:
+            scenes = [
+                {
+                    "start": seg["start_ms"] / 1000,
+                    "end": seg["end_ms"] / 1000,
+                    "description": seg.get("description", ""),
+                }
+                for seg in data.get("segments", [])
+            ]
+            ctx = {
+                "file_path": first,
+                "duration": data.get("duration", 0.0),
+                "scenes": scenes,
+                "transcript": [],  # transcript 는 audio_expert 가 채움
+            }
+            logger.info("analysis_node: %d scenes 추출 완료 (%.1fs)", len(scenes), ctx["duration"])
+
+    except Exception as e:
+        logger.exception("analysis_node: analyze_video 실패 -> skeleton")
+        ctx = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
+
     return {"video_context": ctx}
 
 
@@ -204,13 +225,12 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         script_plan=plan,
     )
 
-    from langchain.agents import create_agent
+    from langgraph.prebuilt import create_react_agent
     supervisor_llm = make_llm("supervisor")
-    react_agent = create_agent(
+    react_agent = create_react_agent(
         model=supervisor_llm,
         tools=spawn_tools,
-        name="supervisor",
-        system_prompt=sys_text,
+        prompt=sys_text,
     )
 
     pending_steps = [s for s in plan.get("steps", []) if not _step_completed(s, trace)]
