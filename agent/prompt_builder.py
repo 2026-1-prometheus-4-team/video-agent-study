@@ -209,19 +209,27 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 ```
 
 action 종류 (TOOLS.md 참조):
-- **edit_expert**: cut_video, cut_scene, merge_video, resize, reframe, change_speed, crop, rotate, trim, concat_with_transition
+- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(자연어 장면 검색+자동 컷)
 - **audio_expert**: transcribe_video, text_to_speech, add_bgm, add_sfx, mix_audio, denoise, normalize_loudness
 - **text_expert**: add_subtitle, add_auto_subtitle, add_title, add_caption, add_emoji_overlay
-- **effect_expert**: apply_fade, apply_zoom, apply_transition, apply_blur, apply_color_grade, apply_speed_ramp, apply_shake, apply_lut
+- **effect_expert**: apply_remotion_effect, query_effect_catalog
 - **research_expert**: web_search, youtube_trend
 
 원칙:
 - step 수 제한 없음. 사용자 요청에 필요한 모든 작업 다 plan 에 박는다.
+- *사용자가 명시적으로 요청하지 않은* 자막 / BGM / 효과음 / transcribe step 은 추가하지 않는다.
+- 목표 길이가 있으면 (예: 1분) 그 길이에 맞게 video_context.scenes 에서 필요한 장면 *몇 개만 선별*한다.
+  전체 장면을 모두 cut 하는 plan 은 금지 (결과가 원본 길이 그대로 나옴).
+- **cut 타임스탬프는 반드시 video_context.scenes 항목의 start/end 경계를 그대로 사용한다.**
+  임의의 반올림 값이나 장면 중간 지점 사용 금지 — 말하는 도중에 잘려서 결과물이 어색해짐.
+  장면이 목표 길이 대비 너무 길면 그 장면의 start 부터 시작하는 앞부분을 쓴다 (중간 발췌 금지).
+- 내용 기반 장면 요청 ("입국 장면", "골 장면" 등) 은 scenes 의 description 을 보고 *가장 잘 맞는 장면*을
+  고르되, 확신이 없으면 edit_expert 의 cut_by_description(query=...) 을 사용 (시맨틱 검색으로 정확 매칭).
 - 단, 한 expert 가 한 turn 에서 다 처리 가능한 작업은 *하나의 step* 으로 묶기 (예: 3 개 cut 동시).
 - 병렬 가능한 step 들은 같은 `parallel_group` 번호 부여 -> Supervisor 가 동시 spawn.
 - 타겟 포맷에 따라 SOUL.md 의 default 컨벤션 적용 (쇼츠 = 9:16 / 60 초 / 큰 자막 등).
 - 사용자 어휘 매핑 (TOOLS.md 의 매핑 참조): "비트"/"효과음" -> add_sfx, "전환" -> apply_transition,
-  "감성 색감" -> apply_color_grade, "나래이션" -> text_to_speech 등.
+  "나래이션" -> text_to_speech 등.
 - "questions" 가 *비어 있지 않으면* interrupt 게이트에서 사용자에게 물어본다.
 """
 

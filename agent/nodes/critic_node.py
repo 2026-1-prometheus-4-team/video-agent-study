@@ -84,7 +84,10 @@ def critic_node(state: AgentState) -> dict[str, Any]:
             "message_to_user": "최종 결과물이 만들어지지 않음. 처음부터 다시 실행 권장.",
         }
         logger.warning("critic objective fail: %s", objective_issues)
-        return {"critic_verdict": verdict}
+        return {
+            "critic_verdict": verdict,
+            "critic_retries": state.get("critic_retries", 0) + 1,
+        }
 
     # 2. LLM 검증
     sys_text = build_critic_system_prompt(
@@ -114,7 +117,8 @@ def critic_node(state: AgentState) -> dict[str, Any]:
                 "verdict": "RETRY",
                 "issues": [f"critic LLM 오류: {e}"],
                 "message_to_user": "검증 단계 LLM 호출 실패. 다시 시도 필요.",
-            }
+            },
+            "critic_retries": state.get("critic_retries", 0) + 1,
         }
 
     raw = ai_msg.content
@@ -128,7 +132,13 @@ def critic_node(state: AgentState) -> dict[str, Any]:
     verdict.setdefault("message_to_user", "")
 
     logger.info("critic verdict: %s, issues=%d", verdict.get("verdict"), len(verdict["issues"]))
-    return {"critic_verdict": verdict}
+    retries = state.get("critic_retries", 0)
+    if verdict.get("verdict") != "PASS":
+        retries += 1
+    return {"critic_verdict": verdict, "critic_retries": retries}
+
+
+MAX_SUPERVISOR_RETRIES = 3
 
 
 def route_after_critic(state: AgentState) -> str:
@@ -138,4 +148,11 @@ def route_after_critic(state: AgentState) -> str:
         "end" | "supervisor"
     """
     verdict = (state.get("critic_verdict") or {}).get("verdict", "RETRY")
-    return "end" if verdict == "PASS" else "supervisor"
+    if verdict == "PASS":
+        return "end"
+    # 무한 루프 방지: critic 이 RETRY 낸 횟수 기준
+    retry_count = state.get("critic_retries", 0)
+    if retry_count >= MAX_SUPERVISOR_RETRIES:
+        logger.warning("critic: max retries (%d) reached, forcing end", MAX_SUPERVISOR_RETRIES)
+        return "end"
+    return "supervisor"
