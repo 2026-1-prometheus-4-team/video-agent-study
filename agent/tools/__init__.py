@@ -64,6 +64,13 @@ tool_groups = {
     ],
     "text": [*subtitle_tools],
     "effect": [*remotion_tools],
-    "analysis": [*scene_tools, *video_understanding_tools, *video_analysis_tools],
-    "research": [*research_llm_tools, *research_external_tools],
+    "analysis": [
+        *scene_tools,
+        *video_understanding_tools,
+        *video_analysis_tools,
+    ],
+    "research": [
+        *research_llm_tools,
+        *research_external_tools,
+    ],
 }
