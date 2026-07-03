@@ -12,6 +12,7 @@ PR 시 충돌 가능성 큰 파일이므로 본인 import 줄만 깔끔하게 �
 # ===== IMPORTS (각자 본인 파일만 추가) =====
 from agent.tools.scene import TOOLS as scene_tools
 from agent.tools.edit import TOOLS as edit_tools
+from agent.tools.generate_bgm import TOOLS as generate_bgm_tools
 from agent.tools.audio_denoise import TOOLS as audio_denoise_tools
 from agent.tools.audio_mix import TOOLS as audio_mix_tools
 from agent.tools.audio_normalize import TOOLS as audio_normalize_tools
@@ -33,6 +34,7 @@ tools = [
     *edit_tools,
     *transcribe_tools,
     *tts_tools,
+    *generate_bgm_tools,
     *bgm_tools,
     *sfx_tools,
     *audio_mix_tools,
@@ -53,6 +55,7 @@ tool_groups = {
     "audio": [
         *transcribe_tools,
         *tts_tools,
+        *generate_bgm_tools,
         *bgm_tools,
         *sfx_tools,
         *audio_mix_tools,
