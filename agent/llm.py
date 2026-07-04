@@ -54,6 +54,14 @@ def make_llm(
     if cached_content:
         kwargs["cached_content"] = cached_content
 
+    # 역할별 API 키 분리 (무료 티어 쿼터가 키(프로젝트) 단위라 팀원 키로 분산 가능)
+    # .env 에 GOOGLE_API_KEY_SUPERVISOR / _SCRIPT / _CRITIC / _SUB_AGENT 가 있으면
+    # 해당 역할은 그 키를 사용, 없으면 기본 GOOGLE_API_KEY.
+    import os
+    role_key = os.getenv(f"GOOGLE_API_KEY_{role.upper()}")
+    if role_key:
+        kwargs["google_api_key"] = role_key
+
     return ChatGoogleGenerativeAI(**kwargs)
 
 
