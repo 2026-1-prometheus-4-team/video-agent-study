@@ -10,22 +10,22 @@ Supervisor 는 sub-agent 만 부른다. 직접 부르는 tool 은 없다.
 
 ## edit_expert
 
-영상 구조 편집. FFmpeg 기반. 컷 / 머지 / 리프레임 / 속도.
+영상 구조 편집. FFmpeg 기반. 컷 / 머지 / 내용 기반 장면 검색.
 
-| tool                 | 시그니처                                                | 설명                                  |
-|----------------------|---------------------------------------------------------|---------------------------------------|
-| `cut_video`          | `(input_path, start, end, output_path) -> path`         | 구간 cut. 병렬 호출 가능.             |
-| `cut_scene`          | `(scene_id) -> path`                                    | scene index 로 cut (analysis.json 의 scene id) |
-| TODO: `merge_video`  | `(paths: list[str], output: str) -> path`               | 여러 클립 concat                      |
-| TODO: `resize`       | `(path, width, height, mode) -> path`                   | 해상도 변경. mode: pad/crop/stretch   |
-| TODO: `reframe`      | `(path, target_aspect) -> path`                         | 9:16 / 16:9 자동 리프레임 (subject detection) |
-| TODO: `change_speed` | `(path, factor) -> path`                                | 0.25x ~ 4x                           |
-| TODO: `crop`         | `(path, x, y, w, h) -> path`                            | 사각 crop                            |
-| TODO: `rotate`       | `(path, degrees) -> path`                               | 90/180/270 회전                      |
-| TODO: `trim`         | `(path, head_cut, tail_cut) -> path`                    | 앞/뒤만 잘라내기                     |
-| TODO: `concat_with_transition` | `(paths, transition_type) -> path`            | merge + 사이 트랜지션 (effect_expert 협업) |
+| tool                     | 시그니처                                                          | 설명                                  |
+|--------------------------|-------------------------------------------------------------------|---------------------------------------|
+| `cut_video`              | `(video_path, start_ms, end_ms, output_path?) -> path`            | 구간 cut. **타임스탬프는 ms 단위.** 병렬 호출 가능. |
+| `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 자동 reencode. |
+| `search_video_segments`  | `(video_path, query, max_results?) -> json`                       | 분석 JSON 에서 자연어로 장면 검색 (컷 안 함) |
+| `cut_by_description`     | `(video_path, query, merge?, padding_ms?, max_segments?) -> json` | 자연어 장면 검색 + 자동 컷 (+선택 병합) |
 
-호출 시 박을 정보: 입력/출력 경로, start/end (초 단위 float).
+호출 시 박을 정보: 입력/출력 경로, start_ms/end_ms (밀리초 int) 또는 자연어 query.
+
+**중요 — 장면 선별 원칙:**
+- 목표 길이(예: 1분)가 있으면 그 길이에 맞는 장면 *몇 개만 선별*해서 cut 한다.
+  전체 scene 을 모두 cut 하는 것 금지 (원본 길이 그대로 나옴).
+- "입국 장면", "골 장면" 같은 내용 기반 요청은 scene_id 나열 대신
+  `cut_by_description(query=...)` 을 장면당 1 회씩 쓰는 것이 정확하다.
 
 
 ## audio_expert
