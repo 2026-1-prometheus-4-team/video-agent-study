@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_audio(video_path: Path) -> Path:
-    handle = tempfile.NamedTemporaryFile(prefix="whisper_", suffix=".m4a", delete=False)
+    handle = tempfile.NamedTemporaryFile(prefix="whisper_", suffix=".wav", delete=False)
     handle.close()
     output = Path(handle.name)
     run_ffmpeg(
         "-i", str(video_path),
-        "-vn", "-acodec", "aac", "-ab", "64k", "-ar", "16000", "-ac", "1",
+        "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
         "-y", str(output),
     )
     return output
@@ -115,9 +115,11 @@ def _local_whisper(audio_path: Path) -> tuple[list[dict], str]:
         compute_type=os.getenv("FASTER_WHISPER_COMPUTE_TYPE", "int8"),
     )
     segments, info = model.transcribe(
-    str(audio_path),
-    vad_filter=True,
-    language="ko",
+        str(audio_path),
+        vad_filter=False,
+        language="ko",
+        no_speech_threshold=0.75,
+        condition_on_previous_text=False,
     )
     return [_segment_dict(segment) for segment in segments], info.language
 

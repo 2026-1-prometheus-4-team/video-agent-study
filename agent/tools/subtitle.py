@@ -62,7 +62,7 @@ def _build_srt(transcript: list, platform: str = "youtube") -> str:
     for i, seg in enumerate(transcript, 1):
         start_ts = _seconds_to_srt_time(float(seg["start"]))
         end_ts = _seconds_to_srt_time(float(seg["end"]))
-        text = _wrap_text(seg.get("text", "").strip(), max_len)
+        text = seg.get("text", "").strip()
         blocks.append(f"{i}\n{start_ts} --> {end_ts}\n{text}")
     return "\n\n".join(blocks)
 
@@ -87,12 +87,12 @@ def _escape_drawtext(text: str) -> str:
 def _default_style(platform: str = "youtube") -> dict:
     if platform == "shorts":
         return {
-            "font_size": 36,
+            "font_size": 24,
             "color": "white",
             "stroke_color": "black",
             "stroke_width": 2,
-            "position": "center",
-            "margin_v": 0,
+            "position": "bottom",
+            "margin_v": 30,
             "platform": "shorts",
         }
     return {
@@ -261,12 +261,12 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
 
         # 1. Whisper 전사
         logger.info(f"add_auto_subtitle: transcribe 시작 — {video_path}")
-        raw = transcribe_video.invoke({"file_path": input_path})
+        raw = transcribe_video.invoke({"video_path": str(input_path)})
         result = json.loads(raw)
         if "error" in result:
             return json.dumps({"error": f"전사 실패: {result['error']}"}, ensure_ascii=False)
 
-        transcript = result.get("transcript", [])
+        transcript = result.get("segments", [])
         if not transcript:
             return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
 
