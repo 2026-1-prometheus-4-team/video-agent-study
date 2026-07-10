@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_audio(video_path: Path) -> Path:
-    handle = tempfile.NamedTemporaryFile(prefix="whisper_", suffix=".m4a", delete=False)
+    handle = tempfile.NamedTemporaryFile(prefix="whisper_", suffix=".wav", delete=False)
     handle.close()
     output = Path(handle.name)
     run_ffmpeg(
         "-i", str(video_path),
-        "-vn", "-acodec", "aac", "-ab", "64k", "-ar", "16000", "-ac", "1",
+        "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
         "-y", str(output),
     )
     return output
@@ -64,6 +64,28 @@ def _segment_dict(segment: Any, offset: float = 0.0) -> dict:
         "end": round(float(read("end")) + offset, 2),
         "text": str(read("text")).strip(),
     }
+
+
+def _openai_whisper(chunks: list[tuple[Path, float]]) -> tuple[list[dict], str]:
+    from openai import OpenAI
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    segments: list[dict] = []
+    language = "unknown"
+
+    for chunk_path, offset in chunks:
+        with open(chunk_path, "rb") as f:
+            response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="verbose_json",
+                timestamp_granularities=["segment"],
+            )
+        language = response.language or language
+        for seg in response.segments or []:
+            segments.append(_segment_dict(seg, offset))
+
+    return segments, language
 
 
 def _gemini_transcribe(chunks: list[tuple[Path, float]]) -> tuple[list[dict], str]:
@@ -115,9 +137,10 @@ def _local_whisper(audio_path: Path) -> tuple[list[dict], str]:
         compute_type=os.getenv("FASTER_WHISPER_COMPUTE_TYPE", "int8"),
     )
     segments, info = model.transcribe(
-    str(audio_path),
-    vad_filter=True,
-    language="ko",
+        str(audio_path),
+        vad_filter=False,
+        no_speech_threshold=0.75,
+        condition_on_previous_text=False,
     )
     return [_segment_dict(segment) for segment in segments], info.language
 
