@@ -66,6 +66,28 @@ def _segment_dict(segment: Any, offset: float = 0.0) -> dict:
     }
 
 
+def _openai_whisper(chunks: list[tuple[Path, float]]) -> tuple[list[dict], str]:
+    from openai import OpenAI
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    segments: list[dict] = []
+    language = "unknown"
+
+    for chunk_path, offset in chunks:
+        with open(chunk_path, "rb") as f:
+            response = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="verbose_json",
+                timestamp_granularities=["segment"],
+            )
+        language = response.language or language
+        for seg in response.segments or []:
+            segments.append(_segment_dict(seg, offset))
+
+    return segments, language
+
+
 def _gemini_transcribe(chunks: list[tuple[Path, float]]) -> tuple[list[dict], str]:
     from google import genai
 
@@ -117,7 +139,6 @@ def _local_whisper(audio_path: Path) -> tuple[list[dict], str]:
     segments, info = model.transcribe(
         str(audio_path),
         vad_filter=False,
-        language="ko",
         no_speech_threshold=0.75,
         condition_on_previous_text=False,
     )

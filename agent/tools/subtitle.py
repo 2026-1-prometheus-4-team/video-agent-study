@@ -40,7 +40,7 @@ def _seconds_to_srt_time(s: float) -> str:
 
 
 def _wrap_text(text: str, max_len: int) -> str:
-    """공백 기준 줄바꿈. 쇼츠 12자 / 유튜브 25자 제한."""
+    """공백 기준 줄바꿈. max_len 초과 시 이전 공백에서 분리."""
     if len(text) <= max_len:
         return text
     lines = []
@@ -55,14 +55,27 @@ def _wrap_text(text: str, max_len: int) -> str:
     return "\n".join(lines)
 
 
-def _build_srt(transcript: list, platform: str = "youtube") -> str:
-    """transcript 세그먼트 리스트 → SRT 문자열. 타이밍은 원본 그대로."""
-    max_len = 12 if platform == "shorts" else 25
+def _calc_max_chars(font_size: int) -> int:
+    """화면 80% 기준 최대 한 줄 글자 수.
+
+    libass 기본 PlayResX=640 기준으로 한국어 전각 문자 너비 ≈ font_size px.
+    → max_chars = 0.8 * 640 / font_size = 512 / font_size
+    """
+    return max(8, int(512 / font_size))
+
+
+def _build_srt(transcript: list, platform: str = "youtube", max_len: int = 0) -> str:
+    """transcript 세그먼트 리스트 → SRT 문자열. 타이밍은 원본 그대로.
+
+    max_len > 0 이면 해당 글자 수 초과 시 줄바꿈.
+    """
     blocks = []
     for i, seg in enumerate(transcript, 1):
         start_ts = _seconds_to_srt_time(float(seg["start"]))
         end_ts = _seconds_to_srt_time(float(seg["end"]))
         text = seg.get("text", "").strip()
+        if max_len > 0:
+            text = _wrap_text(text, max_len)
         blocks.append(f"{i}\n{start_ts} --> {end_ts}\n{text}")
     return "\n\n".join(blocks)
 
@@ -270,14 +283,22 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
         if not transcript:
             return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
 
-        # 2. SRT 생성
+        # 2. SRT 생성 (font_size 기반 80% 줄바꿈)
+        s_tmp = _merge_style(style)
+        font_size = s_tmp.get("font_size", 24)
+        max_len = _calc_max_chars(font_size)
+
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
         name, _ = os.path.splitext(video_path)
         srt_abs = os.path.join(SUBTITLES_DIR, f"{name}.srt")
-        srt_content = _build_srt(transcript, platform)
+        srt_content = _build_srt(transcript, platform, max_len=max_len)
         with open(srt_abs, "w", encoding="utf-8") as f:
             f.write(srt_content)
-        logger.info(f"SRT 저장: {srt_abs} ({len(transcript)}개 세그먼트)")
+
+        json_abs = os.path.join(SUBTITLES_DIR, f"{name}.json")
+        with open(json_abs, "w", encoding="utf-8") as f:
+            json.dump({"segments": transcript, "language": result.get("language"), "engine": result.get("engine")}, f, ensure_ascii=False, indent=2)
+        logger.info(f"SRT/JSON 저장: {srt_abs} ({len(transcript)}개 세그먼트)")
 
         # 3. burn-in
         return add_subtitle.invoke({"video_path": video_path, "srt_path": srt_abs, "style": style})
