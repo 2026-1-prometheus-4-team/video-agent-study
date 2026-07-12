@@ -29,11 +29,11 @@
   --text-3: #8a8f98;
   --text-4: #62666d;
 
-  /* accent — 단일 크로마. 셀렉션/포커스/프라이머리/선택된 키프레임 전용 */
-  --accent: #4c8dff;
-  --accent-strong: #6da4ff;
-  --accent-muted: rgba(76, 141, 255, 0.15);
-  --accent-outline: rgba(76, 141, 255, 0.55);
+  /* accent — soft indigo (Linear 계열, 미니멀 · non-AI). 셀렉션/포커스/프라이머리 전용 */
+  --accent: #7c8df1;
+  --accent-strong: #99a5ff;
+  --accent-muted: rgba(124, 141, 241, 0.14);
+  --accent-outline: rgba(124, 141, 241, 0.5);
 
   /* status (15% 알파 배경과 짝) */
   --danger: #ff6161;
@@ -99,6 +99,8 @@ body {
   font-family: var(--font-ui-stack);
   font-size: var(--fs-13);
   font-feature-settings: "calt", "kern", "liga", "ss03", "cv11";
+  /* Pretendard 한글 조판 표준 -2.5% */
+  letter-spacing: -0.025em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   user-select: none;

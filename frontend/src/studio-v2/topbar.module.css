@@ -1,0 +1,232 @@
+.bar {
+  grid-area: topbar;
+  height: 52px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--bg-app);
+  position: relative;
+  z-index: 20;
+}
+
+/* subtle bottom shade (구분선 대신 그림자만) */
+.bar::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.2));
+  pointer-events: none;
+  opacity: 0;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+/* ---- icon button ---- */
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-2);
+  color: var(--text-3);
+  transition: background 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.iconBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  transition: none;
+}
+.iconBtn:active {
+  transform: scale(0.94);
+}
+.mobileOnly {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileOnly {
+    display: inline-flex;
+  }
+  .desktopOnly {
+    display: none;
+  }
+}
+
+.collapseIcon {
+  display: block;
+}
+.expandIcon {
+  display: none;
+}
+.bar[data-collapsed="true"] .collapseIcon,
+:global(.shell[data-collapsed="true"]) .iconBtn .collapseIcon {
+  display: none;
+}
+:global(.shell[data-collapsed="true"]) .iconBtn .expandIcon {
+  display: block;
+}
+
+/* ---- brand ---- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+}
+
+.brandMark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e2033, #14152a);
+  box-shadow:
+    0 0 0 1px rgba(124, 141, 241, 0.24),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  color: var(--accent-strong);
+}
+
+.brandText {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-1);
+}
+
+/* ---- connection pill ---- */
+.connectPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.connectPill[data-offline] {
+  background: rgba(255, 97, 97, 0.1);
+  color: #ff9a9a;
+}
+
+.connectPill[data-online] {
+  background: rgba(89, 212, 153, 0.09);
+  color: #9ee7c0;
+}
+
+.connectDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px currentColor;
+  opacity: 0.5;
+}
+
+.connectPill[data-online] .connectDot {
+  opacity: 1;
+}
+
+.connectLabel {
+  white-space: nowrap;
+}
+
+/* ---- session pill ---- */
+.sessionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  background: var(--bg-elevated);
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: -0.005em;
+  transition: background 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.sessionPill[data-active] {
+  background: linear-gradient(180deg, var(--bg-elevated), var(--bg-panel));
+  box-shadow:
+    0 0 0 1px var(--accent-outline),
+    0 0 0 3px rgba(124, 141, 241, 0.08);
+  color: var(--text-2);
+}
+
+.sessionMono {
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionDot {
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--text-4);
+}
+
+.sessionStatus {
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.sessionEmpty {
+  color: var(--text-4);
+  font-weight: 400;
+}
+
+/* ---- motion editor link ---- */
+.motionLink {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  background: transparent;
+  transition: background 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.motionLink:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  text-decoration: none;
+}

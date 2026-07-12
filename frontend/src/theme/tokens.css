@@ -1,0 +1,280 @@
+/*
+ * Video Agent Studio design tokens.
+ * Single source of truth for color, typography, spacing, radius, elevation,
+ * motion durations, and component-level tokens. DESIGN.md 참조.
+ *
+ * 규칙:
+ * - 컴포넌트 CSS 에 hex 리터럴 금지. 반드시 var(--…) 참조.
+ * - dark 가 canonical, [data-theme="light"] 는 미러.
+ * - divider 사용 최소화 — hierarchy 는 surface ladder + spacing + weight 로.
+ */
+
+:root,
+:root[data-theme="dark"] {
+  /* ---------- Surface ladder (4-step) ---------- */
+  --bg-deep: #050506;
+  --bg-base: #0A0A0B;
+  --bg-raised: #111113;
+  --bg-overlay: #18191C;
+
+  --surface-subtle: #0D0D0F;
+  --surface-default: #141518;
+  --surface-strong: #1C1D21;
+  --surface-hover: #1E1F23;
+  --surface-pressed: #171820;
+  --surface-selected: #2A1A0C;
+  --surface-selected-strong: #3D2612;
+
+  /* ---------- Border (last resort) ---------- */
+  --border-subtle: #1A1B1E;
+  --border-default: #26272C;
+  --border-emphasis: #3A3B42;
+  --border-focus: #E08A3C;
+  --border-focus-glow: rgba(224, 138, 60, 0.32);
+
+  /* ---------- Text ---------- */
+  --text-primary: #F4F5F7;
+  --text-secondary: #B6B9C1;
+  --text-tertiary: #82858C;
+  --text-muted: #54575D;
+  --text-disabled: #3A3C42;
+  --text-on-accent: #150804;
+  --text-inverse: #0A0A0B;
+
+  /* ---------- Accent (warm ember) ---------- */
+  --accent: #E08A3C;
+  --accent-hover: #EC9D55;
+  --accent-pressed: #C67630;
+  --accent-subtle-bg: #2A1A0C;
+  --accent-subtle-fg: #F0B476;
+  --accent-secondary: #6B7280;
+  --accent-secondary-hover: #7D848D;
+  --link: #79B8FF;
+
+  /* ---------- Status ---------- */
+  --success: #3ECF8E;
+  --success-fg: #7FE3B0;
+  --success-bg: #0F2419;
+  --warning: #F5A524;
+  --warning-fg: #FBC069;
+  --warning-bg: #2A1F0A;
+  --danger: #E5484D;
+  --danger-fg: #F07278;
+  --danger-bg: #2A1216;
+  --info: #79B8FF;
+  --info-fg: #A3CCFF;
+  --info-bg: #0D1F2E;
+  --streaming: var(--accent);
+  --streaming-pulse: rgba(224, 138, 60, 0.4);
+
+  /* ---------- Agent node colors ---------- */
+  --node-orchestrator: #B6B9C1;
+  --node-research: #79B8FF;
+  --node-planning: #C084FC;
+  --node-edit: #E08A3C;
+  --node-critic: #3ECF8E;
+
+  /* ---------- Typography scale ---------- */
+  --font-ui: 'Pretendard Variable', Pretendard, -apple-system,
+    BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+
+  --fs-display: 48px;
+  --fs-title: 32px;
+  --fs-heading: 22px;
+  --fs-subheading: 17px;
+  --fs-body: 14px;
+  --fs-label: 13px;
+  --fs-caption: 12px;
+  --fs-micro: 11px;
+  --fs-mono: 12.5px;
+
+  --lh-display: 1.04;
+  --lh-title: 1.10;
+  --lh-heading: 1.24;
+  --lh-subheading: 1.40;
+  --lh-body: 1.50;
+  --lh-label: 1.40;
+  --lh-caption: 1.40;
+
+  --tracking-display: -0.045em;
+  --tracking-title: -0.035em;
+  --tracking-heading: -0.030em;
+  --tracking-subheading: -0.025em;
+  --tracking-body: -0.020em;
+  --tracking-label: -0.015em;
+  --tracking-caption: -0.010em;
+  --tracking-eyebrow: 0.08em;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ---------- Spacing (4px scale) ---------- */
+  --sp-0: 0;
+  --sp-0-5: 2px;
+  --sp-1: 4px;
+  --sp-1-5: 6px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+  --sp-24: 96px;
+  --sp-32: 128px;
+
+  /* ---------- Radius ---------- */
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-3: 6px;
+  --r-4: 8px;
+  --r-5: 10px;
+  --r-6: 14px;
+  --r-7: 20px;
+  --r-8: 28px;
+  --r-full: 9999px;
+
+  /* ---------- Elevation (Vercel Geist: shadow-as-border) ---------- */
+  --elev-flat: none;
+  --elev-hairline: 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --elev-raised:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.40),
+    0 4px 12px -4px rgba(0, 0, 0, 0.35);
+  --elev-floating:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 16px -6px rgba(0, 0, 0, 0.50),
+    0 20px 40px -12px rgba(0, 0, 0, 0.40);
+  --elev-overlay:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 20px 40px -12px rgba(0, 0, 0, 0.65),
+    0 40px 80px -24px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  --elev-dramatic:
+    0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 32px 64px -16px rgba(0, 0, 0, 0.75),
+    0 60px 100px -40px rgba(0, 0, 0, 0.60),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+
+  /* ---------- Motion duration (CSS-side) ---------- */
+  --dur-instant: 80ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  --dur-modal: 480ms;
+
+  --ease-fast: cubic-bezier(0.16, 1, 0.30, 1);
+  --ease-modal: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-streaming: cubic-bezier(0.40, 0, 0.20, 1);
+  --ease-pulse: cubic-bezier(0.40, 0, 0.60, 1);
+
+  /* ---------- Component tokens ---------- */
+  --btn-h-sm: 28px;
+  --btn-h-md: 36px;
+  --btn-h-lg: 44px;
+  --btn-px: var(--sp-4);
+  --btn-radius: var(--r-4);
+
+  --card-bg: var(--surface-default);
+  --card-radius: var(--r-5);
+  --card-padding: var(--sp-4);
+  --card-elev: var(--elev-hairline);
+  --card-elev-hover: var(--elev-raised);
+
+  --input-h: 36px;
+  --input-bg: var(--surface-subtle);
+  --input-border: var(--border-subtle);
+  --input-focus: var(--border-focus);
+  --input-radius: var(--r-4);
+
+  --badge-h: 20px;
+  --badge-px: var(--sp-2);
+  --badge-radius: var(--r-full);
+
+  --sidebar-w-collapsed: 60px;
+  --sidebar-w-default: 360px;
+  --sidebar-w-max: 520px;
+
+  --timeline-h: 184px;
+  --timeline-lane-h: 44px;
+  --timeline-ruler-h: 28px;
+  --playhead-w: 1.5px;
+  --playhead-color: var(--accent);
+
+  /* ---------- Responsive breakpoints (JS 참조용) ---------- */
+  --bp-mobile: 0px;
+  --bp-tablet: 768px;
+  --bp-desktop: 1280px;
+  --bp-wide: 1600px;
+}
+
+:root[data-theme="light"] {
+  --bg-deep: #F5F5F1;
+  --bg-base: #FAFAF9;
+  --bg-raised: #FFFFFF;
+  --bg-overlay: #FFFFFF;
+
+  --surface-subtle: #F1F1EC;
+  --surface-default: #FFFFFF;
+  --surface-strong: #F7F7F4;
+  --surface-hover: #EFEFEA;
+  --surface-pressed: #E6E6E1;
+  --surface-selected: #FDECD8;
+  --surface-selected-strong: #F8D8AF;
+
+  --border-subtle: #EDEDE8;
+  --border-default: #D8D8D2;
+  --border-emphasis: #B7B7B0;
+  --border-focus: #B4661F;
+  --border-focus-glow: rgba(180, 102, 31, 0.28);
+
+  --text-primary: #101012;
+  --text-secondary: #40434A;
+  --text-tertiary: #6B6E75;
+  --text-muted: #93969D;
+  --text-disabled: #C1C4CB;
+  --text-on-accent: #150804;
+  --text-inverse: #F4F5F7;
+
+  --accent: #B4661F;
+  --accent-hover: #C67630;
+  --accent-pressed: #9C531A;
+  --accent-subtle-bg: #FDECD8;
+  --accent-subtle-fg: #6E3B0C;
+  --accent-secondary: #6B7280;
+  --accent-secondary-hover: #4B5563;
+  --link: #1E4FD0;
+
+  --success: #16A369;
+  --success-fg: #0E7C48;
+  --success-bg: #E4F7ED;
+  --warning: #B37200;
+  --warning-fg: #7C4E00;
+  --warning-bg: #FBEAD0;
+  --danger: #C4262B;
+  --danger-fg: #921A1F;
+  --danger-bg: #FBE0E1;
+  --info: #1E4FD0;
+  --info-fg: #103898;
+  --info-bg: #E0EAFB;
+
+  --elev-hairline: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --elev-raised:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06),
+    0 4px 12px -4px rgba(0, 0, 0, 0.08);
+  --elev-floating:
+    0 0 0 1px rgba(0, 0, 0, 0.08),
+    0 8px 16px -6px rgba(0, 0, 0, 0.10),
+    0 20px 40px -12px rgba(0, 0, 0, 0.10);
+  --elev-overlay:
+    0 0 0 1px rgba(0, 0, 0, 0.10),
+    0 20px 40px -12px rgba(0, 0, 0, 0.14),
+    0 40px 80px -24px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}

@@ -1,0 +1,111 @@
+.wrap {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0 0 0;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 4px 8px;
+  min-height: 22px;
+}
+
+.headerLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: -0.005em;
+}
+
+.headerMeta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.headerMetaSuffix {
+  color: var(--text-4);
+}
+
+.headerSep {
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--text-4);
+  align-self: center;
+}
+
+.headerHint {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono-stack);
+  color: var(--text-2);
+}
+
+.tracks {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trackRow {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+}
+
+.trackLabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-4);
+  text-align: right;
+  letter-spacing: -0.005em;
+}
+
+.track {
+  position: relative;
+  height: 28px;
+  background: var(--bg-inset);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.trackEmpty {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 6px,
+    rgba(255, 255, 255, 0.015) 6px 12px
+  );
+}
+
+.sceneBlock {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  background: rgba(124, 141, 241, 0.22);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.35);
+}
+
+.subBlock {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}

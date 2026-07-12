@@ -1,0 +1,163 @@
+.sidebar {
+  grid-area: sidebar;
+  height: 100%;
+  background: var(--bg-panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+}
+
+/* subtle right shade (구분선 대신) */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.15));
+  pointer-events: none;
+  transform: translateX(12px);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  min-height: 44px;
+}
+
+.headerLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: -0.005em;
+}
+
+.collapseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-2);
+  color: var(--text-4);
+  transition: background 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.collapseBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-2);
+  transition: none;
+}
+.collapseBtn:active {
+  transform: scale(0.94);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.foot {
+  padding: 12px 12px 14px;
+}
+
+/* ---- collapsed rail ---- */
+.collapsedRail {
+  height: 100%;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.expandBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-2);
+  color: var(--text-3);
+  transition: background 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.expandBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+.expandGlyph {
+  width: 16px;
+  height: 12px;
+  border-radius: 2px;
+  background: currentColor;
+  position: relative;
+  opacity: 0.7;
+}
+.expandGlyph::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--bg-app);
+}
+
+/* ---- mobile drawer ---- */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 30;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(88vw, 380px);
+  background: var(--bg-panel);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    12px 0 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+/* 데스크톱에서는 drawer 숨김 */
+@media (min-width: 768px) {
+  .drawer,
+  .scrim {
+    display: none;
+  }
+}
+
+/* 모바일에서는 desktop sidebar 숨김 */
+@media (max-width: 767px) {
+  .sidebar {
+    display: none;
+  }
+}
