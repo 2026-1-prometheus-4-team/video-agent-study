@@ -71,12 +71,13 @@ export function Composer() {
     const store = useAgentStore.getState();
     store.setUpload(0, f.name, url, null);
     try {
-      store.setUpload(30, f.name, url);
+      // 진행률만 갱신 (url 은 넘기지 않음 → revoke 위험 X)
+      store.setUpload(30);
       const res = await uploadVideo(f);
-      store.setUpload(100, f.name, url, res.path);
+      store.setUpload(100, undefined, undefined, res.path);
       toast.success("업로드 완료", { description: res.path });
     } catch {
-      store.setUpload(100, f.name, url, null);
+      store.setUpload(100);
       toast("로컬 프리뷰만 (백엔드 미응답)");
     }
   };
@@ -150,14 +151,14 @@ export function Composer() {
                 const store = useAgentStore.getState();
                 store.setUpload(0, f.name, url, null);
                 try {
-                  store.setUpload(30, f.name, url);
+                  store.setUpload(30);
                   const res = await uploadVideo(f);
-                  store.setUpload(100, f.name, url, res.path);
+                  store.setUpload(100, undefined, undefined, res.path);
                   toast.success("업로드 완료", {
                     description: res.path,
                   });
                 } catch {
-                  store.setUpload(100, f.name, url, null);
+                  store.setUpload(100);
                   toast("로컬 프리뷰만 (백엔드 미응답)");
                 }
               }}

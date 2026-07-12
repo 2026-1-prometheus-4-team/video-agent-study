@@ -80,14 +80,14 @@ export function EmptyState() {
               const url = URL.createObjectURL(f);
               setUpload(0, f.name, url, null);
               try {
-                setUpload(30, f.name, url);
+                setUpload(30);
                 const res = await uploadVideo(f);
-                setUpload(100, f.name, url, res.path);
+                setUpload(100, undefined, undefined, res.path);
                 toast.success("업로드 완료", {
                   description: res.path,
                 });
-              } catch (err) {
-                setUpload(100, f.name, url, null);
+              } catch {
+                setUpload(100);
                 toast("업로드는 로컬만 성공 (백엔드 응답 없음)", {
                   description:
                     "지금은 로컬 프리뷰만 가능. 아래 예시 지시로 스트리밍 UX 는 확인 가능.",

@@ -339,7 +339,9 @@ export const useAgentStore = create<AgentState>()(
       set((s) => {
         s.uploadPct = pct;
         if (name !== undefined) s.uploadedName = name;
-        if (url !== undefined) {
+        if (url !== undefined && url !== s.uploadedUrl) {
+          // 이전 blob 이 있고 실제로 새 URL 로 바뀔 때만 revoke.
+          // 같은 URL 재세팅 시 revoke 하면 <video src> 참조가 끊겨 404 남.
           if (s.uploadedUrl && s.uploadedUrl.startsWith("blob:")) {
             try {
               URL.revokeObjectURL(s.uploadedUrl);
