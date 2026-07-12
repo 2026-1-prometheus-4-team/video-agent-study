@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { motion } from "motion/react";
 import { ArrowUp, Paperclip, X } from "lucide-react";
@@ -17,6 +17,15 @@ export function Composer() {
   const uploadedName = useAgentStore((s) => s.uploadedName);
   const connection = useAgentStore((s) => s.connection);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow textarea (line-count 기반, max 160px)
+  useEffect(() => {
+    const ta = inputRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    const next = Math.min(ta.scrollHeight, 160);
+    ta.style.height = `${next}px`;
+  }, [text]);
 
   const handleSend = useCallback(async () => {
     const t = text.trim();

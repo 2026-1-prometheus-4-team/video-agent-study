@@ -30,6 +30,9 @@ export type SessionStatus =
   | "completed"
   | "error";
 
+export type TranscriptSeg = { start: number; end: number; text: string };
+export type SceneSeg = { start: number; end: number; description: string };
+
 export type StreamItem =
   | { kind: "user"; id: string; text: string; createdAt: number; files?: string[] }
   | {
@@ -65,8 +68,11 @@ export type StreamItem =
       id: string;
       createdAt: number;
       outputPath: string;
+      outputUrl?: string;
       duration: number;
       criticNote?: string;
+      transcript?: TranscriptSeg[];
+      scenes?: SceneSeg[];
     }
   | {
       kind: "info";
@@ -112,12 +118,12 @@ export interface AgentState {
   uploadedName: string | null;
   uploadedUrl: string | null;
   serverVideoPath: string | null;
-  // insights (video_context)
+  // insights (video_context) — 실제 배열 포함
   videoContext: {
     file_path: string;
     duration: number;
-    sceneCount: number;
-    transcriptCount: number;
+    scenes: SceneSeg[];
+    transcript: TranscriptSeg[];
   } | null;
 
   // ---- actions ----
@@ -136,7 +142,16 @@ export interface AgentState {
   endTool: (id: string, ok: boolean, result?: unknown, errorMessage?: string) => void;
   pushInterrupt: (plan: PlanStep[], questions: string[]) => void;
   resolveInterrupt: (approved: boolean, feedback?: string) => void;
-  pushFinal: (outputPath: string, duration: number, criticNote?: string) => void;
+  pushFinal: (
+    outputPath: string,
+    duration: number,
+    opts?: {
+      criticNote?: string;
+      outputUrl?: string;
+      transcript?: TranscriptSeg[];
+      scenes?: SceneSeg[];
+    }
+  ) => void;
   pushInfo: (text: string) => void;
   pushError: (title: string, detail?: string, toolId?: string) => void;
   setUpload: (
@@ -297,15 +312,18 @@ export const useAgentStore = create<AgentState>()(
         s.sessionStatus = "streaming";
       }),
 
-    pushFinal: (outputPath, duration, criticNote) =>
+    pushFinal: (outputPath, duration, opts) =>
       set((s) => {
         const item = {
           kind: "final" as const,
           id: nextId(),
           createdAt: Date.now(),
           outputPath,
+          outputUrl: opts?.outputUrl,
           duration,
-          criticNote,
+          criticNote: opts?.criticNote,
+          transcript: opts?.transcript,
+          scenes: opts?.scenes,
         };
         s.stream.push(item);
         s.lastFinal = item;

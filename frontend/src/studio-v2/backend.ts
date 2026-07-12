@@ -133,7 +133,10 @@ export async function ensureSessionAndConnect(
 ): Promise<AgentSocket | null> {
   try {
     const existing = useAgentStore.getState().sessionId;
-    if (currentSocket && existing) return currentSocket;
+    if (currentSocket && existing) {
+      await currentSocket.ready().catch(() => undefined);
+      return currentSocket;
+    }
 
     useAgentStore.getState().setConnection("connecting");
     const { session_id } = await createSession(
@@ -143,6 +146,7 @@ export async function ensureSessionAndConnect(
     const sock = new AgentSocket(session_id);
     sock.connect();
     currentSocket = sock;
+    await sock.ready(6000);
     return sock;
   } catch (err) {
     console.warn("session create failed", err);
@@ -187,9 +191,26 @@ export class AgentSocket {
   private retries = 0;
   private currentAgentMsgId: string | null = null;
   private currentToolStack: string[] = []; // FIFO 로 tool_result 매핑
+  private openWaiters: Array<() => void> = [];
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
+  }
+
+  /** open 상태가 될 때까지 대기 (5초 이내). */
+  ready(timeoutMs = 5000): Promise<void> {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => {
+        this.openWaiters = this.openWaiters.filter((w) => w !== fn);
+        reject(new Error("WebSocket ready timeout"));
+      }, timeoutMs);
+      const fn = () => {
+        clearTimeout(t);
+        resolve();
+      };
+      this.openWaiters.push(fn);
+    });
   }
 
   connect() {
@@ -202,6 +223,10 @@ export class AgentSocket {
     ws.addEventListener("open", () => {
       this.retries = 0;
       useAgentStore.getState().setConnection("online");
+      // waiters flush
+      const list = this.openWaiters.slice();
+      this.openWaiters = [];
+      list.forEach((fn) => fn());
     });
 
     ws.addEventListener("message", (ev) => {
@@ -297,13 +322,44 @@ export class AgentSocket {
         break;
       }
       case "final": {
-        const outputPath =
-          (ev.output_url && `${API_BASE}${ev.output_url}`) ||
-          ev.output_path ||
-          "";
-        const durationRaw = ev.video_context?.duration;
-        const duration = typeof durationRaw === "number" ? durationRaw : 0;
-        store.pushFinal(outputPath, duration, ev.critic?.message_to_user);
+        const outputPath = ev.output_path || "";
+        const outputUrl = ev.output_url
+          ? `${API_BASE}${ev.output_url}`
+          : undefined;
+        const vc =
+          (ev.video_context as {
+            file_path?: string;
+            duration?: number;
+            scenes?: Array<{ start: number; end: number; description?: string }>;
+            transcript?: Array<{ start: number; end: number; text: string }>;
+          } | undefined) ?? undefined;
+        const duration = typeof vc?.duration === "number" ? vc.duration : 0;
+        const scenes = (vc?.scenes ?? []).map((sc) => ({
+          start: sc.start,
+          end: sc.end,
+          description: sc.description ?? "",
+        }));
+        const transcript = (vc?.transcript ?? []).map((t) => ({
+          start: t.start,
+          end: t.end,
+          text: t.text ?? "",
+        }));
+
+        store.pushFinal(outputPath, duration, {
+          criticNote: ev.critic?.message_to_user,
+          outputUrl,
+          scenes,
+          transcript,
+        });
+        // videoContext 도 갱신 (Timeline 이 참조)
+        if (vc) {
+          store.setVideoContext({
+            file_path: vc.file_path ?? outputPath,
+            duration,
+            scenes,
+            transcript,
+          });
+        }
         // 남은 tool 카드 있으면 성공 처리
         while (this.currentToolStack.length) {
           const id = this.currentToolStack.shift()!;

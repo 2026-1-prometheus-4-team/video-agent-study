@@ -20,9 +20,9 @@ export function Timeline() {
             {videoContext && (
               <>
                 <span className={styles.headerSep} />
-                <span>{videoContext.sceneCount} 씬</span>
+                <span>{videoContext.scenes.length} 씬</span>
                 <span className={styles.headerSep} />
-                <span>{videoContext.transcriptCount} 자막</span>
+                <span>{videoContext.transcript.length} 자막</span>
               </>
             )}
           </div>
@@ -37,8 +37,8 @@ export function Timeline() {
         <div className={styles.trackRow}>
           <div className={styles.trackLabel}>씬</div>
           <div className={styles.track}>
-            {videoContext ? (
-              renderScenes(videoContext.sceneCount, duration)
+            {videoContext && videoContext.scenes.length > 0 ? (
+              renderScenes(videoContext.scenes, duration)
             ) : (
               <div className={styles.trackEmpty} />
             )}
@@ -48,8 +48,8 @@ export function Timeline() {
         <div className={styles.trackRow}>
           <div className={styles.trackLabel}>자막</div>
           <div className={styles.track}>
-            {videoContext ? (
-              renderSubs(videoContext.transcriptCount, duration)
+            {videoContext && videoContext.transcript.length > 0 ? (
+              renderSubs(videoContext.transcript, duration)
             ) : (
               <div className={styles.trackEmpty} />
             )}
@@ -60,49 +60,48 @@ export function Timeline() {
   );
 }
 
-function renderScenes(count: number, duration: number) {
-  const segments = Array.from({ length: count }).map((_, i) => {
-    const start = (i / count) * 100;
-    const width = (1 / count) * 100 - 0.6;
-    return { start, width, key: i };
+function renderScenes(
+  scenes: { start: number; end: number }[],
+  duration: number
+) {
+  if (duration <= 0) return null;
+  return scenes.map((sc, i) => {
+    const start = (sc.start / duration) * 100;
+    const width = Math.max(0.6, ((sc.end - sc.start) / duration) * 100 - 0.5);
+    return (
+      <motion.div
+        key={i}
+        className={styles.sceneBlock}
+        style={{ left: `${start}%`, width: `${width}%` }}
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.24,
+          delay: 0.03 * i,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      />
+    );
   });
-  return segments.map((s, i) => (
-    <motion.div
-      key={s.key}
-      className={styles.sceneBlock}
-      style={{ left: `${s.start}%`, width: `${s.width}%` }}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.24,
-        delay: 0.03 * i,
-        ease: [0.22, 1, 0.36, 1],
-      }}
-    />
-  ));
 }
 
-function renderSubs(count: number, duration: number) {
-  // 자막은 겹치는 블록으로. 임의로 60% 커버되게 흩뿌림.
-  const items = Array.from({ length: count }).map((_, i) => {
-    const start = (i / count) * 100 + (i * 3.1) % 4;
-    const width = 100 / count / 1.4;
-    return { start, width, key: i };
+function renderSubs(
+  segs: { start: number; end: number }[],
+  duration: number
+) {
+  if (duration <= 0) return null;
+  return segs.map((sg, i) => {
+    const start = (sg.start / duration) * 100;
+    const width = Math.max(0.4, ((sg.end - sg.start) / duration) * 100 - 0.3);
+    return (
+      <motion.div
+        key={i}
+        className={styles.subBlock}
+        style={{ left: `${start}%`, width: `${width}%` }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.24, delay: 0.012 * i }}
+      />
+    );
   });
-  return items.map((s, i) => (
-    <motion.div
-      key={s.key}
-      className={styles.subBlock}
-      style={{
-        left: `${Math.min(s.start, 96)}%`,
-        width: `${s.width}%`,
-      }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{
-        duration: 0.24,
-        delay: 0.015 * i,
-      }}
-    />
-  ));
 }

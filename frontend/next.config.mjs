@@ -5,6 +5,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next.js dev overlay indicator 좌하단 로고 숨김 (제품 화면과 분리).
+  devIndicators: false,
   // 에디터 public 에 없는 정적 파일 요청은 엔진(labs/remotion/public)으로 폴백 —
   // 스펙 JSON 의 staticFile 이름("cap-....png")이 에디터 플레이어에서도 뜨게.
   async rewrites() {
@@ -12,7 +14,7 @@ const nextConfig = {
       afterFiles: [{ source: "/:path*", destination: "/api/engine-public/:path*" }],
     };
   },
-  // 엔진 소스(../remotion/src)를 앱 밖에서 직접 import 하기 위한 설정.
+  // 엔진 소스(./remotion/src)를 앱 밖에서 직접 import 하기 위한 설정.
   // 엔진을 복사하지 않고 단일 소스로 유지한다 (스튜디오/에디터 동일 코드).
   experimental: {
     externalDir: true,
@@ -22,9 +24,9 @@ const nextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@engine": path.resolve(__dirname, "../remotion/src"),
+      "@engine": path.resolve(__dirname, "./remotion/src"),
     };
-    // 엔진 소스(../remotion/src)가 remotion 을 labs/remotion/node_modules 에서
+    // 엔진 소스(./remotion/src)가 remotion 을 labs/remotion/node_modules 에서
     // resolve 하면 두 벌이 로드돼 Player 의 React context 가 끊긴다("No video
     // config found"). 엔진 파일에서 나가는 remotion import 만 에디터 사본으로
     // 스코프 alias 한다.
@@ -33,7 +35,7 @@ const nextConfig = {
     // 스코프 alias 가 그걸 덮어써서 두 React 가 로드된다(useId/useContext null).
     config.module.rules.unshift({
       test: /\.(ts|tsx|js|jsx|mjs)$/,
-      include: [path.resolve(__dirname, "../remotion/src")],
+      include: [path.resolve(__dirname, "./remotion/src")],
       resolve: {
         alias: {
           remotion: path.resolve(__dirname, "node_modules/remotion"),

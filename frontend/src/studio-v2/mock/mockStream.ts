@@ -71,11 +71,28 @@ export async function playScenario(kind: "shorts" | "concept" = "shorts") {
       transcript_segments: 24,
       duration: 118.4,
     });
+    const mockScenes = Array.from({ length: 12 }).map((_, i) => ({
+      start: (118.4 / 12) * i,
+      end: (118.4 / 12) * (i + 1),
+      description: `scene ${i + 1}`,
+    }));
+    const mockTranscript = Array.from({ length: 24 }).map((_, i) => ({
+      start: (118.4 / 24) * i,
+      end: (118.4 / 24) * (i + 1) - 0.2,
+      text: [
+        "이번엔 뭐 만들지 볼까",
+        "재료는 이렇게 준비했어",
+        "칼질부터 시작해",
+        "요건 진짜 맛있다",
+        "간단하지만 감칠맛 있어",
+      ][i % 5],
+    }));
+
     store.setVideoContext({
       file_path: "cooking-2m.mp4",
       duration: 118.4,
-      sceneCount: 12,
-      transcriptCount: 24,
+      scenes: mockScenes,
+      transcript: mockTranscript,
     });
     await sleep(300);
 
@@ -261,11 +278,12 @@ export async function playApprovedContinuation() {
   store.endTool(criticId, true, { verdict: "PASS" });
   await sleep(200);
 
-  // Final
-  store.pushFinal(
-    "videos/output.mp4",
-    58.4,
-    "쇼츠 형식, 자막 가독성 우수, BGM 자동 감쇠 정상"
-  );
+  // Final — 최종 결과 videoContext 를 채워서 모션 에디터 진입 가능
+  const currentVc = store.videoContext;
+  store.pushFinal("videos/output.mp4", 58.4, {
+    criticNote: "쇼츠 형식, 자막 가독성 우수, BGM 자동 감쇠 정상",
+    scenes: currentVc?.scenes?.slice(0, 5),
+    transcript: currentVc?.transcript?.slice(0, 12),
+  });
   store.pushInfo("세션 종료 · 총 처리 시간 12.4s");
 }
