@@ -60,6 +60,9 @@ export type VideoElementSpec = {
     muted?: boolean;
     /** 재생 속도. 기본 1. */
     playbackRate?: number;
+    /** 소스 영상 트림 오프셋(frame). 긴 영상을 30s 씬 여러 개로 나눌 때
+     *  각 씬이 이어서 재생되도록 지정 (에이전트 결과 spec 분할용). */
+    trimBefore?: number;
   };
   layers?: MotionLayer[];
   keyframes?: ElementKeyframe[];
@@ -126,6 +129,7 @@ export const ComposedVideo: React.FC<{
         loop={base.loop ?? true}
         muted={base.muted ?? true}
         playbackRate={base.playbackRate ?? 1}
+        trimBefore={base.trimBefore}
         style={{ width: "100%", height: "100%", objectFit: base.fit ?? "cover", display: "block" }}
       />
       {base.stroke && (

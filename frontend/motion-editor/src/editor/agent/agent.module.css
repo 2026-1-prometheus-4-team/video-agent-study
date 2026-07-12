@@ -26,7 +26,7 @@
 .statusDot[data-status="running"],
 .statusDot[data-status="uploading"] { background: #facc15; animation: agentPulse 1.2s ease-in-out infinite; }
 .statusDot[data-status="awaiting"] { background: #60a5fa; }
-.statusDot[data-status="error"] { background: #f87171; }
+.statusDot[data-status="offline"] { background: #f87171; }
 @keyframes agentPulse {
   50% { opacity: 0.35; }
 }

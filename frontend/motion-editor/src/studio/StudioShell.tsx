@@ -22,21 +22,43 @@ export default function StudioShell() {
   const feed = useAgent((st) => st.feed);
   const status = useAgent((st) => st.status);
   const sessionId = useAgent((st) => st.sessionId);
+  const backendUp = useAgent((st) => st.backendUp);
+  const checkBackend = useAgent((st) => st.checkBackend);
+  const restoreSession = useAgent((st) => st.restoreSession);
 
-  // 버전 목록: 업로드 원본 + final 결과들
+  // 부팅: 백엔드 헬스체크 + 이전 세션 복원. 오프라인이면 10s 간격 재확인.
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    void checkBackend().then((up) => {
+      if (up) void restoreSession();
+    });
+    timer = setInterval(() => {
+      if (useAgent.getState().backendUp === false) void checkBackend();
+    }, 10_000);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 버전 목록: 업로드 원본 + final 결과들 (같은 URL 중복 제거)
   const versions = React.useMemo<Version[]>(() => {
     const list: Version[] = [];
-    if (videoUrl) list.push({ label: "원본", url: videoUrl });
+    const seen = new Set<string>();
+    if (videoUrl) {
+      list.push({ label: "원본", url: videoUrl });
+      seen.add(videoUrl);
+    }
     let n = 0;
     for (const item of feed) {
       if (item.kind === "final" && item.result.outputUrl) {
+        const u = item.result.outputUrl.startsWith("http")
+          ? item.result.outputUrl
+          : `${AGENT_API}${item.result.outputUrl}`;
+        if (seen.has(u)) continue;
+        seen.add(u);
         n += 1;
-        const u = item.result.outputUrl;
-        list.push({
-          label: `v${n}`,
-          url: u.startsWith("http") ? u : `${AGENT_API}${u}`,
-          result: item.result,
-        });
+        list.push({ label: `v${n}`, url: u, result: item.result });
       }
     }
     return list;
@@ -50,7 +72,7 @@ export default function StudioShell() {
     prevCount.current = versions.length;
   }, [versions.length]);
 
-  const current = versions[Math.min(selected, versions.length - 1)] ?? null;
+  const current = versions[Math.min(selected, Math.max(0, versions.length - 1))] ?? null;
 
   // 프리뷰 재생 위치 (타임라인 동기화)
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
@@ -71,6 +93,14 @@ export default function StudioShell() {
     return null;
   }, [feed]);
 
+  // 씬/자막 레인은 원본 분석 기준 — 선택 버전 길이와 1s 이상 어긋나면 힌트 표시
+  const laneMismatch =
+    !!videoContext &&
+    current?.label !== "원본" &&
+    duration > 0 &&
+    !!videoContext.duration &&
+    Math.abs(duration - videoContext.duration) > 1;
+
   return (
     <div className={s.shell}>
       <header className={s.topbar}>
@@ -78,7 +108,7 @@ export default function StudioShell() {
         <div className={s.versions}>
           {versions.map((v, i) => (
             <button
-              key={v.label}
+              key={v.url}
               className={s.versionPill}
               data-active={i === selected}
               onClick={() => setSelected(i)}
@@ -88,8 +118,9 @@ export default function StudioShell() {
           ))}
         </div>
         <div className={s.topRight}>
+          {backendUp === false && <span className={s.offlineTag}>백엔드 오프라인</span>}
           <span className={s.sessionInfo}>
-            <span className={s.statusDot} data-status={status} />
+            <span className={s.statusDot} data-status={backendUp === false ? "offline" : status} />
             {sessionId ? `session ${sessionId}` : "세션 없음"}
           </span>
           <a className={s.motionLink} href="/motion">
@@ -117,6 +148,7 @@ export default function StudioShell() {
             duration={duration}
             time={time}
             videoContext={videoContext}
+            mismatch={laneMismatch}
             onSeek={seek}
           />
         </main>

@@ -76,7 +76,7 @@
 .statusDot[data-status="running"],
 .statusDot[data-status="uploading"] { background: var(--warn); animation: vaPulse 1.2s ease-in-out infinite; }
 .statusDot[data-status="awaiting"] { background: var(--accent); }
-.statusDot[data-status="error"] { background: var(--danger); }
+.statusDot[data-status="offline"] { background: var(--danger); }
 @keyframes vaPulse { 50% { opacity: 0.35; } }
 .motionLink {
   font-size: 11px;
@@ -87,6 +87,14 @@
   border: 1px solid var(--hairline);
 }
 .motionLink:hover { color: var(--text-1); background: var(--bg-hover); }
+.offlineTag {
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--danger-muted);
+  color: var(--danger);
+  flex: none;
+}
 
 /* ---- 본문 2-pane ---- */
 .body {
@@ -153,6 +161,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  user-select: text; /* 에이전트 답변/계획은 복사 가능해야 함 (전역 none override) */
 }
 
 .railEmpty {
@@ -330,23 +339,27 @@
   min-width: 0;
   padding: 7px 9px;
   border-radius: 7px;
+  border: 1px solid var(--hairline); /* 브라우저 기본 라이트 보더 차단 */
   background: var(--bg-inset);
   color: var(--text-2);
   font-size: 11px;
+  transition: border-color 0.12s ease;
 }
 .textField::placeholder { color: var(--text-4); }
+.textField:focus { outline: none; border-color: var(--accent-outline); }
 .resolvedNote { font-size: 10.5px; color: var(--text-4); }
 
 /* ---- 결과 카드 ---- */
 .resultCard {
   align-self: stretch;
-  border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
-  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  border-radius: 10px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--ok-muted);
+  /* ok-muted 위 본문은 대비 미달 — 어두운 카드 배경 + 초록 테두리로 강조 */
+  background: var(--bg-card);
 }
 .versionTag {
   font-size: 10px;
@@ -356,8 +369,8 @@
   color: var(--ok);
   font-family: var(--font-geist-mono, monospace);
 }
-.criticNote { font-size: 11px; color: var(--text-3); line-height: 1.5; }
-.resultMeta { font-size: 10.5px; color: var(--text-4); }
+.criticNote { font-size: 11px; color: var(--text-2); line-height: 1.5; }
+.resultMeta { font-size: 10.5px; color: var(--text-3); }
 .cardActions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ---- 버튼 공통 ---- */
@@ -420,14 +433,17 @@
   resize: none;
   padding: 9px 11px;
   border-radius: 10px;
+  border: 1px solid var(--hairline);
   background: var(--bg-inset);
   color: var(--text-1);
   font-size: 12px;
   line-height: 1.45;
   font-family: inherit;
+  transition: border-color 0.12s ease;
 }
 .composerInput::placeholder { color: var(--text-4); }
 .composerInput:disabled { opacity: 0.55; }
+.composerInput:focus { outline: none; border-color: var(--accent-outline); }
 .sendBtn {
   padding: 9px 13px;
   border-radius: 10px;
@@ -456,6 +472,12 @@
   padding: 22px;
   position: relative;
 }
+.videoWrap {
+  position: relative; /* 배지가 스테이지가 아닌 영상 프레임에 붙도록 */
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+}
 .stageVideo {
   max-width: 100%;
   max-height: 100%;
@@ -466,8 +488,8 @@
 }
 .stageBadge {
   position: absolute;
-  top: 32px;
-  left: 34px;
+  top: 10px;
+  left: 10px;
   font-size: 10px;
   padding: 3px 9px;
   border-radius: 999px;
@@ -475,6 +497,26 @@
   border: 1px solid var(--hairline-strong);
   color: var(--text-2);
   font-family: var(--font-geist-mono, monospace);
+}
+.stageError {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  max-width: 340px;
+}
+.stageErrorTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.stageErrorDesc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-3);
+  word-break: break-all;
 }
 .stageEmpty {
   margin: auto;
@@ -486,7 +528,7 @@
 .stageEmptyMark {
   width: 58px;
   height: 58px;
-  border-radius: 16px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   background: var(--bg-elevated);
@@ -533,24 +575,42 @@
 }
 .scrubber {
   flex: 1;
-  height: 14px;
+  height: 22px;
   display: flex;
   align-items: center;
   cursor: pointer;
+  touch-action: none; /* pointer capture 드래그 시킹 */
 }
-.scrubber::before {
-  content: "";
-  display: none;
-}
-.scrubberFill {
+.scrubberTrack {
+  position: relative;
+  width: 100%;
   height: 3px;
   border-radius: 2px;
+  background: var(--bg-inset);
+  transition: height 0.12s ease;
+}
+.scrubber:hover .scrubberTrack { height: 5px; }
+.scrubberFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
   background: var(--accent);
-  min-width: 0;
 }
-.scrubber {
-  background: linear-gradient(var(--bg-inset), var(--bg-inset)) center / 100% 3px no-repeat;
+.scrubberThumb {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-1);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
 }
+.scrubber:hover .scrubberThumb { opacity: 1; }
 
 /* ---- 타임라인 ---- */
 .timeline {
@@ -664,4 +724,56 @@
   left: -3.25px;
   border: 4px solid transparent;
   border-top-color: var(--text-1);
+}
+
+/* ---- 업로드 진행 바 ---- */
+.uploadBar {
+  height: 3px;
+  background: var(--bg-inset);
+  flex: none;
+}
+.uploadBarFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+/* ---- 인터랙션 공통 (에디터 모션 컨벤션: 짧고 절제된 전환) ---- */
+.versionPill,
+.motionLink,
+.exampleChip,
+.ghostBtn,
+.ghostBtnSm,
+.primaryBtn,
+.approveBtn,
+.sendBtn,
+.playBtn {
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+/* 키보드 포커스 — outline 제거 금지, 토큰 링으로 대체 */
+.rail button:focus-visible,
+.topbar button:focus-visible,
+.transport button:focus-visible,
+.motionLink:focus-visible {
+  outline: 2px solid var(--accent-outline);
+  outline-offset: 1px;
+}
+
+/* ---- 반응형: 좁은 창에서는 스테이지 위 / 채팅 아래로 스택 ---- */
+@media (max-width: 1000px) {
+  .body { flex-direction: column; }
+  .chatRail {
+    order: 2;
+    width: 100%;
+    min-width: 0;
+    height: 42vh;
+    border-right: none;
+    border-top: 1px solid var(--hairline);
+  }
+  .stageCol { order: 1; }
+  .timeline { height: 124px; }
+  .stageInner { padding: 12px; }
+  /* 낮은 레일에서 flex 센터링 오버플로우로 상단 잘림 방지 — 상단 정렬 */
+  .railEmpty { margin: 14px 8px; }
 }

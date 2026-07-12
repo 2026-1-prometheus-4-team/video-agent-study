@@ -108,8 +108,8 @@ function FinalCard({ result }: { result: FinalResult }) {
     : null;
   const transcript = result.videoContext?.transcript ?? [];
 
-  const openInCanvas = () => {
-    if (openResultInCanvas(result)) showToast("결과 영상을 캔버스에 열었어요");
+  const openInCanvas = async () => {
+    if (await openResultInCanvas(result)) showToast("결과 영상을 캔버스에 열었어요");
     else showToast("결과 URL 이 없어요");
   };
   const addSubs = () => {
@@ -223,7 +223,7 @@ export default function AgentPanel() {
           {status === "ready" && "대기 중"}
           {status === "running" && "실행 중..."}
           {status === "awaiting" && "계획 승인 대기"}
-          {status === "error" && "오류"}
+          {status === "offline" && "백엔드 오프라인"}
         </span>
         {videoUrl ? (
           <button className={s.resetBtn} onClick={reset} title="세션 초기화">
