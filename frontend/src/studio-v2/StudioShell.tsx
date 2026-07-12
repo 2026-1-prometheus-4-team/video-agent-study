@@ -2,27 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { TopBar } from "./TopBar";
+import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Stage } from "./Stage";
 import { Timeline } from "./Timeline";
 import { PipelineHUD } from "./PipelineHUD";
+import { StageToolbar } from "./StageToolbar";
 import styles from "./studio-shell.module.css";
 
 /**
  * StudioShell — v2 최상위 레이아웃.
  *
- * 3-region grid:
- *   [TopBar        ]
- *   [Sidebar│Stage ]
- *   [       │Time  ]
+ * 레이아웃 (topbar 없음):
+ *   [Sidebar│Stage (툴바 top-right)]
+ *   [       │Timeline               ]
  *
  * 반응형:
- *   ≥1280px : 3열 (사이드바 고정)
- *   768-1279: 사이드바 overlay drawer (햄버거)
- *   <768   : 사이드바 bottom sheet (모바일)
+ *   ≥768px : 데스크톱 사이드바 (collapse 가능)
+ *   <768   : 사이드바가 drawer 로 (햄버거 FAB)
  *
- * 접기 (⌘B / 버튼) — 사이드바 폭 spring 애니메이션.
+ * 사이드바 접기 = ⌘B / 사이드바 헤더 버튼.
  */
 export function StudioShell() {
   const [collapsed, setCollapsed] = useState(false);
@@ -37,11 +36,11 @@ export function StudioShell() {
     toggleSidebar();
   });
 
-  // 뷰포트 크기에 따라 mobile mode 전환
+  // 모바일 → 데스크톱 전환 시 drawer 자동 닫기
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const media = window.matchMedia("(max-width: 767px)");
     const onChange = () => {
-      // 데스크톱 → 모바일 전환 시 collapse 상태 유지
       if (!media.matches) setMobileOpen(false);
     };
     media.addEventListener("change", onChange);
@@ -54,11 +53,6 @@ export function StudioShell() {
       data-collapsed={collapsed}
       data-mobile-open={mobileOpen}
     >
-      <TopBar
-        onToggleSidebar={toggleSidebar}
-        onOpenMobileSidebar={() => setMobileOpen(true)}
-      />
-
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
@@ -69,8 +63,25 @@ export function StudioShell() {
       <div className={styles.right}>
         <div className={styles.stageWrap}>
           <Stage />
+
+          <div className={styles.stageOverlay}>
+            <StageToolbar />
+          </div>
+
           <PipelineHUD />
+
+          {/* Mobile FAB — 사이드바가 없을 때만 */}
+          <button
+            type="button"
+            className={styles.mobileFab}
+            onClick={() => setMobileOpen(true)}
+            aria-label="대화 열기"
+          >
+            <Menu size={16} />
+            <span>대화</span>
+          </button>
         </div>
+
         <Timeline />
       </div>
     </div>

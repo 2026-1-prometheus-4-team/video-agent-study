@@ -47,7 +47,8 @@ export function Composer() {
     const f = e.dataTransfer.files?.[0];
     if (f) {
       setAttached(f);
-      useAgentStore.getState().setUpload(100, f.name);
+      const url = URL.createObjectURL(f);
+      useAgentStore.getState().setUpload(100, f.name, url);
     }
   };
 
@@ -58,7 +59,7 @@ export function Composer() {
           <div className={styles.uploadedName}>{uploadedName}</div>
           <button
             type="button"
-            onClick={() => useAgentStore.getState().setUpload(null, null)}
+            onClick={() => useAgentStore.getState().setUpload(null, null, null)}
             aria-label="첨부 취소"
             className={styles.uploadedRemove}
           >
@@ -67,7 +68,7 @@ export function Composer() {
         </div>
       )}
 
-      {attached && (
+      {attached && !uploadedName && (
         <div className={styles.uploadedRow}>
           <div className={styles.uploadedName}>{attached.name}</div>
           <button
@@ -116,7 +117,8 @@ export function Composer() {
                 const f = e.target.files?.[0];
                 if (f) {
                   setAttached(f);
-                  useAgentStore.getState().setUpload(100, f.name);
+                  const url = URL.createObjectURL(f);
+                  useAgentStore.getState().setUpload(100, f.name, url);
                 }
               }}
             />

@@ -74,7 +74,10 @@ export function EmptyState() {
             hidden
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) setUpload(100, f.name);
+              if (f) {
+                const url = URL.createObjectURL(f);
+                setUpload(100, f.name, url);
+              }
             }}
           />
         </label>

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
-import { PanelLeftClose } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
 import { ThreadStream } from "./ThreadStream";
 import { Composer } from "./Composer";
 import { EmptyState } from "./EmptyState";
@@ -23,9 +23,9 @@ export function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const streamLength = useAgentStore((s) => s.stream.length);
+  const activeNode = useAgentStore((s) => s.activeNode);
   const isEmpty = streamLength === 0;
 
-  // Esc → mobile drawer close
   const drawerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!mobileOpen) return;
@@ -44,37 +44,30 @@ export function Sidebar({
         data-collapsed={collapsed}
         initial={false}
         animate={{
-          width: collapsed ? 60 : 384,
+          width: collapsed ? 64 : 384,
         }}
         transition={{
           type: "spring",
-          stiffness: 300,
+          stiffness: 320,
           damping: 32,
-          mass: 0.9,
+          mass: 0.8,
         }}
       >
-        <AnimatePresence mode="wait">
-          {!collapsed && (
+        <AnimatePresence mode="wait" initial={false}>
+          {!collapsed ? (
             <motion.div
               key="content"
               className={styles.content}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.16 }}
+              transition={{ duration: 0.14, delay: 0.08 }}
             >
-              <div className={styles.header}>
-                <div className={styles.headerLabel}>대화</div>
-                <button
-                  type="button"
-                  className={styles.collapseBtn}
-                  onClick={onToggleCollapse}
-                  aria-label="사이드바 접기"
-                  title="⌘B"
-                >
-                  <PanelLeftClose size={14} />
-                </button>
-              </div>
+              <SidebarHeader
+                collapsed={false}
+                onToggle={onToggleCollapse}
+                activePulse={!!activeNode}
+              />
 
               <div className={styles.body}>
                 {isEmpty ? <EmptyState /> : <ThreadStream />}
@@ -84,28 +77,22 @@ export function Sidebar({
                 <Composer />
               </div>
             </motion.div>
+          ) : (
+            <motion.div
+              key="rail"
+              className={styles.collapsedRail}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.14, delay: 0.08 }}
+            >
+              <SidebarCollapsedTop
+                onToggle={onToggleCollapse}
+                activePulse={!!activeNode}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
-
-        {collapsed && (
-          <motion.div
-            key="collapsed"
-            className={styles.collapsedRail}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.12, delay: 0.12 }}
-          >
-            <button
-              type="button"
-              className={styles.expandBtn}
-              onClick={onToggleCollapse}
-              aria-label="사이드바 펴기"
-              title="⌘B"
-            >
-              <span className={styles.expandGlyph} />
-            </button>
-          </motion.div>
-        )}
       </motion.aside>
 
       {/* Mobile drawer */}
@@ -130,23 +117,18 @@ export function Sidebar({
               exit={{ x: "-100%" }}
               transition={{
                 type: "spring",
-                stiffness: 320,
+                stiffness: 340,
                 damping: 34,
                 mass: 0.8,
               }}
             >
               <div className={styles.content}>
-                <div className={styles.header}>
-                  <div className={styles.headerLabel}>대화</div>
-                  <button
-                    type="button"
-                    className={styles.collapseBtn}
-                    onClick={onCloseMobile}
-                    aria-label="사이드바 닫기"
-                  >
-                    <PanelLeftClose size={14} />
-                  </button>
-                </div>
+                <SidebarHeader
+                  collapsed={false}
+                  onToggle={onCloseMobile}
+                  activePulse={!!activeNode}
+                  closeIconIsX
+                />
                 <div className={styles.body}>
                   {isEmpty ? <EmptyState /> : <ThreadStream />}
                 </div>
@@ -159,5 +141,103 @@ export function Sidebar({
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// -----------------------------------------------------------------------
+// Sub-components
+// -----------------------------------------------------------------------
+
+function SidebarHeader({
+  collapsed,
+  onToggle,
+  activePulse,
+  closeIconIsX,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  activePulse: boolean;
+  closeIconIsX?: boolean;
+}) {
+  return (
+    <div className={styles.header}>
+      <div className={styles.brand}>
+        <div className={styles.brandMark}>
+          <motion.div
+            className={styles.brandMarkGlow}
+            animate={
+              activePulse
+                ? { opacity: [0.6, 1, 0.6] }
+                : { opacity: 0.6 }
+            }
+            transition={{
+              duration: 1.8,
+              repeat: activePulse ? Infinity : 0,
+              ease: "easeInOut",
+            }}
+          />
+          <Sparkles size={11} strokeWidth={2.2} />
+        </div>
+        {!collapsed && (
+          <div className={styles.brandText}>
+            <span className={styles.brandTitle}>Video Agent</span>
+            <span className={styles.brandCaption}>Studio</span>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className={styles.headerBtn}
+        onClick={onToggle}
+        aria-label={closeIconIsX ? "닫기" : "사이드바 접기"}
+        title="⌘B"
+      >
+        <PanelLeftClose size={14} />
+      </button>
+    </div>
+  );
+}
+
+function SidebarCollapsedTop({
+  onToggle,
+  activePulse,
+}: {
+  onToggle: () => void;
+  activePulse: boolean;
+}) {
+  return (
+    <div className={styles.railStack}>
+      <button
+        type="button"
+        className={styles.railBrand}
+        onClick={onToggle}
+        title="사이드바 펴기 (⌘B)"
+      >
+        <motion.div
+          className={styles.brandMarkGlow}
+          animate={
+            activePulse
+              ? { opacity: [0.6, 1, 0.6] }
+              : { opacity: 0 }
+          }
+          transition={{
+            duration: 1.8,
+            repeat: activePulse ? Infinity : 0,
+            ease: "easeInOut",
+          }}
+        />
+        <Sparkles size={12} strokeWidth={2.2} />
+      </button>
+      <button
+        type="button"
+        className={styles.railBtn}
+        onClick={onToggle}
+        aria-label="사이드바 펴기"
+        title="⌘B"
+      >
+        <PanelLeftOpen size={14} />
+      </button>
+    </div>
   );
 }

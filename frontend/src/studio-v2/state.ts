@@ -110,6 +110,7 @@ export interface AgentState {
   // upload
   uploadPct: number | null;
   uploadedName: string | null;
+  uploadedUrl: string | null;
   // insights (video_context)
   videoContext: {
     file_path: string;
@@ -137,7 +138,11 @@ export interface AgentState {
   pushFinal: (outputPath: string, duration: number, criticNote?: string) => void;
   pushInfo: (text: string) => void;
   pushError: (title: string, detail?: string, toolId?: string) => void;
-  setUpload: (pct: number | null, name?: string | null) => void;
+  setUpload: (
+    pct: number | null,
+    name?: string | null,
+    url?: string | null
+  ) => void;
   setVideoContext: (ctx: AgentState["videoContext"]) => void;
   clearStream: () => void;
 }
@@ -168,6 +173,7 @@ export const useAgentStore = create<AgentState>()(
     lastFinal: null,
     uploadPct: null,
     uploadedName: null,
+    uploadedUrl: null,
     videoContext: null,
 
     setConnection: (c) =>
@@ -326,10 +332,21 @@ export const useAgentStore = create<AgentState>()(
         s.sessionStatus = "error";
       }),
 
-    setUpload: (pct, name = null) =>
+    setUpload: (pct, name, url) =>
       set((s) => {
         s.uploadPct = pct;
-        if (name !== null) s.uploadedName = name;
+        if (name !== undefined) s.uploadedName = name;
+        if (url !== undefined) {
+          // 기존 blob url 이 있으면 revoke (메모리 leak 방지)
+          if (s.uploadedUrl && s.uploadedUrl.startsWith("blob:")) {
+            try {
+              URL.revokeObjectURL(s.uploadedUrl);
+            } catch {
+              // ignore
+            }
+          }
+          s.uploadedUrl = url;
+        }
       }),
 
     setVideoContext: (ctx) =>
@@ -346,8 +363,8 @@ export const useAgentStore = create<AgentState>()(
         s.activeNode = null;
         s.nodeToolCount = { ...initialNodeCount };
         s.videoContext = null;
-        s.uploadPct = null;
-        s.uploadedName = null;
+        // 업로드된 파일은 유지 (mock 시나리오에서 재생용).
+        // uploadedUrl 은 유저가 명시적으로 clear 할 때만 revoke.
         s.sessionStatus = "idle";
       }),
   }))
