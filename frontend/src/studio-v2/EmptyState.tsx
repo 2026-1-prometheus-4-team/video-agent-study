@@ -5,7 +5,6 @@ import { Sparkles, Upload } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { useAgentStore } from "./state";
-import { playScenario } from "./mock/mockStream";
 import { uploadVideo } from "./backend";
 import styles from "./emptystate.module.css";
 
@@ -13,41 +12,41 @@ const PROMPTS = [
   {
     title: "하이라이트만 골라서 30초 숏츠로 만들어줘",
     caption: "장면 분석 → 상위 3개 컷 → 9:16 리프레임",
-    scenario: "shorts" as const,
   },
   {
     title: "말하는 내용을 자막으로 넣어줘",
     caption: "Whisper 전사 → 스타일 자막 → burn-in",
-    scenario: "shorts" as const,
   },
   {
     title: "여행 쇼츠 컨셉 3개 추천해줘",
     caption: "트렌드 리서치 → 컨셉 → 후킹 · CTA · BGM",
-    scenario: "concept" as const,
   },
 ];
 
 export function EmptyState() {
   const setUpload = useAgentStore((s) => s.setUpload);
 
-  const trigger = (scenario: "shorts" | "concept") => {
-    if (scenario === "shorts") {
-      setUpload(100, "cooking-2m.mp4");
+  const fillComposer = (title: string) => {
+    // 예시 프롬프트 = Composer 에 텍스트만 채워넣기.
+    // 사용자가 확인 후 직접 전송 (실제 백엔드가 뜨면 실제 실행, 아니면 유저 메시지만 남음).
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("va:fill-composer", { detail: title })
+      );
     }
-    void playScenario(scenario);
   };
 
   useHotkeys("meta+1, ctrl+1", (e) => {
     e.preventDefault();
-    trigger(PROMPTS[0].scenario);
+    fillComposer(PROMPTS[0].title);
   });
   useHotkeys("meta+2, ctrl+2", (e) => {
     e.preventDefault();
-    trigger(PROMPTS[1].scenario);
+    fillComposer(PROMPTS[1].title);
   });
   useHotkeys("meta+3, ctrl+3", (e) => {
     e.preventDefault();
-    trigger(PROMPTS[2].scenario);
+    fillComposer(PROMPTS[2].title);
   });
 
   return (
@@ -108,7 +107,7 @@ export function EmptyState() {
             key={i}
             type="button"
             className={styles.promptCard}
-            onClick={() => trigger(p.scenario)}
+            onClick={() => fillComposer(p.title)}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{

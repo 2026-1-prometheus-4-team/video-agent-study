@@ -42,12 +42,10 @@ export async function playScenario(kind: "shorts" | "concept" = "shorts") {
   store.startSession(`demo-${Date.now().toString(36).slice(-6)}`);
 
   if (kind === "shorts") {
-    // 유저 지시
+    // 유저 지시 (mock demo — 실제 파일 세팅은 하지 않음)
     store.appendUser(
-      "이 영상에서 '맛있다' 부분만 잘라서 60초 쇼츠로 만들어줘",
-      ["cooking-2m.mp4"]
+      "이 영상에서 '맛있다' 부분만 잘라서 60초 쇼츠로 만들어줘"
     );
-    store.setUpload(100, "cooking-2m.mp4");
     await sleep(400);
 
     // 에이전트 첫 메세지

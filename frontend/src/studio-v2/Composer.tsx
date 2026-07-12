@@ -6,7 +6,6 @@ import { motion } from "motion/react";
 import { ArrowUp, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAgentStore } from "./state";
-import { playScenario } from "./mock/mockStream";
 import { ensureSessionAndConnect, trySendChat, uploadVideo } from "./backend";
 import styles from "./composer.module.css";
 
@@ -27,6 +26,26 @@ export function Composer() {
     ta.style.height = `${next}px`;
   }, [text]);
 
+  // EmptyState 프롬프트 카드 클릭 → 이 창을 텍스트로 채우고 focus
+  useEffect(() => {
+    const onFill = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === "string") {
+        setText(detail);
+        // focus after next frame (렌더링 대기)
+        requestAnimationFrame(() => {
+          const ta = inputRef.current;
+          if (ta) {
+            ta.focus();
+            ta.setSelectionRange(detail.length, detail.length);
+          }
+        });
+      }
+    };
+    window.addEventListener("va:fill-composer", onFill);
+    return () => window.removeEventListener("va:fill-composer", onFill);
+  }, []);
+
   const handleSend = useCallback(async () => {
     const t = text.trim();
     if (!t) return;
@@ -39,25 +58,27 @@ export function Composer() {
     store.appendUser(t, attached ? [attached.name] : undefined);
     setText("");
 
-    if (backendUp) {
-      // 세션 없거나 소켓 없으면 만들고 붙임 (upload 된 서버 path 사용)
-      const sock = await ensureSessionAndConnect(serverPath || undefined);
-      if (sock) {
-        const ok = trySendChat(t);
-        if (!ok) {
-          toast("메시지 전송 실패, 데모 시나리오로 대체", {
-            description: "백엔드 연결 문제",
-          });
-          const kind = detectMockable(t);
-          if (kind) void playScenario(kind);
-        }
-        return;
-      }
+    if (!backendUp) {
+      toast("백엔드 오프라인", {
+        description: "backend uvicorn 서버가 켜져 있어야 실제 실행됩니다.",
+      });
+      return;
     }
 
-    // 백엔드 없음 → mock
-    const kind = detectMockable(t);
-    if (kind) void playScenario(kind);
+    // 세션 없거나 소켓 없으면 만들고 붙임 (upload 된 서버 path 사용)
+    const sock = await ensureSessionAndConnect(serverPath || undefined);
+    if (!sock) {
+      toast.error("세션 생성 실패", {
+        description: "backend /session 응답 없음",
+      });
+      return;
+    }
+    const ok = trySendChat(t);
+    if (!ok) {
+      toast.error("메시지 전송 실패", {
+        description: "WebSocket 상태를 확인해줘",
+      });
+    }
   }, [text, attached]);
 
   useHotkeys(
@@ -208,18 +229,3 @@ export function Composer() {
   );
 }
 
-function detectMockable(t: string): "shorts" | "concept" | null {
-  const l = t.toLowerCase();
-  if (l.includes("컨셉") || l.includes("아이디어") || l.includes("모르")) {
-    return "concept";
-  }
-  if (
-    l.includes("쇼츠") ||
-    l.includes("잘라") ||
-    l.includes("자막") ||
-    l.includes("맛있다")
-  ) {
-    return "shorts";
-  }
-  return null;
-}
