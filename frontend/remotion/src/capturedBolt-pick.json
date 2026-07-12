@@ -1,0 +1,18 @@
+{
+  "inputId": 2,
+  "sendId": 6,
+  "typedText": "create a landing page for my startup",
+  "note": "Element 2 is the contenteditable paragraph where the user types, and element 6 is the clear 'Build now' submit button.",
+  "inputBox": {
+    "x": 21,
+    "y": 22,
+    "w": 574,
+    "h": 20
+  },
+  "sendBox": {
+    "x": 482,
+    "y": 90,
+    "w": 121,
+    "h": 36
+  }
+}

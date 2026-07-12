@@ -1,0 +1,41 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0B0A0E",
+    "colors": ["#5B8CFF", "#FF5CA8", "#FF9A5C"],
+    "fontFamily": "Familjen Grotesk"
+  },
+  "scenes": [
+    {
+      "preset": "statement",
+      "text": "you describe it, Lovable builds it",
+      "highlightWord": 3,
+      "highlightCycle": ["#5B8CFF", "#FF5CA8", "#FF9A5C"],
+      "exitSpeed": "fast",
+      "baseColor": "#FFFFFF",
+      "duration": 3.8,
+      "fontSize": 3.2,
+      "fontWeight": 600
+    },
+    {
+      "preset": "punch",
+      "text": "ship it",
+      "palette": ["#5B8CFF", "#FF5CA8", "#FF9A5C"],
+      "baseColor": "#FFFFFF",
+      "duration": 1.2,
+      "fontSize": 8,
+      "fontWeight": 800,
+      "emphasis": "strong"
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "Lovable",
+      "gradientStops": ["#5B8CFF", "#FF5CA8", "#FF9A5C"],
+      "flowSpeed": 2,
+      "baseColor": "#FFFFFF",
+      "duration": 2.6,
+      "fontSize": 9,
+      "fontWeight": 800
+    }
+  ]
+}

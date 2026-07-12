@@ -1,0 +1,529 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0D12",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#52C5FF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "iphone-anchor",
+      "duration": 8.875,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#08070B",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "shader",
+          "id": "horizon-1",
+          "preset": "horizon_flow",
+          "base": {
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "width": 100,
+            "height": 100
+          }
+        },
+        {
+          "element": "device",
+          "id": "phone",
+          "device": "iphone15",
+          "base": {
+            "width": 34,
+            "height": 78,
+            "position": {
+              "x": 0.5,
+              "y": 0.52
+            },
+            "rotateX": 8
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "rotateY": 145
+            },
+            {
+              "frame": 96,
+              "rotateY": 215,
+              "easing": "easeInOut"
+            },
+            {
+              "frame": 192,
+              "rotateY": 145,
+              "easing": "easeInOut",
+              "loop": "cycle"
+            }
+          ],
+          "children": [
+            {
+              "element": "frame",
+              "id": "screen",
+              "sizeRel": true,
+              "base": {
+                "width": 100,
+                "height": 100,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "fill": "#7C4DFF",
+                "clipsContent": true
+              },
+              "children": [
+                {
+                  "element": "text",
+                  "id": "hello",
+                  "base": {
+                    "text": "Scene24",
+                    "fontSize": 2.4,
+                    "color": "#FFFFFF",
+                    "position": {
+                      "x": 0.5,
+                      "y": 0.4
+                    }
+                  }
+                },
+                {
+                  "element": "shape",
+                  "id": "chip",
+                  "base": {
+                    "shape": "rect",
+                    "width": 14,
+                    "height": 3,
+                    "radius": 24,
+                    "position": {
+                      "x": 0.5,
+                      "y": 0.55
+                    },
+                    "fill": {
+                      "type": "solid",
+                      "color": "#4c8dff",
+                      "visible": true
+                    }
+                  }
+                },
+                {
+                  "element": "text",
+                  "id": "count",
+                  "base": {
+                    "text": "0",
+                    "fontSize": 11,
+                    "fontWeight": 600,
+                    "color": "#FFFFFF",
+                    "anchor": "right",
+                    "position": {
+                      "x": 0.5779183571126931,
+                      "y": 0.43328990960826896
+                    }
+                  },
+                  "layers": [
+                    {
+                      "type": "stat_reveal",
+                      "role": "in",
+                      "props": {
+                        "prefix": "+",
+                        "suffix": "",
+                        "from": 0,
+                        "to": 55,
+                        "prefixSide": "left",
+                        "countDuration": 55,
+                        "countEasing": "linear",
+                        "baseColor": "#FFFFFF",
+                        "landColor": "#E23B3B",
+                        "colorDrainDur": 14,
+                        "scaleFrom": 1.06,
+                        "settleFrac": 0.7,
+                        "landBounce": 0.12,
+                        "slideDelay": 0,
+                        "slideDuration": 10,
+                        "slideEasing": "easeOutBack"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "element": "frame",
+          "id": "frame-2",
+          "base": {
+            "width": 5.2,
+            "height": 9.3,
+            "position": {
+              "x": 0.166,
+              "y": 0.2117
+            },
+            "fill": {
+              "type": "solid",
+              "color": "#FFFFFF",
+              "visible": true
+            },
+            "clipsContent": true
+          },
+          "children": []
+        },
+        {
+          "element": "text",
+          "id": "text-4",
+          "base": {
+            "text": "Text",
+            "fontSize": 5,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "layers": []
+        },
+        {
+          "element": "text",
+          "id": "empty-t",
+          "base": {
+            "text": "ab",
+            "fontSize": 5,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.3,
+              "y": 0.3
+            }
+          }
+        },
+        {
+          "element": "text",
+          "id": "title-6",
+          "base": {
+            "text": "Build SaaS Promo",
+            "fontSize": 8,
+            "fontWeight": 600,
+            "color": "#C9CEDC",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "cursor": "none",
+                "wordGap": 8,
+                "firstGap": 7,
+                "lastGap": 10,
+                "revealGap": {
+                  "from": 2.1,
+                  "duration": 16,
+                  "easing": "easeOut"
+                },
+                "revealBlur": {
+                  "from": 14,
+                  "duration": 14
+                },
+                "preReveal": {
+                  "opacity": 0.85,
+                  "blur": 14
+                },
+                "revealMove": {
+                  "y": 0.05,
+                  "duration": 12
+                },
+                "reflow": "smooth",
+                "reflowSmoothing": 14,
+                "reflowLead": 6
+              }
+            },
+            {
+              "type": "scale",
+              "role": "out",
+              "props": {
+                "from": 1,
+                "to": 0.72,
+                "duration": 16,
+                "easing": "easeInCirc"
+              }
+            },
+            {
+              "type": "blur",
+              "role": "out",
+              "props": {
+                "from": 0,
+                "to": 9,
+                "duration": 16,
+                "easing": "easeInCirc"
+              }
+            },
+            {
+              "type": "fade",
+              "role": "out",
+              "props": {
+                "duration": 14
+              }
+            }
+          ]
+        },
+        {
+          "element": "group",
+          "id": "stat-7",
+          "layers": [],
+          "children": [
+            {
+              "element": "text",
+              "id": "label",
+              "base": {
+                "text": "ATMs",
+                "fontSize": 5,
+                "fontWeight": 500,
+                "color": "#9AA3B2",
+                "anchor": "left",
+                "position": {
+                  "x": 0.55,
+                  "y": 0.545
+                }
+              },
+              "layers": [
+                {
+                  "type": "blur",
+                  "role": "in",
+                  "props": {
+                    "from": 8,
+                    "to": 0,
+                    "duration": 10,
+                    "delay": 10,
+                    "easing": "easeOut"
+                  }
+                },
+                {
+                  "type": "move",
+                  "role": "in",
+                  "props": {
+                    "fromY": 0.04,
+                    "toY": 0,
+                    "duration": 12,
+                    "delay": 10,
+                    "easing": "easeOutExpo"
+                  }
+                },
+                {
+                  "type": "fade",
+                  "role": "in",
+                  "props": {
+                    "duration": 10,
+                    "delay": 10
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "element": "group",
+          "id": "stat-8",
+          "layers": [],
+          "children": [
+            {
+              "element": "text",
+              "id": "count",
+              "base": {
+                "text": "0",
+                "fontSize": 11,
+                "fontWeight": 600,
+                "color": "#FFFFFF",
+                "anchor": "right",
+                "position": {
+                  "x": 0.5682625482625483,
+                  "y": 0.4489305287430287
+                }
+              },
+              "layers": [
+                {
+                  "type": "stat_reveal",
+                  "role": "in",
+                  "props": {
+                    "prefix": "+",
+                    "suffix": "",
+                    "from": 0,
+                    "to": 55,
+                    "prefixSide": "left",
+                    "countDuration": 55,
+                    "countEasing": "linear",
+                    "baseColor": "#FFFFFF",
+                    "landColor": "#E23B3B",
+                    "colorDrainDur": 14,
+                    "scaleFrom": 1.06,
+                    "settleFrac": 0.7,
+                    "landBounce": 0.12,
+                    "slideDelay": 0,
+                    "slideDuration": 10,
+                    "slideEasing": "easeOutBack"
+                  }
+                }
+              ]
+            },
+            {
+              "element": "text",
+              "id": "label",
+              "base": {
+                "text": "ATMs",
+                "fontSize": 5,
+                "fontWeight": 500,
+                "color": "#9AA3B2",
+                "anchor": "left",
+                "position": {
+                  "x": 0.5982625482625483,
+                  "y": 0.49393052874302873
+                }
+              },
+              "layers": [
+                {
+                  "type": "blur",
+                  "role": "in",
+                  "props": {
+                    "from": 8,
+                    "to": 0,
+                    "duration": 10,
+                    "delay": 10,
+                    "easing": "easeOut"
+                  }
+                },
+                {
+                  "type": "move",
+                  "role": "in",
+                  "props": {
+                    "fromY": 0.04,
+                    "toY": 0,
+                    "duration": 12,
+                    "delay": 10,
+                    "easing": "easeOutExpo"
+                  }
+                },
+                {
+                  "type": "fade",
+                  "role": "in",
+                  "props": {
+                    "duration": 10,
+                    "delay": 10
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "light": {
+        "azimuth": 135,
+        "elevation": 35,
+        "intensity": 0.8,
+        "ambient": 0.35
+      }
+    },
+    {
+      "id": "mac-anchor",
+      "duration": 8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0B0D12",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "device",
+          "id": "mac",
+          "device": "macbook",
+          "lidAngle": -11,
+          "base": {
+            "width": 53,
+            "height": 70,
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "rotateX": 20
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "rotateY": -26
+            },
+            {
+              "frame": 96,
+              "rotateY": 26,
+              "easing": "easeInOut"
+            },
+            {
+              "frame": 192,
+              "rotateY": -26,
+              "easing": "easeInOut",
+              "loop": "cycle"
+            }
+          ],
+          "children": [
+            {
+              "element": "frame",
+              "id": "screen-2",
+              "sizeRel": true,
+              "base": {
+                "width": 100,
+                "height": 100,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                },
+                "fill": {
+                  "type": "solid",
+                  "color": "#12151b",
+                  "visible": true
+                },
+                "clipsContent": true
+              },
+              "children": [
+                {
+                  "element": "text",
+                  "id": "hello2",
+                  "base": {
+                    "text": "Anchored frame",
+                    "fontSize": 2.6,
+                    "color": "#E8ECF4",
+                    "position": {
+                      "x": 0.5,
+                      "y": 0.5
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "light": {
+        "azimuth": 135,
+        "elevation": 35,
+        "intensity": 0.8,
+        "ambient": 0.35
+      }
+    }
+  ],
+  "reference": {
+    "video": "ui-demo/test.mp4",
+    "mode": "overlay",
+    "opacity": 0.4,
+    "startFrame": 12,
+    "endFrame": null,
+    "side": "right",
+    "visible": true
+  }
+}

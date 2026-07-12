@@ -1,0 +1,22 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "statement",
+      "text": "your website is sitting still.",
+      "highlightWord": 4,
+      "highlightCycle": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "pacing": "punctuate",
+      "exitSpeed": "fast",
+      "baseColor": "#0c0a09",
+      "duration": 2.6,
+      "fontSize": 3.0,
+      "fontWeight": 600
+    }
+  ]
+}

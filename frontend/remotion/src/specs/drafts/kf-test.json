@@ -1,0 +1,66 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0D12"
+  },
+  "scenes": [
+    {
+      "id": "s",
+      "duration": 3,
+      "elements": [
+        {
+          "element": "frame",
+          "id": "fr",
+          "base": {
+            "width": 30,
+            "height": 30,
+            "position": {
+              "x": 0.8,
+              "y": 0.5
+            },
+            "fill": {
+              "type": "solid",
+              "color": "#222",
+              "visible": true
+            },
+            "clipsContent": true
+          },
+          "children": []
+        },
+        {
+          "element": "group",
+          "id": "grp",
+          "layers": [],
+          "children": [
+            {
+              "element": "text",
+              "id": "a",
+              "base": {
+                "text": "A",
+                "fontSize": 8,
+                "color": "#fff",
+                "position": {
+                  "x": 0.8,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "text",
+              "id": "b",
+              "base": {
+                "text": "B",
+                "fontSize": 8,
+                "color": "#fff",
+                "position": {
+                  "x": 0.45,
+                  "y": 0.5
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

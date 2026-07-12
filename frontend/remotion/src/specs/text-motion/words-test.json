@@ -1,0 +1,144 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#000000",
+    "fontFamily": "General Sans",
+    "colors": [
+      "#FFFFFF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "words-up",
+      "duration": 2.8,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "wu",
+          "base": {
+            "text": "Words Up",
+            "fontSize": 6,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.5000125051003927,
+              "y": 0.5004827517433852
+            }
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "order": "ltr",
+                "staggerTotal": 12,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeInExpo",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "blur": {
+                      "from": 14,
+                      "to": 0
+                    },
+                    "y": {
+                      "from": 0.6,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "effects": {
+            "motionBlur": {
+              "enabled": false
+            },
+            "glow": {
+              "enabled": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "words-down",
+      "duration": 2.8,
+      "elements": [
+        {
+          "element": "text",
+          "id": "wd",
+          "base": {
+            "text": "Words Down",
+            "fontSize": 6,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.556700789757671,
+              "y": 0.5114391487399816
+            }
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "order": "ltr",
+                "staggerTotal": 12,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeOutExpo",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "blur": {
+                      "from": 14,
+                      "to": 0
+                    },
+                    "y": {
+                      "from": -0.6,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "camera": {
+        "type": "keyframes",
+        "keyframes": [
+          {
+            "frame": 5,
+            "scale": 1,
+            "x": 0,
+            "y": 0,
+            "rotate": 0,
+            "rotateX": 0,
+            "rotateY": 0,
+            "easing": "easeInOut"
+          },
+          {
+            "frame": 25,
+            "scale": 2.25,
+            "x": -0.016290402879901945,
+            "y": -0.04948767701525053,
+            "rotate": 0,
+            "rotateX": 30,
+            "rotateY": 30,
+            "easing": "easeInOut"
+          }
+        ]
+      }
+    }
+  ]
+}

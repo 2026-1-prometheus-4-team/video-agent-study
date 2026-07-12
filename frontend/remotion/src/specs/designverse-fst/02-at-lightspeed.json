@@ -1,0 +1,216 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#1A003A",
+    "fontFamily": "Inter",
+    "colors": ["#E91E8C", "#CC00CC"]
+  },
+  "scenes": [
+    {
+      "duration": 0.75,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": ["#A21CAF", "#6D28D9"]
+      },
+      "camera": {
+        "type": "push_in",
+        "scaleKeyframes": [
+          { "t": 0, "s": 1.0 },
+          { "t": 0.58, "s": 1.0 },
+          { "t": 0.82, "s": 0.78 },
+          { "t": 1.0, "s": 0.75 }
+        ]
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 60,
+          "height": 11.5,
+          "radius": 3.5,
+          "mode": "swap",
+          "swapWords": [{ "text": "product  ↗", "frame": 0 }],
+          "fontSize": 8,
+          "fontWeight": 600,
+          "borderColors": ["#A855F7", "#FF2EA6"],
+          "borderWidth": 4,
+          "glow": 0.8
+        }
+      ]
+    },
+    {
+      "duration": 0.42,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": ["#A21CAF", "#6D28D9"]
+      },
+      "elements": [
+        {
+          "element": "particles",
+          "variant": "warp_tunnel",
+          "count": 500,
+          "sparkCount": 80,
+          "streakColor": "#E91E8C",
+          "sparkColor": "#FF00CC",
+          "coreColor": "#FFFFFF",
+          "nebula": ["#CC00CC", "#9900CC", "#E91E8C", "#FF00AA"],
+          "speed": 25,
+          "lineWidth": 3,
+          "seed": 42
+        },
+        {
+          "element": "neon_pill",
+          "width": 60,
+          "height": 11.5,
+          "radius": 3.5,
+          "mode": "swap",
+          "swapWords": [{ "text": "product  ↗", "frame": 0 }],
+          "letterOut": {
+            "start": 0,
+            "stagger": 0.5,
+            "duration": 3.5,
+            "drop": 1.7,
+            "fadePortion": 0.8,
+            "easing": "easeInQuad"
+          },
+          "scaleRamp": {
+            "from": 0.75,
+            "to": 5.4,
+            "ramp": { "start": 0, "duration": 10, "easing": "easeInQuad" }
+          },
+          "portal": {
+            "cover": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+            "innerFade": { "start": 0, "duration": 4, "easing": "easeIn" }
+          },
+          "fontSize": 8,
+          "fontWeight": 600,
+          "borderColors": ["#A855F7", "#FF2EA6"],
+          "borderWidth": 4,
+          "glow": 0.8,
+          "fadeOut": { "start": 6, "duration": 3 }
+        }
+      ]
+    },
+    {
+      "duration": 1.0,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #1A0430 55%, #12021F 100%)",
+        "blobs": ["#A21CAF", "#6D28D9"]
+      },
+      "elements": [
+        {
+          "element": "particles",
+          "variant": "warp_tunnel",
+          "count": 500,
+          "sparkCount": 80,
+          "streakColor": "#E91E8C",
+          "sparkColor": "#FF00CC",
+          "coreColor": "#FFFFFF",
+          "nebula": ["#CC00CC", "#9900CC", "#E91E8C", "#FF00AA"],
+          "speed": 25,
+          "lineWidth": 3,
+          "seed": 42,
+          "frameOffset": 10
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "at light speed",
+            "fontSize": 5.5,
+            "fontWeight": 300,
+            "color": "#FFFFFF",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "revealAt": [0, 5, 10],
+                "revealBlur": { "from": 10, "duration": 5 }
+              }
+            },
+            {
+              "type": "shake",
+              "role": "in",
+              "props": { "amplitude": 40, "frequency": 10, "decay": 20 }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "duration": 0.5,
+      "transition_out": "hard_cut",
+      "background": { "color": "#1A003A" },
+      "elements": [
+        {
+          "element": "particles",
+          "variant": "warp_tunnel",
+          "count": 500,
+          "sparkCount": 80,
+          "streakColor": "#E91E8C",
+          "sparkColor": "#FF00CC",
+          "coreColor": "#FFFFFF",
+          "nebula": ["#CC00CC", "#9900CC", "#E91E8C", "#FF00AA"],
+          "speed": 25,
+          "lineWidth": 3,
+          "seed": 42,
+          "frameOffset": 34
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "at light speed",
+            "fontSize": 5.5,
+            "fontWeight": 300,
+            "color": "#FFFFFF",
+            "fontFamily": "Inter"
+          },
+          "layers": []
+        }
+      ]
+    },
+    {
+      "duration": 0.6,
+      "transition_out": "hard_cut",
+      "background": { "color": "#1A003A" },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.0,
+        "toScale": 5.5,
+        "easing": "easeInQuart"
+      },
+      "elements": [
+        {
+          "element": "particles",
+          "variant": "warp_tunnel",
+          "count": 500,
+          "sparkCount": 80,
+          "streakColor": "#E91E8C",
+          "sparkColor": "#FF00CC",
+          "coreColor": "#FFFFFF",
+          "nebula": ["#CC00CC", "#9900CC", "#E91E8C", "#FF00AA"],
+          "speed": 25,
+          "lineWidth": 3,
+          "seed": 42,
+          "frameOffset": 46
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "at light speed",
+            "fontSize": 5.5,
+            "fontWeight": 300,
+            "color": "#FFFFFF",
+            "fontFamily": "Inter"
+          },
+          "layers": []
+        }
+      ]
+    }
+  ]
+}

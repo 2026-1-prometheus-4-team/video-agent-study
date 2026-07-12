@@ -1,0 +1,221 @@
+{
+  "found": true,
+  "tag": "DIV",
+  "bbox": {
+    "x": 412,
+    "y": 373,
+    "w": 616,
+    "h": 139
+  },
+  "styles": {
+    "backgroundColor": "rgb(44, 44, 48)",
+    "backgroundImage": "none",
+    "borderRadius": "12px",
+    "borderWidth": "1px",
+    "borderColor": "rgba(255, 255, 255, 0.1)",
+    "borderStyle": "solid",
+    "boxShadow": "rgb(255, 255, 255) 0px 0px 0px 0px, rgb(30, 30, 33) 0px 0px 0px 6px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+    "color": "rgb(255, 255, 255)",
+    "fontSize": "16px",
+    "fontFamily": "Inter",
+    "fontWeight": "400",
+    "padding": "0px"
+  },
+  "placeholder": "",
+  "text": "Standard\nPlan\nBuild now",
+  "url": "https://bolt.new",
+  "viewport": {
+    "w": 1440,
+    "h": 900
+  },
+  "textSlot": {
+    "relX": 498,
+    "relY": 98,
+    "w": 65,
+    "h": 20,
+    "fontSize": "14px",
+    "fontFamily": "Inter",
+    "fontWeight": "500",
+    "color": "rgb(255, 255, 255)",
+    "lineHeight": "20px",
+    "letterSpacing": "normal"
+  },
+  "sendBtn": null,
+  "elW": 616,
+  "elH": 139,
+  "candidates": [
+    {
+      "id": 0,
+      "tag": "div",
+      "role": "",
+      "input": false,
+      "clickable": false,
+      "isBox": true,
+      "text": "Standard\nPlan\nBuild now",
+      "relBox": {
+        "x": 0,
+        "y": 0,
+        "w": 616,
+        "h": 139
+      }
+    },
+    {
+      "id": 1,
+      "tag": "div",
+      "role": "textbox",
+      "input": true,
+      "clickable": false,
+      "isBox": false,
+      "text": "",
+      "relBox": {
+        "x": 1,
+        "y": 2,
+        "w": 614,
+        "h": 80
+      }
+    },
+    {
+      "id": 2,
+      "tag": "p",
+      "role": "",
+      "input": true,
+      "clickable": false,
+      "isBox": false,
+      "text": "",
+      "relBox": {
+        "x": 21,
+        "y": 22,
+        "w": 574,
+        "h": 20
+      }
+    },
+    {
+      "id": 3,
+      "tag": "button",
+      "role": "",
+      "input": false,
+      "clickable": true,
+      "isBox": false,
+      "text": "",
+      "relBox": {
+        "x": 13,
+        "y": 92,
+        "w": 32,
+        "h": 32
+      }
+    },
+    {
+      "id": 4,
+      "tag": "button",
+      "role": "",
+      "input": false,
+      "clickable": true,
+      "isBox": false,
+      "text": "Standard",
+      "relBox": {
+        "x": 53,
+        "y": 92,
+        "w": 91,
+        "h": 32
+      }
+    },
+    {
+      "id": 5,
+      "tag": "button",
+      "role": "",
+      "input": false,
+      "clickable": true,
+      "isBox": false,
+      "text": "Plan",
+      "relBox": {
+        "x": 405,
+        "y": 90,
+        "w": 68,
+        "h": 36
+      }
+    },
+    {
+      "id": 6,
+      "tag": "button",
+      "role": "",
+      "input": false,
+      "clickable": true,
+      "isBox": false,
+      "text": "Build now",
+      "relBox": {
+        "x": 482,
+        "y": 90,
+        "w": 121,
+        "h": 36
+      }
+    }
+  ],
+  "pageTargets": [
+    {
+      "id": "A",
+      "tag": "img",
+      "text": "Porsche",
+      "box": {
+        "x": 545,
+        "y": 761,
+        "w": 350,
+        "h": 387
+      }
+    },
+    {
+      "id": "B",
+      "tag": "img",
+      "text": "Material UI",
+      "box": {
+        "x": 937,
+        "y": 819,
+        "w": 298,
+        "h": 329
+      }
+    },
+    {
+      "id": "C",
+      "tag": "img",
+      "text": "Chakra",
+      "box": {
+        "x": 1303,
+        "y": 819,
+        "w": 298,
+        "h": 329
+      }
+    },
+    {
+      "id": "D",
+      "tag": "img",
+      "text": "Shadcn",
+      "box": {
+        "x": -161,
+        "y": 819,
+        "w": 298,
+        "h": 329
+      }
+    },
+    {
+      "id": "E",
+      "tag": "img",
+      "text": "Washington Post",
+      "box": {
+        "x": 205,
+        "y": 819,
+        "w": 298,
+        "h": 329
+      }
+    },
+    {
+      "id": "F",
+      "tag": "h1",
+      "text": "What will you\nbuild\ntoday?",
+      "box": {
+        "x": 431,
+        "y": 256,
+        "w": 578,
+        "h": 48
+      }
+    }
+  ]
+}

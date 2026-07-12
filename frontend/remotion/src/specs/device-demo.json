@@ -1,0 +1,172 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0D12",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#52C5FF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "macbook-3d",
+      "duration": 8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0B0D12",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "device",
+          "id": "mac",
+          "device": "macbook",
+          "screen": {
+            "src": "cap-lovable-cleanplate.png"
+          },
+          "lidAngle": -11,
+          "base": {
+            "width": 52.928097342752736,
+            "height": 70.39031560898925,
+            "position": {
+              "x": 0.530935537860014,
+              "y": 0.49985420671628666
+            },
+            "rotateX": 23.492188,
+            "rotate": 0.4
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "rotateY": -26
+            },
+            {
+              "frame": 96,
+              "rotateY": 26,
+              "easing": "easeInOut"
+            },
+            {
+              "frame": 192,
+              "rotateY": -26,
+              "easing": "easeInOut",
+              "loop": "cycle"
+            }
+          ]
+        },
+        {
+          "element": "text",
+          "id": "cap",
+          "base": {
+            "text": "Real 3D mockup - glTF",
+            "fontSize": 2.2,
+            "color": "#8B95A5",
+            "position": {
+              "x": 0.5,
+              "y": 0.965
+            }
+          }
+        }
+      ],
+      "light": {
+        "azimuth": 135,
+        "elevation": 35,
+        "intensity": 0.8,
+        "ambient": 0.35
+      },
+      "space": "3d"
+    },
+    {
+      "id": "iphone-3d",
+      "duration": 8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0B0D12",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "device",
+          "id": "phone",
+          "device": "iphone15",
+          "screen": {
+            "src": "/assets/____________2026-07-08_02.36.35.png"
+          },
+          "base": {
+            "width": 46,
+            "height": 88,
+            "position": {
+              "x": 0.5070574500882278,
+              "y": 0.4896016797801934
+            },
+            "rotateX": 0.09668
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "rotateY": 80
+            },
+            {
+              "frame": 192,
+              "rotateY": 360,
+              "easing": "linear",
+              "loop": "cycle"
+            },
+            {
+              "frame": 16,
+              "rotateY": 189.2,
+              "easing": "easeInOut"
+            }
+          ]
+        }
+      ],
+      "light": {
+        "azimuth": 135,
+        "elevation": 35,
+        "intensity": 0.8,
+        "ambient": 0.35
+      }
+    },
+    {
+      "id": "macbook-video",
+      "duration": 6,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0B0D12",
+          "visible": true
+        }
+      },
+      "light": {
+        "azimuth": 140,
+        "elevation": 35,
+        "intensity": 0.9,
+        "ambient": 0.45
+      },
+      "elements": [
+        {
+          "element": "device",
+          "id": "mac-video",
+          "device": "macbook",
+          "screen": {
+            "src": "sample-ui.mp4"
+          },
+          "base": {
+            "width": 72,
+            "height": 82,
+            "position": {
+              "x": 0.5,
+              "y": 0.52
+            },
+            "rotateX": 4,
+            "rotateY": -14
+          }
+        }
+      ]
+    }
+  ]
+}

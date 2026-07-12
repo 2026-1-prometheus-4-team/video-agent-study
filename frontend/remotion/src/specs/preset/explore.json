@@ -1,0 +1,10 @@
+{
+  "preset": "hero_zoom",
+  "text": "Explore",
+  "gradientStops": ["#FF4D9D", "#A07BF0", "#7B7BE0"],
+  "flowSpeed": -2.5,
+  "exitDir": "left",
+  "fontSize": 13,
+  "fontWeight": 700,
+  "duration": 2.0
+}

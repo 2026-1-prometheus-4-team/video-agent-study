@@ -1,0 +1,40 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A3E635", "#8A5CF6"]
+  },
+  "scenes": [
+    {
+      "duration": 2.3,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 70% at 75% 70%, #220E30 0%, #10071A 60%, #0A0512 100%)"
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 41,
+          "height": 7.6,
+          "radius": 2.4,
+          "position": { "x": 0.53, "y": 0.5 },
+          "mode": "type",
+          "text": "Yoo my man can I get a... super clean portfolio site?",
+          "charsPerSecond": 26,
+          "typeStart": 8,
+          "cursor": false,
+          "align": "left",
+          "paddingLeft": 2.2,
+          "fontSize": 2.6,
+          "fontWeight": 500,
+          "color": "#FFFFFF",
+          "borderColors": ["#8A5CF6", "#A3E635"],
+          "borderWidth": 3,
+          "glow": 0.7,
+          "drawIn": { "duration": 8, "easing": "easeOut" }
+        }
+      ]
+    }
+  ]
+}

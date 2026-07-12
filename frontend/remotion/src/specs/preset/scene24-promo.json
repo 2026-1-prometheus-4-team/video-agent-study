@@ -1,0 +1,80 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#e8e5dd",
+    "colors": ["#e0763a", "#c8744a", "#ffb84a"],
+    "fontFamily": "Familjen Grotesk, Inter, system-ui, sans-serif"
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "Ad?",
+      "palette": ["#e0763a", "#c8744a", "#ffb84a", "#0a0b0d"],
+      "baseColor": "#0a0b0d",
+      "emphasis": "strong",
+      "effects": { "glow": { "intensity": 0.45, "radius": 28 } },
+      "duration": 1.1
+    },
+    {
+      "preset": "statement",
+      "text": "Cinema ads from any URL",
+      "highlightWord": 4,
+      "highlightCycle": ["#e0763a", "#c8744a", "#ffb84a"],
+      "baseColor": "#0a0b0d",
+      "fontWeight": 400,
+      "exitSpeed": "fast",
+      "emphasis": "soft",
+      "pacing": "punctuate",
+      "effects": {
+        "glow": { "enabled": true, "intensity": 0.85, "radius": 42 }
+      },
+      "duration": 3.0
+    },
+    {
+      "preset": "beat",
+      "text": "Paste.",
+      "baseColor": "#0a0b0d",
+      "fontSize": 4.5,
+      "duration": 1.0
+    },
+    {
+      "preset": "beat",
+      "text": "Watch.",
+      "baseColor": "#0a0b0d",
+      "emphasis": "strong",
+      "duration": 1.0
+    },
+    {
+      "preset": "beat",
+      "text": "Ship.",
+      "background": "#0a0b0d",
+      "baseColor": "#e0763a",
+      "fontSize": 6,
+      "effects": {
+        "glow": { "enabled": true, "intensity": 0.85, "radius": 60 }
+      },
+      "duration": 1.0
+    },
+    {
+      "id": "lockup",
+      "duration": 2.6,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "logo",
+          "id": "wordmark",
+          "base": {
+            "kind": "scene24-wordmark",
+            "size": 11,
+            "position": { "x": 0.5, "y": 0.5 },
+            "bladeColor": "#0a0b0d",
+            "accentColor": "#c8744a"
+          },
+          "scaleIn": { "from": 0.6, "to": 1.0, "duration": 16, "easing": "easeOutExpo" },
+          "scaleOut": { "from": 1.0, "to": 0.2, "duration": 18, "easing": "easeIn" },
+          "slideOut": { "fromX": 0, "toX": -0.4, "duration": 8, "easing": "easeIn" }
+        }
+      ]
+    }
+  ]
+}

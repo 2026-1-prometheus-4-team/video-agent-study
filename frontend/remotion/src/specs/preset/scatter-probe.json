@@ -1,0 +1,17 @@
+{
+  "fps": 24,
+  "brand": { "background": "#0B0C10", "colors": ["#FFFFFF"] },
+  "scenes": [
+    {
+      "preset": "word_swap",
+      "fromText": "Google",
+      "toText": "Ask anything",
+      "fontSize": 5,
+      "fontWeight": 400,
+      "pace": "med",
+      "holdSeconds": 1.0,
+      "spread": 1.0,
+      "seed": 7
+    }
+  ]
+}

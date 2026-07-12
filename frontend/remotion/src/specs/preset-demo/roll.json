@@ -1,0 +1,20 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "roll",
+      "text": "Scene24",
+      "mode": "stagger",
+      "baseColor": "#0c0a09",
+      "duration": 1.4,
+      "fontSize": 7,
+      "fontWeight": 900,
+      "emphasis": "strong"
+    }
+  ]
+}

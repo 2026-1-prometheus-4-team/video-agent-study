@@ -1,0 +1,112 @@
+.panel {
+  width: 380px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--hairline);
+  min-height: 0;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--hairline);
+  flex: none;
+}
+.title {
+  font-size: var(--fs-11);
+  font-weight: 550;
+  letter-spacing: 0.03em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+.meta {
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  gap: 1px;
+}
+.editorWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-inset);
+}
+/* textarea 와 pre 는 메트릭이 "정확히" 같아야 캐럿/하이라이트가 겹친다 —
+   font-size 12 / line-height 18px / padding 동일. */
+.editor,
+.highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  border: none;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 10px 12px;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+.editor {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: transparent; /* 글자는 하이라이트 레이어가 그린다 */
+  caret-color: #E4E7F2;
+  z-index: 1;
+}
+.editor::selection {
+  background: rgba(88, 120, 255, 0.28);
+  color: transparent;
+}
+.highlight {
+  z-index: 0;
+  pointer-events: none;
+  color: #B8BECF; /* 기본(구두점 사이 공백/그 외) */
+  scrollbar-width: none;
+}
+.highlight::-webkit-scrollbar {
+  display: none;
+}
+.line {
+  min-height: 18px;
+}
+.lineHl {
+  background: rgba(94, 128, 255, 0.13);
+  box-shadow: inset 2px 0 0 #5E80FF;
+}
+/* VSCode Dark+ 근사 팔레트 */
+.tKey { color: #7DA9F2; }
+.tStr { color: #C99A6E; }
+.tNum { color: #A8CE93; }
+.tKw { color: #4FB8C6; }
+.tPunc { color: #6B7280; }
+.error {
+  flex: none;
+  padding: 7px 12px;
+  font-size: var(--fs-11);
+  color: var(--danger);
+  background: var(--danger-muted);
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono-stack);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ok {
+  flex: none;
+  padding: 7px 12px;
+  font-size: var(--fs-11);
+  color: var(--text-4);
+  border-top: 1px solid var(--hairline);
+}

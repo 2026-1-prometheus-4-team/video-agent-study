@@ -1,0 +1,36 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0E1A",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": ["#7C4DFF", "#52C5FF"]
+  },
+  "scenes": [
+    {
+      "id": "living-gradient",
+      "duration": 6,
+      "elements": [
+        {
+          "element": "shader",
+          "id": "bg",
+          "preset": "living_gradient",
+          "palette": ["#0B0E1A", "#31226E", "#7C4DFF", "#52C5FF"],
+          "speed": 1
+        },
+        {
+          "element": "text",
+          "id": "headline",
+          "base": {
+            "text": "Living gradient",
+            "fontSize": 7,
+            "color": "#FFFFFF",
+            "position": { "x": 0.5, "y": 0.5 }
+          },
+          "layers": [
+            { "type": "letter_stagger", "role": "in", "props": { "unit": "word" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

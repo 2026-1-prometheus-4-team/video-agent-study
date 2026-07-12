@@ -1,0 +1,75 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0C10",
+    "fontFamily": "General Sans",
+    "colors": ["#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "id": "roll-stagger",
+      "duration": 2.5,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "rs",
+          "base": {
+            "text": "MOTION",
+            "fontSize": 11,
+            "fontWeight": 800,
+            "letterSpacing": -0.02,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "letter_roll",
+              "role": "in",
+              "props": {
+                "settleMode": "stagger",
+                "stagger": 2,
+                "duration": 28,
+                "rollSpeed": 1.8,
+                "freeFrac": 0.55,
+                "firstDir": 1,
+                "blurFactor": 4,
+                "seed": 23
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "roll-together",
+      "duration": 4.5,
+      "elements": [
+        {
+          "element": "text",
+          "id": "rt",
+          "base": {
+            "text": "BREATHE",
+            "fontSize": 11,
+            "fontWeight": 800,
+            "letterSpacing": -0.02,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "letter_roll",
+              "role": "in",
+              "props": {
+                "settleMode": "together",
+                "duration": 96,
+                "freeFrac": 0,
+                "firstDir": 1,
+                "blurFactor": 4,
+                "seed": 23
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

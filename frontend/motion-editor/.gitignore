@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.env*
+!.env.example
+.DS_Store
+
+# 업로드된 이미지/영상 자산 (사용자 콘텐츠 — 커밋 X, 이식 시 R2 로 이동). 폴더만 유지.
+public/assets/*
+!public/assets/.gitkeep

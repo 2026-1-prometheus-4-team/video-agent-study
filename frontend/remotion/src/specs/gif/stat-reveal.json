@@ -1,0 +1,63 @@
+{
+ "fps": 24,
+ "brandDefaults": {
+  "background": "#E9F1FB",
+  "fontFamily": "General Sans",
+  "colors": [
+   "#111111"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "stat-reveal",
+   "duration": 3.4,
+   "elements": [
+    {
+     "element": "text",
+     "id": "sr",
+     "base": {
+      "text": "stat",
+      "fontSize": 13,
+      "fontWeight": 500,
+      "color": "#111111",
+      "position": {
+       "x": 0.49978976049515605,
+       "y": 0.5006939363656411
+      }
+     },
+     "layers": [
+      {
+       "type": "stat_reveal",
+       "role": "in",
+       "props": {
+        "prefix": "+",
+        "from": 0,
+        "to": 55,
+        "prefixSide": "left",
+        "suffix": "ATMs",
+        "countDuration": 55,
+        "countEasing": "linear",
+        "baseColor": "#111111",
+        "landColor": "#E23B3B",
+        "colorDrainDur": 14,
+        "scaleFrom": 1.06,
+        "settleFrac": 0.7,
+        "suffixScale": 0.5,
+        "suffixGap": 0.06,
+        "suffixDelay": 0,
+        "suffixStagger": 1,
+        "suffixSettleDur": 5,
+        "suffixScaleFrom": 0.55,
+        "suffixRotateFrom": 12,
+        "suffixBlurFrom": 0.12,
+        "slideDelay": 0,
+        "slideDuration": 10,
+        "slideEasing": "easeOutBack"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

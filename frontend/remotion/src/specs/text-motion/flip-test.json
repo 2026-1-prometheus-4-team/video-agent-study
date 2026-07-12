@@ -1,0 +1,58 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": ["#7C4DFF", "#FF4D9D", "#4D7DFF"]
+  },
+  "scenes": [
+    {
+      "id": "flip-basic",
+      "duration": 2.5,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "f1",
+          "base": { "text": "Rotation", "fontSize": 6, "fontWeight": 500, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "flip", "role": "in", "props": { "fromDeg": -90, "toDeg": 0, "duration": 18, "easing": "easeInOut" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flip-mirror",
+      "duration": 2.5,
+      "elements": [
+        {
+          "element": "text",
+          "id": "f2",
+          "base": { "text": "Words", "fontSize": 6, "fontWeight": 500, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#FF4D9D", "#7C4DFF"] }, "hold": 60 }
+            ]
+          },
+          "layers": [
+            { "type": "flip", "role": "in", "props": { "fromDeg": -180, "toDeg": 0, "duration": 22, "easing": "easeInOut" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flip-bounce",
+      "duration": 2.5,
+      "elements": [
+        {
+          "element": "text",
+          "id": "f3",
+          "base": { "text": "Bounce", "fontSize": 6, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "flip", "role": "in", "props": { "fromDeg": -90, "toDeg": 0, "duration": 18, "easing": "easeOutBack" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

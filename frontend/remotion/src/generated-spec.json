@@ -1,0 +1,134 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#F7F5F1",
+    "colors": [
+      "#7C4DFF",
+      "#FF4D9D",
+      "#4DFF7C",
+      "#FFD700"
+    ],
+    "fontFamily": "Inter"
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "UNLOCK",
+      "palette": [
+        "#7C4DFF",
+        "#FF4D9D"
+      ],
+      "baseColor": "#14110E",
+      "duration": 1.5,
+      "fontSize": 7,
+      "fontWeight": 800,
+      "emphasis": "strong"
+    },
+    {
+      "preset": "statement",
+      "text": "Your SaaS Potential with Seamless Solutions.",
+      "highlightWord": 1,
+      "highlightCycle": [
+        "#FF4D9D",
+        "#7C4DFF"
+      ],
+      "pacing": "punctuate",
+      "baseColor": "#14110E",
+      "duration": 3,
+      "fontSize": 3,
+      "fontWeight": 400,
+      "emphasis": "normal"
+    },
+    {
+      "preset": "beat",
+      "text": "SIMPLE.",
+      "baseColor": "#14110E",
+      "duration": 0.8,
+      "fontSize": 5,
+      "fontWeight": 700,
+      "emphasis": "normal"
+    },
+    {
+      "preset": "beat",
+      "text": "FAST.",
+      "baseColor": "#14110E",
+      "duration": 0.8,
+      "fontSize": 5,
+      "fontWeight": 700,
+      "emphasis": "normal"
+    },
+    {
+      "preset": "beat",
+      "text": "POWERFUL.",
+      "baseColor": "#14110E",
+      "duration": 0.8,
+      "fontSize": 5,
+      "fontWeight": 700,
+      "emphasis": "normal"
+    },
+    {
+      "preset": "zoom_cut",
+      "fromText": "TRANSFORM",
+      "baseColor": "#FFFFFF",
+      "zoomSpeed": 120,
+      "duration": 1.5,
+      "focal": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "emergeText": "YOUR BUSINESS",
+      "fontSize": 7,
+      "fontWeight": 800,
+      "emphasis": "strong",
+      "background": "#0D0B10",
+      "transition_out": "hard_cut"
+    },
+    {
+      "preset": "stat_counter",
+      "to": 15000,
+      "suffix": "+",
+      "thousands": true,
+      "caption": "Trusted by",
+      "baseColor": "#14110E",
+      "gradient": [
+        "#7C4DFF",
+        "#FF4D9D"
+      ],
+      "pace": "med",
+      "fontSize": 8,
+      "fontWeight": 900,
+      "emphasis": "strong",
+      "duration": 2.5
+    },
+    {
+      "preset": "statement",
+      "text": "Drive Growth, Effortlessly with our platform.",
+      "highlightWord": 1,
+      "highlightCycle": [
+        "#4DFF7C",
+        "#FFD700"
+      ],
+      "pacing": "uniform",
+      "baseColor": "#14110E",
+      "duration": 3,
+      "fontSize": 3,
+      "fontWeight": 400,
+      "emphasis": "normal"
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "YourBrand.com",
+      "gradientStops": [
+        "#FF4D9D",
+        "#7C4DFF",
+        "#4DFF7C"
+      ],
+      "flowSpeed": 3,
+      "baseColor": "#14110E",
+      "duration": 2,
+      "fontSize": 9,
+      "fontWeight": 800,
+      "emphasis": "strong"
+    }
+  ]
+}

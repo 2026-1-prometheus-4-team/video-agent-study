@@ -1,0 +1,45 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#000000",
+    "fontFamily": "General Sans",
+    "colors": ["#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "id": "word-gap-settle",
+      "duration": 2.8,
+      "elements": [
+        {
+          "element": "text",
+          "id": "wgs",
+          "base": {
+            "text": "Bring Ideas To Life",
+            "fontSize": 6,
+            "fontWeight": 600,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "cursor": "none",
+                "firstGap": 9,
+                "wordGap": 3,
+                "lastGap": 15,
+                "revealGap": { "from": 1.8, "duration": 10, "easing": "easeOut" },
+                "revealMove": { "y": 0.18, "duration": 10 },
+                "revealBlur": { "from": 6, "duration": 8 },
+                "reflow": "smooth",
+                "reflowSmoothing": 12,
+                "reflowLead": 5
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

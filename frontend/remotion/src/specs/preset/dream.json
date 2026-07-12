@@ -1,0 +1,10 @@
+{
+  "preset": "statement",
+  "text": "Dream with me for a moment",
+  "highlightWord": 1,
+  "highlightCycle": ["#FF4D9D", "#3092D2", "#2FC0A1"],
+  "fontSize": 5,
+  "fontWeight": 600,
+  "baseColor": "#FFFFFF",
+  "duration": 4.5
+}

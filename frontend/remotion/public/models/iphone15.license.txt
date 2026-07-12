@@ -1,0 +1,10 @@
+iphone15.glb — Apple iPhone 15 Pro Max Black
+Author: polyman (Polyman_3D)
+Source: https://sketchfab.com/3d-models/apple-iphone-15-pro-max-black-df17520841214c1792fb8a44c6783ee7
+Mirror: https://github.com/adrianhajdin/iphone (public/models/scene.glb)
+License: CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+REQUIRED ATTRIBUTION (commercial use):
+"iPhone model: Apple iPhone 15 Pro Max Black by polyman (Polyman_3D), Sketchfab, CC-BY 4.0"
+License metadata is embedded in the GLB asset.extras - do not strip when re-optimizing.
+NOTE: CC-BY covers mesh copyright only. Apple trade dress / logo are separate legal
+considerations for commercial ads - consider hiding logo meshes before shipping.

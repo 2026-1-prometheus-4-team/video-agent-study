@@ -1,0 +1,13 @@
+{
+  "fps": 24,
+  "brand": { "background": "#0B0C10", "colors": ["#FFFFFF"] },
+  "scenes": [
+    {
+      "preset": "stat_counter",
+      "to": 10000000,
+      "caption": "ACTIVE USERS",
+      "suffix": "+",
+      "pace": "med"
+    }
+  ]
+}

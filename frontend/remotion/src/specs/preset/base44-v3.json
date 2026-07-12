@@ -1,0 +1,92 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#FAF9F7",
+    "colors": ["#22C9FF", "#FBB439", "#F0C5FF"],
+    "fontFamily": "Familjen Grotesk, Inter, system-ui, sans-serif"
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "Idea?",
+      "palette": ["#22C9FF", "#FBB439", "#F0C5FF", "#0F0F0F"],
+      "baseColor": "#0F0F0F",
+      "emphasis": "strong",
+      "effects": { "glow": { "intensity": 0.45, "radius": 28 } },
+      "duration": 0.9
+    },
+    {
+      "preset": "statement",
+      "text": "What if shipping took minutes?",
+      "highlightWord": 4,
+      "highlightCycle": ["#FF7F47", "#22C9FF", "#FBB439"],
+      "baseColor": "#0F0F0F",
+      "exitSpeed": "fast",
+      "emphasis": "soft",
+      "pacing": "punctuate",
+      "effects": {
+        "glow": { "enabled": true, "intensity": 0.7, "radius": 38 }
+      },
+      "duration": 2.8
+    },
+    {
+      "preset": "beat",
+      "text": "Type.",
+      "baseColor": "#0F0F0F",
+      "fontSize": 4.5,
+      "duration": 0.6
+    },
+    {
+      "preset": "beat",
+      "text": "Tweak.",
+      "baseColor": "#0F0F0F",
+      "emphasis": "strong",
+      "duration": 0.6
+    },
+    {
+      "preset": "beat",
+      "text": "Ship.",
+      "baseColor": "#FF7F47",
+      "fontSize": 6,
+      "effects": {
+        "glow": { "enabled": true, "intensity": 0.7, "radius": 50 }
+      },
+      "duration": 0.8
+    },
+    {
+      "preset": "stat_counter",
+      "to": 50000,
+      "caption": "BUILDERS SHIPPING",
+      "suffix": "+",
+      "pace": "med",
+      "baseColor": "#0F0F0F",
+      "duration": 2.0
+    },
+    {
+      "preset": "zoom_cut",
+      "fromText": "Now",
+      "emergeText": "Base44",
+      "emergeAt": 0.4,
+      "emergeStartPx": 1,
+      "baseColor": "#0F0F0F",
+      "fontSize": 8,
+      "fontWeight": 700,
+      "zoomSpeed": 90,
+      "duration": 1.5
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "Base44",
+      "gradientStops": ["#FBB439", "#FF7F47", "#F0C5FF", "#22C9FF"],
+      "flowSpeed": -3,
+      "exitDir": "right",
+      "baseColor": "#0F0F0F",
+      "emphasis": "soft",
+      "effects": {
+        "glow": { "intensity": 0.55, "radius": 60 },
+        "motionBlur": { "amount": 0.5 }
+      },
+      "duration": 2.8
+    }
+  ]
+}

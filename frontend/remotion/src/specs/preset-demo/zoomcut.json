@@ -1,0 +1,20 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "zoom_cut",
+      "fromText": "directed",
+      "zoomSpeed": 140,
+      "duration": 0.9,
+      "hold": 0.25,
+      "baseColor": "#0c0a09",
+      "fontSize": 6,
+      "fontWeight": 900
+    }
+  ]
+}

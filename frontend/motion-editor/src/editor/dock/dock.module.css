@@ -1,0 +1,109 @@
+.dock {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  background: var(--bg-float);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-float);
+}
+.tool {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-2);
+  color: var(--text-2);
+  transition: background var(--dur-hover-out) var(--ease-pop), color var(--dur-hover-out) var(--ease-pop);
+}
+.tool:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  transition: none;
+}
+.tool:active {
+  transform: scale(0.94);
+}
+.tool[data-active="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+.tool:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.sep {
+  width: 1px;
+  height: 20px;
+  background: var(--hairline-strong);
+  margin: 0 3px;
+}
+
+/* 그룹(툴 + 드롭다운 chevron) */
+.group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.chevron {
+  width: 14px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  border-radius: var(--r-1);
+  margin-left: -3px;
+}
+.chevron:hover {
+  color: var(--text-1);
+}
+.menu {
+  position: absolute;
+  bottom: 42px;
+  left: 0;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--bg-float);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  flex-direction: column;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: left;
+}
+.menuItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.menuCheck {
+  width: 12px;
+  color: var(--accent-strong);
+  font-size: 11px;
+}
+.menuIcon {
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+.menuLabel {
+  flex: 1;
+}
+.menuHint {
+  color: var(--text-4);
+  font-size: var(--fs-10);
+  font-variant-numeric: tabular-nums;
+}

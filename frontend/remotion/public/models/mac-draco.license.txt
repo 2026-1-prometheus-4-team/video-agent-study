@@ -1,0 +1,4 @@
+mac-draco.glb — MacBook Pro (Touch Bar) 3D model
+Source: pmndrs/examples (https://github.com/pmndrs/examples), demos/floating-laptop/src/mac-draco.glb
+License: MIT (repository-level; https://github.com/pmndrs/examples/blob/main/LICENSE)
+Note: no individual artist attribution in the source repo. Used for years in official pmndrs demos.

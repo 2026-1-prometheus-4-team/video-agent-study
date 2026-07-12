@@ -1,0 +1,57 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0410",
+    "fontFamily": "Inter",
+    "colors": ["#FF2EA6", "#A855F7"]
+  },
+  "scenes": [
+    {
+      "duration": 3.4,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 65% at 20% 30%, #33082A 0%, #12061A 60%, #0A0410 100%)"
+      },
+      "camera": {
+        "type": "push_in",
+        "scaleKeyframes": [
+          { "t": 0, "s": 2.15 },
+          { "t": 0.1, "s": 2.2 },
+          { "t": 0.78, "s": 2.2 },
+          { "t": 0.9, "s": 1.8 },
+          { "t": 1.0, "s": 2.0 }
+        ],
+        "panX": [
+          { "t": 0, "v": 0.57 },
+          { "t": 0.11, "v": 0.57 },
+          { "t": 0.32, "v": 0.42 },
+          { "t": 0.5, "v": 0.1 },
+          { "t": 0.62, "v": -0.42 },
+          { "t": 1.0, "v": -0.42 }
+        ]
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 84,
+          "height": 8.4,
+          "radius": 4.2,
+          "mode": "type",
+          "text": "Create a landing page for a space tech startup",
+          "charsPerSecond": 30,
+          "typeStart": 4,
+          "cursor": false,
+          "align": "left",
+          "paddingLeft": 4.5,
+          "fontSize": 3.4,
+          "fontWeight": 500,
+          "color": "#FFFFFF",
+          "borderColors": ["#FF2EA6", "#E11DD0"],
+          "borderWidth": 4,
+          "glow": 0.95,
+          "glowPulse": { "amplitude": 0.12, "period": 26 }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "roll",
+      "text": "Scene24",
+      "mode": "stagger",
+      "baseColor": "#0c0a09",
+      "duration": 1.4,
+      "fontSize": 7,
+      "fontWeight": 900,
+      "emphasis": "strong"
+    },
+    {
+      "preset": "statement",
+      "text": "your website is sitting still.",
+      "highlightWord": 4,
+      "highlightCycle": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "pacing": "punctuate",
+      "exitSpeed": "fast",
+      "baseColor": "#0c0a09",
+      "duration": 2.6,
+      "fontSize": 3.0,
+      "fontWeight": 600
+    },
+    {
+      "preset": "word_swap",
+      "fromText": "still",
+      "toText": "cinematic",
+      "pace": "med",
+      "holdSeconds": 0.3,
+      "baseColor": "#0c0a09",
+      "fontSize": 5.5,
+      "fontWeight": 900,
+      "emphasis": "strong"
+    },
+    {
+      "preset": "beat",
+      "text": "no designers",
+      "background": "#0a0b0d",
+      "baseColor": "#fdfdfc",
+      "duration": 0.7,
+      "fontSize": 5,
+      "fontWeight": 800
+    },
+    {
+      "preset": "beat",
+      "text": "no agencies",
+      "background": "#0a0b0d",
+      "baseColor": "#fdfdfc",
+      "duration": 0.7,
+      "fontSize": 5,
+      "fontWeight": 800
+    },
+    {
+      "preset": "beat",
+      "text": "no stock footage",
+      "background": "#0a0b0d",
+      "baseColor": "#fdfdfc",
+      "duration": 0.8,
+      "fontSize": 4.2,
+      "fontWeight": 800
+    },
+    {
+      "preset": "statement",
+      "text": "just paste your URL.",
+      "highlightWord": 3,
+      "highlightCycle": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "pacing": "punctuate",
+      "exitSpeed": "med",
+      "baseColor": "#0c0a09",
+      "duration": 2.2,
+      "fontSize": 3.2,
+      "fontWeight": 600
+    },
+    {
+      "preset": "stat_counter",
+      "to": 60,
+      "suffix": "s",
+      "caption": "paste to launch film in",
+      "gradient": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "baseColor": "#fdfdfc",
+      "background": "#0a0b0d",
+      "pace": "med",
+      "fontSize": 9,
+      "fontWeight": 900,
+      "transition_out": "fade"
+    },
+    {
+      "preset": "zoom_cut",
+      "fromText": "directed",
+      "zoomSpeed": 140,
+      "duration": 0.9,
+      "hold": 0.25,
+      "baseColor": "#0c0a09",
+      "fontSize": 6,
+      "fontWeight": 900
+    },
+    {
+      "preset": "punch",
+      "text": "not generated.",
+      "palette": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "baseColor": "#0c0a09",
+      "duration": 1.1,
+      "fontSize": 5.5,
+      "fontWeight": 900,
+      "emphasis": "strong"
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "Scene24",
+      "gradientStops": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "flowSpeed": 2,
+      "baseColor": "#0c0a09",
+      "duration": 2.6,
+      "fontSize": 8,
+      "fontWeight": 900
+    }
+  ]
+}

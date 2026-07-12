@@ -1,0 +1,67 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#FF2EA6"]
+  },
+  "scenes": [
+    {
+      "duration": 3.7,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 75% 20%, #1C0C2E 0%, #0E0718 60%, #070310 100%)",
+        "blobs": ["#A21CAF", "#6D28D9"]
+      },
+      "camera": {
+        "type": "push_in",
+        "scaleKeyframes": [
+          { "t": 0, "s": 0.88 },
+          { "t": 0.1, "s": 1.0 },
+          { "t": 0.764, "s": 1.0 },
+          { "t": 0.888, "s": 0.94 },
+          { "t": 0.921, "s": 0.94 },
+          { "t": 1, "s": 1.0 }
+        ]
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 56,
+          "height": 8.1,
+          "radius": 2.1,
+          "mode": "swap",
+          "fixedPrefix": "Build",
+          "swapWords": [
+            { "text": "a Landing Page", "frame": 0 },
+            { "text": "a Marketplace", "frame": 12 },
+            { "text": "a Website", "frame": 24 },
+            { "text": "an App", "frame": 36 },
+            { "text": "a Landing Page", "frame": 44 },
+            { "text": "a Marketplace", "frame": 48 },
+            { "text": "a Website", "frame": 52 },
+            { "text": "an App", "frame": 55 },
+            { "text": "Anything", "frame": 60 }
+          ],
+          "swapDuration": 7,
+          "fontSize": 5.1,
+          "fontWeight": 600,
+          "color": "#FFFFFF",
+          "align": "left",
+          "paddingLeft": 2.6,
+          "contentOffsetY": 0.35,
+          "borderColors": ["#8A5CF6", "#A855F7"],
+          "borderWidth": 4,
+          "glow": 0.85,
+          "glowPulse": { "amplitude": 0.15, "period": 30 },
+          "drawFrom": 0.9,
+          "drawGap": 0.12,
+          "swapGap": 1.2,
+          "swapBlur": 10,
+          "drawIn": { "duration": 8, "easing": "easeOut" },
+          "widthRamp": { "to": 44, "start": 44, "duration": 20, "easing": "easeInOut" }
+        }
+      ]
+    }
+  ]
+}

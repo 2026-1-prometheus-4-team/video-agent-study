@@ -1,0 +1,33 @@
+{
+  "name": "scene24-motion-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scene24 motion spec editor - Figma-grade editing UI over the labs/remotion engine",
+  "scripts": {
+    "dev": "next dev -p 3456",
+    "build": "next build",
+    "start": "next start -p 3456",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.7",
+    "@react-three/fiber": "9.6.1",
+    "@remotion/google-fonts": "4.0.473",
+    "@remotion/player": "4.0.473",
+    "@remotion/three": "4.0.473",
+    "immer": "^10.1.1",
+    "next": "^15.5.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.473",
+    "three": "0.184.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@types/webpack-env": "^1.18.8",
+    "typescript": "5.9.3"
+  }
+}

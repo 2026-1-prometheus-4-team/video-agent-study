@@ -1,0 +1,143 @@
+.bar {
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--hairline);
+  gap: 8px;
+}
+.left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.center {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: flex-end;
+}
+.brand {
+  font-size: var(--fs-11);
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--hairline-strong);
+  flex: none;
+}
+.docName {
+  font-size: var(--fs-12);
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dirtyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--warn);
+  flex: none;
+}
+.presetWarn {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--warn-muted);
+  color: var(--warn);
+  white-space: nowrap;
+  flex: none;
+}
+.zoomBtn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-2);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+}
+.zoomBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.easingBtn {
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--r-2);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.easingBtn:hover {
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.easingBtn[data-active="true"] {
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* Record 키프레임 토글 — 켜지면 빨강(캔버스 드래그 → 자동 키) */
+.recBtn {
+  height: 24px;
+  padding: 0 9px 0 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: var(--fs-10);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.recBtn:hover {
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.recBtn[data-active="true"] {
+  color: #fff;
+  background: #ff4d6d;
+  box-shadow: none;
+  animation: recBtnPulse 1.4s ease-in-out infinite;
+}
+@keyframes recBtnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 77, 109, 0); }
+}
+.recLabel {
+  line-height: 1;
+}
+
+.saveBtn {
+  height: 26px;
+  padding: 0 14px;
+  border-radius: var(--r-2);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.saveBtn[data-dirty="true"] {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+.saveBtn[data-dirty="true"]:hover {
+  background: var(--accent-strong);
+}

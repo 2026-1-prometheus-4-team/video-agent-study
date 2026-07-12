@@ -1,0 +1,126 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0F14",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#52C5FF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "mockups",
+      "duration": 6,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0D0F14",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "frame",
+          "id": "browser-mock",
+          "chrome": {
+            "kind": "browser",
+            "theme": "dark",
+            "url": "app.lovable.dev"
+          },
+          "base": {
+            "width": 46,
+            "height": 62,
+            "position": {
+              "x": 0.32,
+              "y": 0.47
+            },
+            "fill": {
+              "type": "image",
+              "src": "cap-lovable-cleanplate.png",
+              "fit": "cover",
+              "visible": true
+            },
+            "clipsContent": true
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": {
+                "duration": 14,
+                "from": 0.06,
+                "axis": "y",
+                "easing": "easeOut"
+              }
+            },
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 12
+              }
+            }
+          ],
+          "children": []
+        },
+        {
+          "element": "frame",
+          "id": "phone-mock",
+          "chrome": {
+            "kind": "phone",
+            "theme": "dark"
+          },
+          "base": {
+            "width": 17,
+            "height": 58,
+            "position": {
+              "x": 0.72,
+              "y": 0.47
+            },
+            "fill": {
+              "type": "image",
+              "src": "cap-lovable-cleanplate.png",
+              "fit": "cover",
+              "visible": true
+            },
+            "clipsContent": true
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": {
+                "duration": 14,
+                "from": 0.06,
+                "axis": "y",
+                "easing": "easeOut"
+              }
+            },
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 12
+              }
+            }
+          ],
+          "children": []
+        },
+        {
+          "element": "text",
+          "id": "cap",
+          "base": {
+            "text": "Device chrome on frames",
+            "fontSize": 2.2,
+            "color": "#8B95A5",
+            "position": {
+              "x": 0.5,
+              "y": 0.88
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

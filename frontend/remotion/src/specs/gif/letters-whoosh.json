@@ -1,0 +1,59 @@
+{
+ "fps": 24,
+ "brandDefaults": {
+  "background": "#0D0B10",
+  "fontFamily": "General Sans",
+  "colors": [
+   "#FFFFFF"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "chars-up",
+   "duration": 2.4,
+   "transition_out": "hard_cut",
+   "elements": [
+    {
+     "element": "text",
+     "id": "cu",
+     "base": {
+      "text": "Rushing Up",
+      "fontSize": 6,
+      "fontWeight": 500,
+      "color": "#FFFFFF"
+     },
+     "layers": [
+      {
+       "type": "letter_stagger",
+       "role": "in",
+       "props": {
+        "unit": "char",
+        "order": "ltr",
+        "staggerTotal": 8,
+        "staggerEasing": "linear",
+        "perLetter": {
+         "duration": 10,
+         "easing": "easeOutBack",
+         "channels": {
+          "opacity": {
+           "from": 0,
+           "to": 1
+          },
+          "y": {
+           "from": 0.9,
+           "to": 0
+          },
+          "blur": {
+           "from": 6,
+           "to": 0
+          }
+         }
+        }
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

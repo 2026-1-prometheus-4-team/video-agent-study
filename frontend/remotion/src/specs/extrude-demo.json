@@ -1,0 +1,80 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0D12",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#52C5FF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "extrude-text",
+      "duration": 8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0B0D12",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "frame",
+          "id": "cardc",
+          "base": {
+            "position": {
+              "x": 0.5,
+              "y": 0.42
+            },
+            "width": 34,
+            "height": 40,
+            "radius": 20,
+            "fill": {
+              "type": "solid",
+              "color": "#1B2333",
+              "visible": true
+            }
+          },
+          "flow": {
+            "direction": "vertical",
+            "gap": 10,
+            "padding": {
+              "x": 200,
+              "y": 20
+            },
+            "align": "start",
+            "justify": "start"
+          },
+          "children": [
+            {
+              "element": "text",
+              "id": "c1",
+              "base": {
+                "text": "Centered",
+                "fontSize": 2.6,
+                "color": "#F4F6FB"
+              }
+            },
+            {
+              "element": "text",
+              "id": "c2",
+              "base": {
+                "text": "on a curved card",
+                "fontSize": 1.6,
+                "color": "#8B95A5"
+              }
+            }
+          ],
+          "curve3d": {
+            "amount": 30,
+            "axis": "x",
+            "mode": "bend",
+            "segments": 12
+          }
+        }
+      ]
+    }
+  ]
+}

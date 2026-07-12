@@ -1,0 +1,9 @@
+mbp14.glb — 2021 MacBook Pro 14" (M1 Pro / M1 Max)
+Author: akshatmittal (https://sketchfab.com/akshatmittal)
+Source: https://sketchfab.com/3d-models/2021-macbook-pro-14-m1-pro-m1-max-f6b0b940fb6a4286b18a674ef32af2d3
+License: CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+REQUIRED ATTRIBUTION (commercial use):
+"2021 Macbook Pro 14 (M1 Pro / M1 Max) by akshatmittal, Sketchfab, CC-BY 4.0"
+License metadata embedded in GLB asset.extras - do not strip.
+NOTE: Apple trade dress / logo remain separate legal considerations for
+commercial ads regardless of mesh license.

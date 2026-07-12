@@ -1,0 +1,56 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": ["#7C4DFF", "#FF4D9D", "#4D7DFF"]
+  },
+  "scenes": [
+    {
+      "id": "fade-in",
+      "duration": 1.8,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "fi",
+          "base": { "text": "Fade in", "fontSize": 5, "fontWeight": 500, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 10 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fade-up",
+      "duration": 1.8,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "fu",
+          "base": { "text": "Fade up", "fontSize": 5, "fontWeight": 500, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 10 } },
+            { "type": "move", "role": "in", "props": { "fromY": 0.06, "toY": 0, "duration": 14, "easing": "easeOutExpo" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fade-down",
+      "duration": 1.8,
+      "elements": [
+        {
+          "element": "text",
+          "id": "fd",
+          "base": { "text": "Fade down", "fontSize": 5, "fontWeight": 500, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 10 } },
+            { "type": "move", "role": "in", "props": { "fromY": -0.06, "toY": 0, "duration": 14, "easing": "easeOutExpo" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

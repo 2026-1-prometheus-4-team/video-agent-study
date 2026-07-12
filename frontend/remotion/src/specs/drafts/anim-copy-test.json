@@ -1,0 +1,36 @@
+{
+  "fps": 30,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#FF4D9D",
+      "#4D7DFF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "s1",
+      "duration": 3,
+      "background": {
+        "fill": "#0b0d12"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "OUT",
+          "base": {
+            "text": "OUT",
+            "fontSize": 8,
+            "color": "#ff6",
+            "position": {
+              "x": 1.2012515820559697,
+              "y": 0.5000000000000001
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

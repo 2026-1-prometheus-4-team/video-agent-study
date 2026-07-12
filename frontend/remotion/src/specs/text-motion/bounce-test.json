@@ -1,0 +1,41 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": ["#7C4DFF", "#FF4D9D", "#4D7DFF"]
+  },
+  "scenes": [
+    {
+      "id": "scale-bounce",
+      "duration": 2.5,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "sb",
+          "base": { "text": "Bounce", "fontSize": 6, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "scale", "role": "in", "props": { "from": 0.5, "to": 1, "duration": 20, "easing": "springOut" } },
+            { "type": "fade", "role": "in", "props": { "duration": 5 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop-bounce",
+      "duration": 2.5,
+      "elements": [
+        {
+          "element": "text",
+          "id": "db",
+          "base": { "text": "Drop", "fontSize": 6, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "move", "role": "in", "props": { "fromY": -0.1, "toY": 0, "duration": 22, "easing": "springOut" } },
+            { "type": "fade", "role": "in", "props": { "duration": 4 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

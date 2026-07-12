@@ -1,0 +1,199 @@
+{
+ "fps": 30,
+ "brandDefaults": {
+  "background": "#050308",
+  "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+  "colors": [
+   "#7C4DFF",
+   "#FF2EA6",
+   "#4D7DFF"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "ui-presets",
+   "duration": 12.5,
+   "background": "#050308",
+   "elements": [
+    {
+     "element": "glow_menu",
+     "id": "menu",
+     "items": [
+      {
+       "label": "Home",
+       "color": "#5B8CFF"
+      },
+      {
+       "label": "Templates",
+       "color": "#A855F7"
+      },
+      {
+       "label": "Assets",
+       "color": "#22C55E"
+      },
+      {
+       "label": "Publish",
+       "color": "#F97316"
+      }
+     ],
+     "active": [
+      {
+       "frame": 0,
+       "index": 0
+      },
+      {
+       "frame": 75,
+       "index": 1
+      },
+      {
+       "frame": 150,
+       "index": 2
+      },
+      {
+       "frame": 225,
+       "index": 3
+      }
+     ],
+     "switchDuration": 12,
+     "fadeIn": {
+      "duration": 12
+     },
+     "base": {
+      "position": {
+       "x": 0.5,
+       "y": 0.12
+      }
+     }
+    },
+    {
+     "element": "glow_card",
+     "id": "card-orbit",
+     "orbit": {
+      "period": 120,
+      "span": 0.34,
+      "colors": [
+       "#C9A0FF",
+       "#7C3AED"
+      ],
+      "dim": "rgba(124,92,246,0.13)"
+     },
+     "borderWidth": 2.5,
+     "icon": "S",
+     "title": "Orbiting border",
+     "description": "A comet arc travels the card perimeter at uniform speed.",
+     "fadeIn": {
+      "duration": 14
+     },
+     "rise": 1.2,
+     "base": {
+      "position": {
+       "x": 0.235,
+       "y": 0.42
+      },
+      "width": 22,
+      "height": 15
+     }
+    },
+    {
+     "element": "glow_card",
+     "id": "card-static",
+     "borderColors": [
+      "#FF2EA6",
+      "#7C3AED"
+     ],
+     "borderWidth": 2.5,
+     "glow": 0.5,
+     "icon": "G",
+     "title": "Static neon ring",
+     "description": "Same card, fixed gradient border with soft glow.",
+     "fadeIn": {
+      "start": 6,
+      "duration": 14
+     },
+     "rise": 1.2,
+     "base": {
+      "position": {
+       "x": 0.5,
+       "y": 0.42
+      },
+      "width": 22,
+      "height": 15
+     }
+    },
+    {
+     "element": "glow_card",
+     "id": "card-glass",
+     "glow": 0,
+     "borderWidth": 0,
+     "glass": 18,
+     "sheen": 0.9,
+     "icon": "L",
+     "title": "Pure glass",
+     "description": "No border glow at all. Hairline plus sheen only.",
+     "fadeIn": {
+      "start": 12,
+      "duration": 14
+     },
+     "rise": 1.2,
+     "base": {
+      "position": {
+       "x": 0.765,
+       "y": 0.42
+      },
+      "width": 22,
+      "height": 15
+     }
+    },
+    {
+     "element": "neon_pill",
+     "id": "prompt-box",
+     "radius": 3.1,
+     "borderColors": [
+      "#B47CFF",
+      "#7C3AED"
+     ],
+     "borderWidth": 3,
+     "fillColor": "#0B0714",
+     "glow": 0.85,
+     "orbit": {
+      "period": 110,
+      "span": 0.42,
+      "colors": [
+       "#C9A0FF",
+       "#7C3AED"
+      ],
+      "dim": "rgba(124,92,246,0.14)",
+      "bloom": 1.15
+     },
+     "drawIn": {
+      "duration": 14,
+      "easing": "easeOut"
+     },
+     "drawStyle": "fade",
+     "mode": "type",
+     "text": "Create a landing page for my coffee brand",
+     "charsPerSecond": 14,
+     "typeStart": 24,
+     "fontSize": 1.9,
+     "fontWeight": 500,
+     "color": "#EDE9F8",
+     "paddingLeft": 3.2,
+     "align": "left",
+     "caretColor": "#C9A0FF",
+     "freshTint": {
+      "color": "#A78BFA",
+      "fade": 16
+     },
+     "base": {
+      "position": {
+       "x": 0.5,
+       "y": 0.78
+      },
+      "width": 46,
+      "height": 6.2
+     }
+    }
+   ]
+  }
+ ]
+}

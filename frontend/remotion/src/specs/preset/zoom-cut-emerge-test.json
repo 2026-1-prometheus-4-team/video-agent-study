@@ -1,0 +1,17 @@
+{
+  "fps": 24,
+  "brand": { "background": "#0B0C10", "colors": ["#FFFFFF"] },
+  "scenes": [
+    {
+      "preset": "zoom_cut",
+      "fromText": "A",
+      "emergeText": "Hello",
+      "emergeAt": 0.20,
+      "emergeStartPx": 1,
+      "fontSize": 12,
+      "fontWeight": 500,
+      "zoomSpeed": 150,
+      "duration": 1.5
+    }
+  ]
+}

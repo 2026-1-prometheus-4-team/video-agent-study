@@ -1,0 +1,138 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#FF2EA6"]
+  },
+  "scenes": [
+    {
+      "duration": 1.1,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 65% at 65% 30%, #2A0B33 0%, #150925 55%, #0A0512 100%)"
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.04,
+        "toScale": 1.0,
+        "easing": "linear"
+      },
+      "elements": [
+        {
+          "element": "streak",
+          "variant": "arc",
+          "colors": ["#C026D3", "#FF2EA6"],
+          "strokeWidth": 5,
+          "glow": 0.9,
+          "bleed": 1.5,
+          "box": { "x": 0.1, "y": 0.16, "w": 0.72, "h": 0.26 },
+          "apexX": 0.45,
+          "hook": { "x": 1.2, "y": 0.95, "k": 0.6 },
+          "draw": { "duration": 4, "easing": "easeOut" },
+          "travel": {
+            "start": 13,
+            "duration": 16,
+            "span": 0.7,
+            "spanFrom": 0.05,
+            "from": 0.02,
+            "growMode": "forward",
+            "grow": { "start": 0, "duration": 13, "easing": "linear" },
+            "distance": 0.3,
+            "easing": "easeInQuad"
+          }
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "Introducing",
+            "fontSize": 13,
+            "fontWeight": 600,
+            "color": "#F4EFFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "mode": "in",
+                "order": "ltr",
+                "staggerTotal": 12,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 5,
+                  "easing": "easeOut",
+                  "channels": {
+                    "opacity": { "from": 0, "to": 1 },
+                    "y": { "from": 0.3, "to": 0 }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "duration": 1.1,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(50% 60% at 30% 35%, #1E0C2E 0%, #100718 60%, #080410 100%)"
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.05,
+        "toScale": 1.0,
+        "easing": "linear"
+      },
+      "elements": [
+        {
+          "element": "streak",
+          "variant": "d_trace",
+          "colors": ["#A855F7", "#FF2EA6"],
+          "strokeWidth": 6,
+          "glow": 1.0,
+          "bleed": 1.5,
+          "draw": { "duration": 16, "easing": "easeInOut" },
+          "travel": {
+            "start": 4,
+            "duration": 26,
+            "span": 0.95,
+            "from": 0,
+            "distance": 0.06,
+            "easing": "easeOut",
+            "white": { "span": 0.86, "distance": -0.2, "from": -0.23 }
+          }
+        }
+      ]
+    },
+    {
+      "duration": 1.7,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 65% at 70% 30%, #241035 0%, #0E0718 60%, #080410 100%)"
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.04,
+        "toScale": 1.0,
+        "easing": "linear"
+      },
+      "elements": [
+        {
+          "element": "badge_logo",
+          "letter": "D",
+          "wordmark": "DesignVerse",
+          "size": 7,
+          "wordmarkSize": 5.4,
+          "gap": 1.8,
+          "badgeColors": ["#8A5CF6", "#C026D3"],
+          "rimColor": "#FF2EA6",
+          "scaleIn": { "from": 0.55, "duration": 9, "easing": "easeOutBack" },
+          "wordmarkIn": { "delay": 4, "duration": 8, "easing": "easeOut" }
+        }
+      ]
+    }
+  ]
+}

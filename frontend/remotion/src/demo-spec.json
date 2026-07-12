@@ -1,0 +1,253 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+    "colors": ["#7C4DFF", "#FF4D9D", "#4D7DFF"]
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "Hey",
+      "palette": ["#FF4D9D", "#9D4DFF", "#4D7DFF", "#FFFFFF"],
+      "fontSize": 6,
+      "fontWeight": 700,
+      "duration": 0.8
+    },
+    {
+      "preset": "statement",
+      "text": "Dream with me for a moment",
+      "highlightWord": 1,
+      "highlightCycle": ["#FF4D9D", "#9D4DFF", "#4D7DFF"],
+      "fontSize": 2.4,
+      "fontWeight": 600,
+      "duration": 1.8
+    },
+    {
+      "preset": "beat",
+      "text": "to",
+      "fontSize": 2.2,
+      "fontWeight": 600,
+      "duration": 1.4
+    },
+    {
+      "id": "explore",
+      "duration": 2,
+      "transition_out": {
+        "type": "text_collapse_fill",
+        "stops": ["#FF4D9D", "#9D4DFF"],
+        "collapseFrames": 10,
+        "fillFrames": 12
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "explore",
+          "base": { "text": "Explore", "fontSize": 7, "fontWeight": 800, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#FF4D9D", "#9D4DFF"] }, "hold": 48 }
+            ]
+          },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 8 } },
+            { "type": "scale", "role": "in", "props": { "from": 0.92, "to": 1, "duration": 12, "easing": "easeOutExpo" } },
+            { "type": "scale", "role": "hold", "props": { "from": 1, "to": 0.93, "duration": 36, "easing": "easeInOut" } }
+          ],
+          "effects": { "glow": { "enabled": true, "color": "auto", "intensity": 0.5, "radius": 36 } }
+        }
+      ]
+    },
+    {
+      "id": "think",
+      "duration": 2,
+      "transition_out": "hard_cut",
+      "camera": { "type": "push_in", "fromScale": 1, "toScale": 1.9, "easing": "linear" },
+      "elements": [
+        {
+          "element": "text",
+          "id": "think",
+          "base": { "text": "Think about", "fontSize": 3, "fontWeight": 600, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#FFB02D", "#FF7A2D"] }, "hold": 8, "transition": 20 },
+              { "fill": { "type": "gradient", "stops": ["#2DFF6B", "#27D9A0"] }, "hold": 20 }
+            ]
+          },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 6 } },
+            { "type": "typewriter", "role": "in", "props": { "unit": "char", "charsPerSecond": 12, "cadence": "human", "cursor": "light" } },
+            { "type": "fade", "role": "out", "props": { "duration": 6 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "all_of",
+      "duration": 1.4,
+      "transition_out": "hard_cut",
+      "camera": { "type": "follow_caret" },
+      "elements": [
+        {
+          "element": "text",
+          "id": "all_of",
+          "base": { "text": "all of the", "fontSize": 5.5, "fontWeight": 700, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 6 } },
+            { "type": "typewriter", "role": "in", "props": { "unit": "char", "charsPerSecond": 13, "cadence": "human", "cursor": "light" } },
+            { "type": "fade", "role": "out", "props": { "duration": 6 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "possibilities",
+      "duration": 2.6,
+      "transition_out": "fade",
+      "elements": [
+        {
+          "element": "text",
+          "id": "possibilities",
+          "base": { "text": "Possibilities", "fontSize": 8, "fontWeight": 800, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#FF4D9D", "#9D4DFF"] }, "hold": 14, "transition": 18 },
+              { "fill": { "type": "gradient", "stops": ["#4DA8FF", "#9D4DFF"] }, "hold": 8, "transition": 14 },
+              { "fill": { "type": "solid", "value": "#FFFFFF" }, "hold": 20 }
+            ],
+            "letterOffsetFrames": 1.5
+          },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 8 } },
+            {
+              "type": "path_in",
+              "role": "in",
+              "props": {
+                "path": "arc_from_right",
+                "bend": 0.45,
+                "duration": 30,
+                "scaleFrom": 2.8,
+                "trail": {
+                  "ghostCount": 22,
+                  "lagFrames": 0.8,
+                  "colorMode": "hue_shift",
+                  "baseHue": 120,
+                  "hueStepPerGhost": 9,
+                  "opacityFalloff": 0.93
+                },
+                "residue": "rgb_offset_shadow"
+              }
+            },
+            { "type": "scale", "role": "out", "props": { "from": 1, "to": 0.92, "duration": 12, "easing": "easeIn" } },
+            { "type": "fade", "role": "out", "props": { "duration": 12 } }
+          ],
+          "effects": { "glow": { "enabled": true, "color": "auto", "intensity": 0.5, "radius": 44 } }
+        }
+      ]
+    },
+    {
+      "id": "discover",
+      "duration": 2.6,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "discover",
+          "base": { "text": "Discover new ways to", "fontSize": 2.6, "fontWeight": 600, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 10 } },
+            { "type": "typewriter", "role": "in", "props": { "unit": "char", "charsPerSecond": 14, "cadence": "human", "delay": 4 } },
+            { "type": "typewriter", "role": "out", "props": { "unit": "char", "mode": "erase", "eraseFrom": "left", "charsPerSecond": 16 } }
+          ]
+        }
+      ]
+    },
+    {
+      "preset": "beat",
+      "text": "be",
+      "fontSize": 2.4,
+      "fontWeight": 600,
+      "duration": 0.9
+    },
+    {
+      "id": "creative",
+      "duration": 1.9,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "creative",
+          "base": { "text": "creative", "fontSize": 5, "fontWeight": 700, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              {
+                "fill": {
+                  "type": "palette",
+                  "values": [null, null, null, null, null, "#4DA8FF", "#4DA8FF", "#4DA8FF"],
+                  "unit": "char"
+                },
+                "hold": 1
+              }
+            ]
+          },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 6 } },
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "order": "random",
+                "seed": 5,
+                "staggerTotal": 14,
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeOutBack",
+                  "channels": {
+                    "opacity": { "from": 0, "to": 1 },
+                    "blur": { "from": 8, "to": 0 }
+                  }
+                }
+              }
+            },
+            { "type": "scale", "role": "hold", "props": { "from": 1, "to": 1.04, "duration": 30, "easing": "easeInOut" } },
+            { "type": "fade", "role": "out", "props": { "duration": 6 } }
+          ]
+        }
+      ]
+    },
+    {
+      "preset": "statement",
+      "text": "with good words and",
+      "highlightWord": 0,
+      "highlightCycle": ["#FF4D9D", "#9D4DFF", "#FFFFFF"],
+      "fontSize": 4,
+      "fontWeight": 700,
+      "duration": 2.1
+    },
+    {
+      "id": "nice_flow",
+      "duration": 2.5,
+      "transition_out": "fade",
+      "elements": [
+        {
+          "element": "text",
+          "id": "nice_flow",
+          "base": { "text": "nice design flow", "fontSize": 3.4, "fontWeight": 700, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#FF4D4D", "#FF4DD2", "#7C4DFF"] }, "hold": 8, "transition": 16 },
+              { "fill": { "type": "solid", "value": "#FFFFFF" }, "hold": 36 }
+            ],
+            "letterOffsetFrames": 2
+          },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 8 } },
+            { "type": "typewriter", "role": "in", "props": { "unit": "char", "charsPerSecond": 13, "cadence": "human" } },
+            { "type": "scale", "role": "hold", "props": { "from": 1, "to": 0.86, "duration": 28, "easing": "easeInOut", "delay": 22 } },
+            { "type": "fade", "role": "out", "props": { "duration": 10 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

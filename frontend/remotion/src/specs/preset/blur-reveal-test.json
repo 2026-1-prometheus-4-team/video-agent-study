@@ -1,0 +1,21 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0B0C10",
+    "fontFamily": "Geist",
+    "colors": ["#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "preset": "blur_reveal",
+      "text": "Learn any language fast",
+      "fontSize": 6,
+      "fontWeight": 600,
+      "blurAmount": 18,
+      "pace": "med",
+      "baseColor": "#FFFFFF",
+      "duration": 3.2,
+      "background": "#0B0C10"
+    }
+  ]
+}

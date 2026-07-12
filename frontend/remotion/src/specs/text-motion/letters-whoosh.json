@@ -1,0 +1,180 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": [
+      "#FFFFFF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "chars-up",
+      "duration": 2.4,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "cu",
+          "base": {
+            "text": "Rushing Up",
+            "fontSize": 6,
+            "fontWeight": 500,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "order": "ltr",
+                "staggerTotal": 8,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeOutBack",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "y": {
+                      "from": 0.9,
+                      "to": 0
+                    },
+                    "blur": {
+                      "from": 6,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chars-down",
+      "duration": 2.4,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "cd",
+          "base": {
+            "text": "Falling Down",
+            "fontSize": 6,
+            "fontWeight": 500,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "order": "ltr",
+                "staggerTotal": 8,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeOutBack",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "y": {
+                      "from": -0.9,
+                      "to": 0
+                    },
+                    "blur": {
+                      "from": 6,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chars-up-glow-bounce",
+      "duration": 2.8,
+      "elements": [
+        {
+          "element": "text",
+          "id": "cgb",
+          "base": {
+            "text": "Combined",
+            "fontSize": 6.5,
+            "fontWeight": 500,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "order": "ltr",
+                "staggerTotal": 8,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeOutBack",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "y": {
+                      "from": 0.9,
+                      "to": 0
+                    },
+                    "blur": {
+                      "from": 6,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "scale",
+              "role": "in",
+              "props": {
+                "from": 0.86,
+                "to": 1,
+                "duration": 18,
+                "easing": "springOut"
+              }
+            }
+          ],
+          "effects": {
+            "glow": {
+              "enabled": true,
+              "color": "auto",
+              "radius": 44,
+              "timeline": [
+                {
+                  "intensity": 1,
+                  "hold": 2,
+                  "transition": 6
+                },
+                {
+                  "intensity": 0.3,
+                  "hold": 50
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

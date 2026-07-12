@@ -1,0 +1,44 @@
+{
+ "fps": 60,
+ "brandDefaults": {
+  "background": "#000000",
+  "fontFamily": "General Sans",
+  "colors": [
+   "#FFFFFF"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "flicker-words",
+   "duration": 2.5,
+   "elements": [
+    {
+     "element": "text",
+     "id": "fw",
+     "base": {
+      "text": "Flicker Words",
+      "fontSize": 7,
+      "color": "#FFFFFF"
+     },
+     "layers": [
+      {
+       "type": "letter_flicker",
+       "role": "in",
+       "props": {
+        "unit": "char",
+        "seed": 7,
+        "revealFrames": 40,
+        "flickerHold": 1,
+        "litProbStart": 0.15,
+        "litProbEnd": 0.92,
+        "partialChance": 0.35,
+        "partialOpacity": 0.4,
+        "settleStartFrac": 0.3
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

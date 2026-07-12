@@ -1,0 +1,395 @@
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg-app);
+  display: grid;
+  place-items: center;
+}
+
+.stageInner {
+  display: grid;
+  place-items: center;
+}
+
+.playerWrap {
+  position: relative;
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 1px var(--hairline),
+    0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* 오버레이 히트 확장 — 스테이지 전역에서 캔버스 밖 요소 선택 가능 */
+.hitExtend {
+  position: absolute;
+  inset: -4000px;
+}
+
+/* SelectionOverlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  touch-action: none;
+  user-select: none;
+}
+
+.hoverOutline {
+  position: absolute;
+  border: 1px solid var(--accent);
+  opacity: 0.6;
+  pointer-events: none;
+  border-radius: 1px;
+}
+
+.selOutline,
+.selOutlineGroup {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.selOutline {
+  border: 1.5px solid var(--accent);
+}
+.selOutlineGroup {
+  border: 1.5px dashed var(--accent);
+}
+
+.selLabel {
+  position: absolute;
+  left: 0;
+  top: -20px;
+  max-width: 200px;
+  padding: 1px 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-10);
+  font-weight: 500;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 조작 핸들 레이어 — selOutline 과 달리 pointer-events 받음 */
+.handleLayer {
+  position: absolute;
+  pointer-events: none;
+}
+.handle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: var(--bg-float);
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+.handle:hover {
+  background: var(--accent);
+}
+/* 모서리(코너) — 대각 리사이즈 커서 */
+.hTL { left: 0; top: 0; cursor: nwse-resize; }
+.hTR { left: 100%; top: 0; cursor: nesw-resize; }
+.hBL { left: 0; top: 100%; cursor: nesw-resize; }
+.hBR { left: 100%; top: 100%; cursor: nwse-resize; }
+/* 변(엣지) — 한 축 리사이즈 커서 */
+.hT { left: 50%; top: 0; cursor: ns-resize; }
+.hB { left: 50%; top: 100%; cursor: ns-resize; }
+.hL { left: 0; top: 50%; cursor: ew-resize; }
+.hR { left: 100%; top: 50%; cursor: ew-resize; }
+/* 회전 핸들 — 코너 바깥 넓은 히트존(투명). 코너 근처에서 회전.
+   커서는 굽은 화살표(회전) SVG — Figma/AE 식. */
+.rotZone {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2724%27%20height%3D%2724%27%20viewBox%3D%270%200%2024%2024%27%3E%3Cpath%20d%3D%27M18%208a7%207%200%201%200%201.2%206%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M18.2%202.5v5.8h-5.8%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%274%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M18%208a7%207%200%201%200%201.2%206%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3Cpath%20d%3D%27M18.2%202.5v5.8h-5.8%27%20fill%3D%27none%27%20stroke%3D%27white%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27/%3E%3C/svg%3E") 12 12, grab;
+  z-index: -1;
+}
+.rotTL { left: 0; top: 0; }
+.rotTR { left: 100%; top: 0; }
+.rotBL { left: 0; top: 100%; }
+.rotBR { left: 100%; top: 100%; }
+
+.marquee {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: var(--accent-muted);
+  pointer-events: none;
+}
+
+/* 스마트 정렬 가이드 — px 위치. 요소 가장자리/중앙 정렬 시 표시. */
+.guideV {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ff4d6d;
+  pointer-events: none;
+  transform: translateX(-0.5px);
+}
+.guideH {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #ff4d6d;
+  pointer-events: none;
+  transform: translateY(-0.5px);
+}
+
+/* 조작 중 치수/각도 HUD 배지 */
+.hud {
+  position: absolute;
+  padding: 2px 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-10);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  z-index: 20;
+}
+
+/* Alt 거리 측정 — 빨간 스페이싱 라벨 */
+.measureLine {
+  position: absolute;
+  background: #ff4d6d;
+  pointer-events: none;
+}
+.measureLabel {
+  position: absolute;
+  padding: 1px 5px;
+  background: #ff4d6d;
+  color: #fff;
+  font-size: var(--fs-10);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+}
+
+/* record 모드 경고 상태 — 캔버스 빨간 테두리 + REC 배지 + 선택 아웃라인 빨강 */
+.recFrame {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #ff4d6d;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 30;
+  animation: recPulse 1.4s ease-in-out infinite;
+}
+@keyframes recPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.recBadge {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  padding: 3px 10px;
+  background: #ff4d6d;
+  color: #fff;
+  font-size: var(--fs-10);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.overlay[data-recording="true"] .selOutline,
+.overlay[data-recording="true"] .selOutlineGroup {
+  border-color: #ff4d6d;
+}
+
+/* 빈 상태 */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-4);
+  font-size: var(--fs-12);
+}
+.emptyIcon {
+  color: var(--text-4);
+  opacity: 0.6;
+}
+
+/* 줌 칩 */
+.zoomChip {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10;
+}
+.zoomBtn {
+  height: 26px;
+  padding: 0 12px;
+  background: var(--bg-float);
+  border-radius: var(--r-2);
+  box-shadow: var(--shadow-float);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  font-variant-numeric: tabular-nums;
+}
+.zoomBtn:hover {
+  color: var(--text-1);
+}
+.zoomMenu {
+  position: absolute;
+  right: 0;
+  bottom: 32px;
+  min-width: 90px;
+  padding: 4px;
+  background: var(--bg-float);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  flex-direction: column;
+}
+.zoomItem {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: left;
+}
+.zoomItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+/* ---- 캔버스 우클릭 메뉴 (Figma 식) ---- */
+.ctxBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.ctxMenu {
+  position: fixed;
+  z-index: 91;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--bg-float);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-float);
+  border: 1px solid var(--hairline-strong);
+  display: flex;
+  flex-direction: column;
+}
+.ctxItem {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  white-space: nowrap;
+}
+.ctxItem:hover { background: var(--bg-hover); color: var(--text-1); }
+.ctxItem:disabled { opacity: 0.35; pointer-events: none; }
+.ctxItem[data-danger]:hover { background: var(--danger-muted); color: var(--danger); }
+.ctxKey {
+  color: var(--text-4);
+  font-size: var(--fs-10);
+  font-family: var(--font-mono-stack);
+}
+.ctxSep { height: 1px; margin: 3px 6px; background: var(--hairline); }
+
+/* 인라인 텍스트 편집 (캔버스 더블클릭) — 잉크 크기 래퍼가 클립, 안의 textarea 는
+   리딩만큼 위로 당겨서 글리프가 원위치에 겹침. 하이라이트도 래퍼가 잘라냄. */
+.inlineTextEditWrap {
+  position: absolute;
+  z-index: 40;
+  border: 1px solid var(--accent, #4c8dff);
+  border-radius: 3px;
+  overflow: hidden;
+  background: transparent;
+  box-sizing: border-box;
+}
+.inlineTextEdit {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 0;
+  line-height: 1.1;
+  caret-color: var(--accent, #4c8dff);
+  box-sizing: border-box;
+}
+
+/* Motion path 편집 오버레이 (피그마식) */
+.pathOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 6;
+}
+.pathOverlay path,
+.pathOverlay circle,
+.pathOverlay rect,
+.pathOverlay line {
+  pointer-events: auto;
+  vector-effect: non-scaling-stroke;
+}
+.pathCurve {
+  fill: none;
+  stroke: #7c9cff;
+  stroke-width: 1.5;
+  pointer-events: none !important;
+  opacity: 0.9;
+}
+.pathHit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: copy;
+}
+.pathAnchor {
+  fill: #0d0f14;
+  stroke: #7c9cff;
+  stroke-width: 1.5;
+  cursor: grab;
+}
+.pathAnchorActive {
+  composes: pathAnchor;
+  fill: #7c9cff;
+}
+.pathHandleLine {
+  stroke: #7c9cff;
+  stroke-width: 1;
+  opacity: 0.6;
+  pointer-events: none !important;
+}
+.pathHandle {
+  fill: #f4f6fb;
+  stroke: #7c9cff;
+  stroke-width: 1.5;
+  cursor: grab;
+}

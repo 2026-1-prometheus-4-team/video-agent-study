@@ -1,0 +1,63 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": ["#7C4DFF", "#FF4D9D", "#4D7DFF"]
+  },
+  "scenes": [
+    {
+      "id": "bloom-white",
+      "duration": 2.5,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "gb1",
+          "base": { "text": "Glow", "fontSize": 6, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 6 } },
+            { "type": "scale", "role": "in", "props": { "from": 0.9, "to": 1, "duration": 12, "easing": "easeOutExpo" } }
+          ],
+          "effects": {
+            "glow": {
+              "enabled": true,
+              "color": "auto",
+              "radius": 48,
+              "timeline": [
+                { "intensity": 1.0, "hold": 2, "transition": 5 },
+                { "intensity": 0.3, "hold": 45 }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bloom-amber",
+      "duration": 2.6,
+      "elements": [
+        {
+          "element": "text",
+          "id": "gb2",
+          "base": { "text": "where your calories go?", "fontSize": 3, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 8 } },
+            { "type": "move", "role": "in", "props": { "fromY": 0.04, "toY": 0, "duration": 12, "easing": "easeOutExpo" } }
+          ],
+          "effects": {
+            "glow": {
+              "enabled": true,
+              "color": "#E0982E",
+              "radius": 40,
+              "timeline": [
+                { "intensity": 0.9, "hold": 2, "transition": 6 },
+                { "intensity": 0.25, "hold": 45 }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

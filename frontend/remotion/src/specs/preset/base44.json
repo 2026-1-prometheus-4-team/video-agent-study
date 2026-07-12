@@ -1,0 +1,105 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#FAF9F7",
+    "colors": [
+      "#22C9FF",
+      "#FBB439",
+      "#F0C5FF"
+    ],
+    "fontFamily": "Familjen Grotesk, Inter, system-ui, sans-serif"
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "Idea?",
+      "palette": [
+        "#22C9FF",
+        "#ADE900",
+        "#FBB439",
+        "#FF7F47",
+        "#0F0F0F"
+      ],
+      "baseColor": "#0F0F0F",
+      "emphasis": "strong",
+      "effects": {
+        "glow": {
+          "intensity": 0.45,
+          "radius": 28
+        }
+      },
+      "duration": 1.1
+    },
+    {
+      "preset": "statement",
+      "text": "Just describe what you want",
+      "highlightWord": 1,
+      "highlightCycle": [
+        "#FF7F47",
+        "#22C9FF",
+        "#FBB439"
+      ],
+      "baseColor": "#0F0F0F",
+      "exitSpeed": "fast",
+      "emphasis": "soft",
+      "pacing": "punctuate",
+      "effects": {
+        "glow": { "enabled": true, "intensity": 0.85, "radius": 42 }
+      },
+      "duration": 3
+    },
+    {
+      "preset": "beat",
+      "text": "Type.",
+      "baseColor": "#0F0F0F",
+      "fontSize": 4.5,
+      "duration": 1
+    },
+    {
+      "preset": "beat",
+      "text": "Tweak.",
+      "baseColor": "#0F0F0F",
+      "emphasis": "strong",
+      "duration": 1
+    },
+    {
+      "preset": "beat",
+      "text": "Ship.",
+      "baseColor": "#FF5500",
+      "fontSize": 6,
+      "effects": {
+        "glow": {
+          "enabled": true,
+          "intensity": 0.7,
+          "radius": 50
+        }
+      },
+      "duration": 1
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "Base44",
+      "gradientStops": [
+        "#FBB439",
+        "#FF7F47",
+        "#F0C5FF",
+        "#22C9FF",
+        "#ADE900"
+      ],
+      "flowSpeed": -3,
+      "exitDir": "right",
+      "baseColor": "#0F0F0F",
+      "emphasis": "soft",
+      "effects": {
+        "glow": {
+          "intensity": 0.55,
+          "radius": 60
+        },
+        "motionBlur": {
+          "amount": 0.5
+        }
+      },
+      "duration": 2.6
+    }
+  ]
+}

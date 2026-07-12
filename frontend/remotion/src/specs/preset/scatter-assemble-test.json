@@ -1,0 +1,21 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#050507",
+    "fontFamily": "Geist",
+    "colors": ["#9B5CE8", "#C8B0F0", "#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "preset": "scatter_assemble",
+      "fromText": "REDEFINING ASSET MANAGEMENT THROUGH",
+      "assembleText": "AI",
+      "fontSize": 2.3,
+      "fontWeight": 500,
+      "baseColor": "#FFFFFF",
+      "assembleColor": "#DDA8FF",
+      "spread": 56,
+      "background": "#050507"
+    }
+  ]
+}

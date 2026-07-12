@@ -1,0 +1,42 @@
+{
+ "fps": 24,
+ "brandDefaults": {
+  "background": "#0D0B10",
+  "fontFamily": "General Sans",
+  "colors": [
+   "#FFFFFF"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "type-char",
+   "duration": 3.5,
+   "transition_out": "hard_cut",
+   "elements": [
+    {
+     "element": "text",
+     "id": "tc",
+     "base": {
+      "text": "Building your app",
+      "fontSize": 5,
+      "color": "#FFFFFF"
+     },
+     "layers": [
+      {
+       "type": "typewriter",
+       "role": "in",
+       "props": {
+        "unit": "char",
+        "mode": "type",
+        "charsPerSecond": 12,
+        "cursor": "light",
+        "cadence": "human",
+        "seed": 7
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

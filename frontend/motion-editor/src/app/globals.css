@@ -1,0 +1,211 @@
+/* Scene24 Motion Editor — design tokens.
+   다크 전용 프로툴 팔레트. 근거: Linear/Raycast/Framer/Figma UI3 추출값
+   (scratchpad/research/dark-ui-2026.md). 원칙:
+   - 깊이 = 서피스 사다리(luminance step) + 1px 저알파 헤어라인. 정지 요소에 그림자 금지.
+   - 그림자는 "떠 있는 것"(팝오버/메뉴/드래그 중)에만.
+   - 크로마 포인트는 단 하나(--accent) — 셀렉션/포커스/프라이머리/키프레임에만.
+   - 크롬 텍스트 11-13px, 라벨 500, 13px 이하 +0.1~0.2px 자간, 숫자는 tabular. */
+
+:root {
+  /* surface ladder (뒤 -> 앞) — 단차를 크게: 캔버스는 깊게, 패널은 확실히 밝게.
+     구분은 선이 아니라 이 luminance step 이 한다 (Figma UI3: canvas 1e/panel 2c). */
+  --bg-app: #0a0b0d;
+  --bg-panel: #16181d;
+  --bg-elevated: #21242b;
+  --bg-float: #292d35;
+  --bg-inset: #0e1013; /* 타임라인 트랙/세그먼트 트랙 등 파인 곳 */
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-active: rgba(255, 255, 255, 0.09);
+  /* 패널 위 섹션 카드 — 선 없이 표면 단차로만 그룹 구분 */
+  --bg-card: rgba(255, 255, 255, 0.032);
+
+  /* hairlines */
+  --hairline: rgba(255, 255, 255, 0.07);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
+
+  /* ink */
+  --text-1: #f4f4f6;
+  --text-2: #c9cdd3;
+  --text-3: #8a8f98;
+  --text-4: #62666d;
+
+  /* accent — 단일 크로마. 셀렉션/포커스/프라이머리/선택된 키프레임 전용 */
+  --accent: #4c8dff;
+  --accent-strong: #6da4ff;
+  --accent-muted: rgba(76, 141, 255, 0.15);
+  --accent-outline: rgba(76, 141, 255, 0.55);
+
+  /* status (15% 알파 배경과 짝) */
+  --danger: #ff6161;
+  --danger-muted: rgba(255, 97, 97, 0.15);
+  --warn: #ffc533;
+  --warn-muted: rgba(255, 197, 51, 0.15);
+  --ok: #59d499;
+  --ok-muted: rgba(89, 212, 153, 0.15);
+
+  /* timeline role colors (enter/hold/exit 페이즈) — 캔버스 오브젝트 색이라 예외적 크로마 */
+  --role-in: #4c8dff;
+  --role-in-muted: rgba(76, 141, 255, 0.28);
+  --role-hold: #3a3f46;
+  --role-out: #ff8a5c;
+  --role-out-muted: rgba(255, 138, 92, 0.28);
+  --role-afterin: #9b7dff;
+
+  /* radii — 크롬은 6-12px, 16px+ 금지 */
+  --r-1: 4px;
+  --r-2: 6px;
+  --r-3: 10px;
+  --r-4: 12px;
+
+  /* float shadow (팝오버/메뉴/드래그 중인 클립에만) */
+  --shadow-float:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.08),
+    0 4px 8px rgba(0, 0, 0, 0.2),
+    0 16px 32px rgba(0, 0, 0, 0.35);
+
+  /* typography */
+  --font-ui-stack: var(--font-ui), "Inter", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-mono-stack: var(--font-mono), "SF Mono", ui-monospace, monospace;
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-15: 15px;
+
+  /* motion budget — 100회+/일 액션(재생/스크럽/키프레임)은 애니메이션 0 */
+  --ease-pop: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-press: 120ms;
+  --dur-hover-out: 160ms;
+  --dur-pop: 200ms;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-1);
+  font-family: var(--font-ui-stack);
+  font-size: var(--fs-13);
+  font-feature-settings: "calt", "kern", "liga", "ss03", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+  font-family: inherit;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* 숫자 입력/타임코드/좌표 — tabular 필수 (스크럽 시 가로 흔들림 방지) */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.mono {
+  font-family: var(--font-mono-stack);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 스크롤바 — 오버레이 스타일, 트랙 없음 */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-outline);
+  outline-offset: 1px;
+}
+
+/* 공용 마이크로 패턴 */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-2);
+  color: var(--text-3);
+  transition: background var(--dur-hover-out) var(--ease-pop),
+    color var(--dur-hover-out) var(--ease-pop);
+}
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  transition: none; /* hover-in 은 즉시, hover-out 만 이징 */
+}
+.icon-btn:active {
+  transform: scale(0.96);
+}
+.icon-btn[data-active="true"] {
+  background: var(--accent-muted);
+  color: var(--accent-strong);
+}
+
+/* 라이브러리 폴더 hover 시 파일추가 + 노출 (VSCode 식) */
+.lib-group-add {
+  opacity: 0;
+  transition: opacity var(--dur-hover-out) var(--ease-pop);
+}
+.lib-group:hover .lib-group-add {
+  opacity: 1;
+}
+
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: linear-gradient(#121212, #0d0d0d);
+  box-shadow: 0 0 0 1px var(--hairline);
+  color: var(--text-3);
+  font-size: var(--fs-10);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 라이브러리 파일 행 — hover/현재 파일 하이라이트 */
+.lib-row {
+  border-radius: var(--r-2);
+  transition: background var(--dur-hover-out) var(--ease-pop);
+}
+.lib-row:hover {
+  background: var(--bg-hover);
+  transition: none;
+}

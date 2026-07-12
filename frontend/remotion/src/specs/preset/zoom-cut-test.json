@@ -1,0 +1,14 @@
+{
+  "fps": 24,
+  "brand": { "background": "#0B0C10", "colors": ["#FFFFFF"] },
+  "scenes": [
+    {
+      "preset": "zoom_cut",
+      "fromText": "Google Search",
+      "fontSize": 8,
+      "fontWeight": 500,
+      "zoomSpeed": 60,
+      "duration": 0.5
+    }
+  ]
+}

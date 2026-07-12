@@ -1,0 +1,19 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "beat",
+      "text": "no designers",
+      "background": "#0a0b0d",
+      "baseColor": "#fdfdfc",
+      "duration": 0.7,
+      "fontSize": 5,
+      "fontWeight": 800
+    }
+  ]
+}

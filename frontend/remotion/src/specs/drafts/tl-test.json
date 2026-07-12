@@ -1,0 +1,47 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0D12"
+  },
+  "scenes": [
+    {
+      "id": "s",
+      "duration": 3,
+      "elements": [
+        {
+          "element": "group",
+          "id": "grp",
+          "layers": [],
+          "children": [
+            {
+              "element": "text",
+              "id": "a",
+              "base": {
+                "text": "A",
+                "fontSize": 8,
+                "color": "#fff",
+                "position": {
+                  "x": 0.3,
+                  "y": 0.4
+                }
+              }
+            },
+            {
+              "element": "text",
+              "id": "loose",
+              "base": {
+                "text": "Loose",
+                "fontSize": 8,
+                "color": "#fff",
+                "position": {
+                  "x": 0.5,
+                  "y": 0.7
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

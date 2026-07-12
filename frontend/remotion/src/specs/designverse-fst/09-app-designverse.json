@@ -1,0 +1,83 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#FF2EA6"]
+  },
+  "scenes": [
+    {
+      "duration": 3.0,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 70% at 60% 40%, #2A0B26 0%, #120718 60%, #0A0512 100%)"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "app.",
+            "fontSize": 4.6,
+            "fontWeight": 500,
+            "color": "#B9AFC6",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": -0.205, "fromY": -0.06, "toX": -0.205, "toY": -0.06, "duration": 1, "easing": "linear" }
+            },
+            { "type": "fade", "role": "in", "props": { "duration": 6, "easing": "easeOut" } }
+          ]
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "DesignVerse{",
+            "fontSize": 4.6,
+            "fontWeight": 700,
+            "color": "#E879F9",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": 0.02, "fromY": -0.06, "toX": 0.02, "toY": -0.06, "duration": 1, "easing": "linear" }
+            },
+            { "type": "fade", "role": "in", "props": { "duration": 8, "easing": "easeOut" } }
+          ]
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "not just a pretty face",
+            "fontSize": 4.6,
+            "fontWeight": 600,
+            "color": "#A78BFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": 0.035, "fromY": 0.06, "toX": 0.035, "toY": 0.06, "duration": 1, "easing": "linear" }
+            },
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "charsPerSecond": 6,
+                "firstGap": 8,
+                "cursor": "none",
+                "revealBlur": { "from": 6, "duration": 4 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

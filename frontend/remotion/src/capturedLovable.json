@@ -1,0 +1,53 @@
+{
+  "found": true,
+  "tag": "FORM",
+  "bbox": {
+    "x": 336,
+    "y": 425,
+    "w": 768,
+    "h": 146
+  },
+  "styles": {
+    "backgroundColor": "rgb(247, 244, 237)",
+    "backgroundImage": "none",
+    "borderRadius": "28px",
+    "borderWidth": "1px",
+    "borderColor": "lab(100 0 0)",
+    "borderStyle": "solid",
+    "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0 0 0 / 0.08) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px",
+    "color": "rgb(3, 3, 3)",
+    "fontSize": "16px",
+    "fontFamily": "\"Camera Plain Variable\", ui-sans-serif, system-ui, sans-serif",
+    "fontWeight": "400",
+    "padding": "12px"
+  },
+  "placeholder": "",
+  "text": "Ask Lovable to create a land\n\n\n\n\nBuild\nSend message",
+  "url": "https://lovable.dev",
+  "viewport": {
+    "w": 1440,
+    "h": 900
+  },
+  "textSlot": {
+    "relX": 13,
+    "relY": 13,
+    "w": 742,
+    "h": 80,
+    "fontSize": "16px",
+    "fontFamily": "\"Camera Plain Variable\", ui-sans-serif, system-ui, sans-serif",
+    "fontWeight": "400",
+    "color": "lab(42.0087 -0.102207 0.363302)",
+    "lineHeight": "22px",
+    "letterSpacing": "normal"
+  },
+  "sendBtn": {
+    "relX": 723,
+    "relY": 101,
+    "w": 32,
+    "h": 32,
+    "background": "rgba(0, 0, 0, 0)",
+    "color": "lab(98.2716 0 0)"
+  },
+  "elW": 768,
+  "elH": 146
+}

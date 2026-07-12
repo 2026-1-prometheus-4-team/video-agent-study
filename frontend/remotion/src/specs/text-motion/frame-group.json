@@ -1,0 +1,88 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "Geist",
+    "colors": ["#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "id": "frame-group",
+      "duration": 3.2,
+      "elements": [
+        {
+          "element": "group",
+          "id": "grp",
+          "layers": [
+            { "type": "scale", "role": "in", "props": { "from": 0.88, "to": 1, "duration": 24, "easing": "easeOutBack" } },
+            { "type": "move", "role": "in", "props": { "fromY": 0.06, "toY": 0, "duration": 24, "easing": "easeOutExpo" } }
+          ],
+          "children": [
+            {
+              "element": "text",
+              "id": "title",
+              "base": {
+                "text": "Grouped",
+                "fontSize": 7,
+                "fontWeight": 500,
+                "letterSpacing": -0.02,
+                "color": "#F5F6FA",
+                "position": { "x": 0.5, "y": 0.44 }
+              },
+              "layers": [
+                {
+                  "type": "typewriter",
+                  "role": "in",
+                  "props": {
+                    "unit": "char",
+                    "mode": "type",
+                    "charsPerSecond": 20,
+                    "cursor": "none",
+                    "cadence": "uniform",
+                    "reflow": "smooth",
+                    "reflowSmoothing": 7,
+                    "revealBlur": { "from": 3, "duration": 5 },
+                    "revealScale": { "from": 0.55, "duration": 7 },
+                    "revealRotate": { "from": 12, "duration": 7 },
+                    "revealX": { "from": -0.6, "duration": 7 }
+                  }
+                }
+              ]
+            },
+            {
+              "element": "text",
+              "id": "sub",
+              "base": {
+                "text": "these two move as one",
+                "fontSize": 2.3,
+                "fontWeight": 400,
+                "letterSpacing": 0.04,
+                "color": "#A7C0EC",
+                "position": { "x": 0.5, "y": 0.565 }
+              },
+              "layers": [
+                {
+                  "type": "typewriter",
+                  "role": "in",
+                  "props": {
+                    "unit": "word",
+                    "cursor": "none",
+                    "firstGap": 8,
+                    "wordGap": 3,
+                    "lastGap": 12,
+                    "revealGap": { "from": 1.8, "duration": 10, "easing": "easeOut" },
+                    "revealMove": { "y": 0.18, "duration": 10 },
+                    "revealBlur": { "from": 6, "duration": 8 },
+                    "reflow": "smooth",
+                    "reflowSmoothing": 12,
+                    "reflowLead": 5
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

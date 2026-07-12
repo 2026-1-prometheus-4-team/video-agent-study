@@ -1,0 +1,909 @@
+.panel {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--hairline);
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  /* 접기/펴기 높이 슬라이드 — 리사이즈 드래그 중엔 off. */
+  transition: height 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.panel[data-resizing="true"] {
+  transition: none;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: ns-resize;
+  z-index: 20;
+}
+.resizeHandle:hover {
+  background: var(--accent-muted);
+}
+
+/* 헤더 */
+.header {
+  height: 34px;
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+.headerSpacer {
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+}
+/* 컷 편집 툴 클러스터 — 헤더 좌측. 선택 없으면 흐리게(dim). */
+.cutTools {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.cutTools[data-dim="true"] {
+  opacity: 0.4;
+}
+.transport {
+  grid-column: 2;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+/* REC — 상단에서 하단 트랜스포트로 이동. 켜지면 붉게 펄스. */
+.recBtn {
+  height: 22px;
+  padding: 0 8px 0 6px;
+  margin: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: var(--fs-10);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.recBtn:hover {
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.recBtn[data-active="true"] {
+  color: #fff;
+  background: #ff4d6d;
+  box-shadow: none;
+  animation: recBtnPulse 1.4s ease-in-out infinite;
+}
+@keyframes recBtnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 77, 109, 0); }
+}
+.recLabel {
+  line-height: 1;
+}
+.headerRight {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.headerHint {
+  color: var(--text-4);
+  font-size: var(--fs-12);
+}
+.timeReadout {
+  margin-left: 8px;
+  font-size: var(--fs-12);
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.timeSep {
+  color: var(--text-4);
+}
+.frameNum {
+  margin-left: 8px;
+  color: var(--text-4);
+  font-size: var(--fs-11);
+}
+.zoomSlider input {
+  width: 96px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 씬 스트립 */
+.sceneStrip {
+  height: 46px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--hairline);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.sceneBlock {
+  position: relative;
+  height: 34px;
+  flex: none;
+  background: var(--bg-elevated);
+  border-radius: var(--r-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow var(--dur-hover-out) var(--ease-pop);
+}
+.sceneBlock:hover {
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.sceneBlock[data-active="true"] {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* 병합용 다중 선택 (shift 클릭) */
+.sceneBlock[data-multisel="true"] {
+  box-shadow: inset 0 0 0 1.5px var(--warn);
+}
+.sceneBlockInner {
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  pointer-events: none;
+}
+.sceneName {
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sceneDur {
+  font-size: var(--fs-10);
+  color: var(--text-4);
+}
+.sceneEdge {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+.sceneEdge:hover {
+  background: var(--accent-muted);
+}
+.sceneAdd {
+  height: 34px;
+  width: 34px;
+  flex: none;
+  border-radius: var(--r-2);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-3);
+  font-size: 18px;
+  line-height: 1;
+}
+.sceneAdd:hover {
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+/* 연속 타임라인용 씬 스트립 — 스크롤 영역 안에 들어가 눈금자와 정렬.
+   sticky top:0 으로 세로 스크롤에도 상단 고정, 코너는 sticky left:0. */
+.sceneStripRow {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  display: flex;
+  height: 46px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--hairline);
+}
+.sceneStripCorner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 184px;
+  flex: none;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+.sceneStripCards {
+  position: relative;
+  height: 100%;
+  flex: none;
+}
+
+/* 스크롤 영역 (눈금 + 행) */
+.scrollArea {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.inner {
+  position: relative;
+  min-height: 100%;
+  /* flex column — 오디오 레인(마지막 자식)을 콘텐츠가 적을 땐 패널 바닥에
+     붙이고(스페이서 margin-top:auto), 많을 땐 sticky bottom 으로 고정.
+     오버스크롤 여유(150px)는 레인 "위" 스페이서가 담당 — 패딩을 레인 아래에
+     두면 최대 스크롤에서 레인이 sticky 헤더 밑으로 사라진다 (실측). */
+  display: flex;
+  flex-direction: column;
+}
+.audioSpacer {
+  height: 150px;
+  margin-top: auto;
+  flex: none;
+}
+
+.rulerRow {
+  position: sticky;
+  top: 46px; /* 씬 스트립(46) 아래에 고정 */
+  z-index: 8;
+  display: flex;
+  height: 32px; /* TSX RULER_H 와 동기 — 스크럽 잡기 쉽게 넉넉히 */
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--hairline);
+}
+.corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 184px;
+  flex: none;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+.cornerLabel {
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ruler {
+  position: relative;
+  height: 100%;
+  cursor: ew-resize;
+}
+.tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--hairline);
+}
+.tickLabel {
+  position: absolute;
+  left: 3px;
+  top: 9px;
+  font-size: var(--fs-10);
+  font-family: var(--font-mono-stack);
+  color: var(--text-4);
+  white-space: nowrap;
+}
+
+.beatLine {
+  position: absolute;
+  top: 78px; /* 스트립(46) + 눈금(32) 아래 = 트랙 영역 */
+  bottom: 0;
+  width: 1px;
+  background: var(--warn);
+  opacity: 0.22;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 씬 경계 세로 구분선 — 연속 트랙에서 씬을 나눈다. 눈금자 아래부터 트랙 끝까지. */
+.sceneDivider {
+  position: absolute;
+  top: 46px; /* 눈금자 시작부터(눈금 sticky bg 가 46~70 구간을 덮어 실제로는 트랙만 보임) */
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid var(--hairline-strong);
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* exit 트랜지션 밴드 — 행 영역 우측(씬 끝)에 트랜지션 길이만큼.
+   z-index 2: 트랙 행 위, sticky 거터(3)/눈금(8)/플레이헤드(9) 아래. */
+.transitionBand {
+  position: absolute;
+  top: 78px;
+  bottom: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--role-out-muted) 45%);
+  border-left: 2px solid var(--role-out);
+}
+.transitionLabel {
+  display: inline-block;
+  margin: 4px 0 0 5px;
+  font-size: var(--fs-10);
+  font-weight: 500;
+  color: var(--role-out);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 6px);
+}
+
+/* 씬 카드 exit 트랜지션 뱃지 — 우상단 코너 글리프 */
+.sceneTransBadge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  z-index: 2;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--role-out);
+  pointer-events: none;
+}
+
+/* 행 */
+.row {
+  display: flex;
+  height: 28px;
+  align-items: stretch;
+  position: relative;
+}
+/* 요소 트랙 행 — AE 식 세로 분리: 위 존 = 페이즈 바(+트림 핸들), 아래 존 =
+   키프레임 스트립. 트림과 다이아가 공간적으로 안 겹치도록 행을 살짝 높인다. */
+.row[data-eltrack="true"] {
+  height: 40px;
+}
+.row[data-eltrack="true"] .trackCell {
+  align-items: flex-start;
+  padding-top: 6px; /* 바 존: 6..20 (14px 바) */
+}
+.row[data-eltrack="true"] .gutterCell {
+  align-items: center; /* 거터 라벨은 그대로 세로 중앙 */
+}
+.row[data-eltrack="true"] .trimHandle {
+  top: 4px;
+  bottom: auto;
+  height: 16px; /* 바 존만 — 키 스트립 침범 X */
+}
+.row[data-hovered="true"] .gutterCell,
+.row[data-hovered="true"] .trackCell {
+  background: var(--bg-hover);
+}
+.row[data-selected="true"] .gutterCell,
+.row[data-selected="true"] .trackCell {
+  background: var(--accent-muted);
+}
+.gutterCell {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 184px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.glyph {
+  color: var(--text-4);
+  flex: none;
+}
+.rowLabel {
+  font-size: var(--fs-12);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trackCell {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  cursor: pointer;
+}
+
+.phaseBar {
+  position: relative;
+  height: 14px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: transparent;
+}
+.clipRange {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 4px;
+}
+.trimHandle {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 10px;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  z-index: 4;
+  border-radius: 3px;
+}
+.trimHandle:hover {
+  background: var(--accent-muted);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.segIn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--role-in-muted);
+  border-left: 2px solid var(--role-in);
+}
+.segHold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--role-hold);
+  opacity: 0.4;
+}
+.segOut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--role-out-muted);
+  border-right: 2px solid var(--role-out);
+}
+.layerChip {
+  position: absolute;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 2px;
+  opacity: 0.9;
+}
+.groupBar {
+  height: 14px;
+  border-radius: 4px;
+  border: 1px dashed var(--hairline-strong);
+}
+
+/* 카메라 트랙 */
+.row[data-camera="true"] .gutterCell,
+.row[data-camera="true"] .trackCell {
+  background: rgba(155, 125, 255, 0.05);
+}
+.kfAdd {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-1);
+  color: var(--role-afterin);
+  flex: none;
+}
+.kfAdd:hover {
+  background: var(--bg-hover);
+  color: var(--accent-strong);
+}
+.kfLane {
+  position: relative;
+  height: 100%;
+}
+.kfLine {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+  background: var(--role-afterin);
+  opacity: 0.5;
+}
+.kfDiamond {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: -5px;
+  background: var(--role-afterin);
+  transform: rotate(45deg);
+  border-radius: 2px;
+  cursor: ew-resize;
+  box-shadow: 0 0 0 1px var(--bg-panel);
+  /* 플레이헤드 그랩 스트립(z3)/트림 핸들(z4) 위 — 다이아는 항상 클릭 우선
+     (드래그 이동/더블클릭 삭제가 재생헤드에 가려지지 않게) */
+  z-index: 6;
+}
+.kfDiamond[data-selected="true"] {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--bg-panel), 0 0 0 3px var(--accent-muted);
+}
+.kfHint {
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  padding-left: 4px;
+  white-space: nowrap;
+}
+
+/* 요소 키프레임 lane (per-element channel lanes) */
+/* 접힌 요약 lane — trackCell(phaseBar flex) 위에 겹치는 절대 overlay.
+   빈 트랙 클릭은 통과(요소 선택), 다이아몬드만 히트. */
+.kfLaneSummary {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  height: auto;
+  pointer-events: none;
+}
+/* 요약 다이아/연결선 — 행 하단 키 스트립(바 아래 존)에 배치. 트림 핸들
+   (바 존 전용)과 세로로 완전히 분리 -> 겹침/우선순위 문제 자체가 없다. */
+.kfLaneSummary .kfLine {
+  top: auto;
+  bottom: 9px;
+}
+.kfLaneSummary .kfDiamond {
+  pointer-events: auto;
+  top: auto;
+  bottom: 5px;
+  margin-top: 0;
+}
+
+/* 거터의 disclosure 삼각형(▸/▾) — 폭 고정 슬롯으로 라벨 정렬 유지 */
+.kfDisclosureSlot {
+  width: 12px;
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+}
+.kfDisclosure {
+  width: 12px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--text-4);
+  font-size: 9px;
+  line-height: 1;
+}
+.kfDisclosure:hover {
+  color: var(--text-1);
+}
+.kfDisclosure[data-open="true"] {
+  color: var(--text-2);
+}
+
+/* 행 드래그 reparent — into(컨테이너 안) 하이라이트 + line(형제) 인디케이터 */
+.row[data-dropinto="true"] {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  background: var(--accent-muted);
+}
+.tlDropLine {
+  position: absolute;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 6;
+  pointer-events: none;
+}
+.tlDropLine[data-edge="top"] { top: -1px; }
+.tlDropLine[data-edge="bottom"] { bottom: -1px; }
+
+/* 속성(키프레임) 레인 섹션 — 레이어(칩)/자식 요소 행과 헷갈리지 않게 한 단
+   들여쓴 인셋 블록으로 묶고 왼쪽에 연결선(rail)을 그린다. */
+.kfSection {
+  position: relative;
+  background: rgba(120, 140, 180, 0.05);
+  border-bottom: 1px solid var(--hairline-strong);
+}
+/* 펼친 부모 요소 행 — 섹션과 같은 톤으로 융합 (계층 표시는 배경+스레드만,
+   색 레일 같은 장식 엣지는 배제) */
+.row[data-eltrack="true"][data-expanded="true"] .gutterCell,
+.row[data-eltrack="true"][data-expanded="true"] .trackCell {
+  background: rgba(120, 140, 180, 0.05);
+  border-bottom-color: transparent;
+}
+/* 트리 커넥터 — 부모에서 내려오는 스레드 + 각 속성 행으로 가로 스텁 */
+.kfBranch {
+  position: relative;
+  width: 10px;
+  align-self: stretch;
+  flex: none;
+}
+.kfBranch::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--hairline-strong);
+}
+.kfBranch::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  width: 4px;
+  border-top: 1px solid var(--hairline-strong);
+}
+.kfBranch[data-head="true"]::after {
+  display: none; /* 헤드 행은 스레드만 통과 */
+}
+/* 부모 클립 구간 밴드 — lane 의 키가 요소 시간 창 안에 있음을 보여준다 */
+.kfLaneClip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  background: rgba(255, 255, 255, 0.045);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.kfSection .row {
+  min-height: 24px;
+}
+/* 속성 섹션 헤더 — All/Keyed 토글 (AE U 관습) */
+.kfSectionHead {
+  display: flex;
+  height: 20px;
+  align-items: stretch;
+}
+.kfSectionHead .gutterCell {
+  display: flex;
+  align-items: center;
+  background: transparent;
+}
+.kfPropToggle {
+  height: 18px;
+  padding: 0 8px;
+  border-radius: var(--r-1);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-4);
+  background: var(--bg-inset);
+}
+.kfPropToggle:hover {
+  color: var(--text-1);
+  background: var(--bg-elevated);
+}
+.kfSectionHint {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  font-style: italic;
+}
+
+/* 채널 서브행 = 속성 레인 (요소/레이어 행보다 얕고 조용하게) */
+.row[data-kfchannel="true"] .gutterCell,
+.row[data-kfchannel="true"] .trackCell {
+  background: transparent;
+  height: 24px;
+}
+.row[data-kfchannel="true"]:hover .gutterCell,
+.row[data-kfchannel="true"]:hover .trackCell {
+  background: var(--bg-hover);
+}
+.row[data-kfchannel="true"] .rowLabel {
+  color: var(--text-2);
+  font-size: var(--fs-11);
+}
+.row[data-kfchannel="true"] .rowLabel[data-dim="true"] {
+  color: var(--text-4);
+}
+/* 스톱워치 (AE) — armed 면 액센트 채움, 아니면 hollow 회색 */
+.kfStopwatch {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-1);
+  color: var(--text-4);
+}
+.kfStopwatch:hover {
+  background: var(--bg-elevated);
+  color: var(--text-1);
+}
+.kfStopwatch[data-armed="true"] {
+  color: var(--accent);
+}
+.kfChannelDot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.playhead {
+  position: absolute;
+  top: 46px; /* 눈금자 top 부터 — 스크롤하면 sticky 스트립/눈금(z8~9) 아래로 숨는다 */
+  bottom: 0;
+  width: 1px;
+  background: var(--accent);
+  z-index: 7; /* sticky 씬 스트립(9)/눈금(8) 아래 — 위로 안 뚫음 */
+  pointer-events: none;
+}
+/* 캡(삼각형) — 눈금(sticky) 안에 살아서 스크롤과 무관하게 고정.
+   bottom -1px = 눈금 border-bottom(1px)을 덮어 꼭짓점이 라인에 딱 붙는다 */
+.playheadCap {
+  position: absolute;
+  bottom: -1px;
+  margin-left: -4px;
+  width: 9px;
+  height: 9px;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.emptyRows {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  color: var(--text-4);
+  font-size: var(--fs-12);
+}
+
+/* 컨텍스트 메뉴 */
+.menuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.contextMenu {
+  position: fixed;
+  z-index: 91;
+  min-width: 150px;
+  padding: 4px;
+  background: var(--bg-float);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  flex-direction: column;
+}
+.menuItem {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  white-space: nowrap;
+}
+.menuKey {
+  color: var(--text-4);
+  font-size: var(--fs-10);
+  font-family: var(--font-mono-stack);
+}
+.menuItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.menuItem[data-danger]:hover {
+  background: var(--danger-muted);
+  color: var(--danger);
+}
+.menuItem:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.menuSep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border-1);
+}
+
+/* 플레이헤드 그랩 스트립 — 시각 라인(z9, 이벤트 없음)과 분리된 히트 영역.
+   z3: 다이아(6)/트림(4)이 겹치는 지점에선 그쪽 우선, 빈 곳 어디서든 라인을
+   잡고 스크럽 가능 (AE 는 눈금자 전용이지만 요즘 에디터 관례로 확장). */
+.playheadGrab {
+  position: absolute;
+  top: 46px;
+  bottom: 0;
+  width: 11px;
+  margin-left: -5px;
+  z-index: 3;
+  cursor: ew-resize;
+}
+
+/* ---- 오디오 레인 (NLE 관례: 비디오 트랙 아래, sticky bottom) ---- */
+.audioLaneRow {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: stretch;
+}
+.audioLaneRow .gutterCell {
+  border-top: 1px solid var(--hairline);
+  border-bottom: none;
+}
+.audioTrack {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--hairline);
+}
+.audioClip {
+  position: absolute;
+  border-radius: 6px;
+  background: rgba(52, 211, 153, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.32);
+  overflow: hidden;
+  cursor: grab;
+}
+.audioClip:active {
+  cursor: grabbing;
+}
+.audioClip[data-selected="true"] {
+  background: rgba(52, 211, 153, 0.18);
+  box-shadow: inset 0 0 0 1.5px rgba(110, 231, 183, 0.9);
+}
+.audioWave {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.audioClipName {
+  position: absolute;
+  top: 3px;
+  left: 7px;
+  right: 7px;
+  font-size: 10px;
+  line-height: 1;
+  color: rgba(209, 250, 229, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.audioBpm {
+  margin-left: 6px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(52, 211, 153, 0.25);
+  font-size: 9px;
+  color: rgba(209, 250, 229, 0.95);
+}
+.audioEdge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 3;
+}
+.audioEdge:hover {
+  background: rgba(110, 231, 183, 0.35);
+}

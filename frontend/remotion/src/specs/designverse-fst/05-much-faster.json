@@ -1,0 +1,122 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#FF2EA6"]
+  },
+  "scenes": [
+    {
+      "duration": 5.0,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 75% at 70% 55%, #221238 0%, #120A22 60%, #0A0512 100%)"
+      },
+      "camera": {
+        "type": "push_in",
+        "scaleKeyframes": [
+          { "t": 0, "s": 1.0 },
+          { "t": 0.24, "s": 1.0 },
+          { "t": 0.25, "s": 3.5 },
+          { "t": 0.42, "s": 3.5 },
+          { "t": 0.54, "s": 4.0 },
+          { "t": 0.79, "s": 4.0 },
+          { "t": 0.80, "s": 1.0 },
+          { "t": 1.0, "s": 1.0 }
+        ],
+        "panX": [
+          { "t": 0, "v": 0 },
+          { "t": 0.24, "v": 0 },
+          { "t": 0.25, "v": 0.66 },
+          { "t": 0.42, "v": 0.66 },
+          { "t": 0.54, "v": 0.96 },
+          { "t": 0.79, "v": 0.96 },
+          { "t": 0.80, "v": 0 },
+          { "t": 1.0, "v": 0 }
+        ]
+      },
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "MUCH",
+            "fontSize": 6.2,
+            "fontWeight": 700,
+            "color": "#7C5CFC",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": -0.252, "fromY": 0, "toX": -0.252, "toY": 0, "duration": 1, "easing": "linear" }
+            },
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "mode": "in",
+                "delay": 30,
+                "order": "ltr",
+                "staggerTotal": 5,
+                "staggerEasing": "easeOut",
+                "perLetter": {
+                  "duration": 4,
+                  "easing": "easeOut",
+                  "channels": { "opacity": { "from": 0, "to": 1 } }
+                }
+              }
+            },
+            {
+              "type": "scale",
+              "role": "in",
+              "props": { "from": 0.5, "to": 1.0, "delay": 30, "duration": 34, "dwellFrac": 0.588, "easing": "easeInOut", "origin": { "x": 1.0, "y": 0.8 } }
+            }
+          ]
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "faster than before",
+            "fontSize": 6.2,
+            "fontWeight": 500,
+            "color": "#FFFFFF",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": 0.112, "fromY": 0, "toX": 0.132, "toY": 0, "duration": 24, "easing": "easeOut" }
+            },
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "charsPerSecond": 24,
+                "cadence": "uniform",
+                "cursor": "none",
+                "revealBlur": { "from": 6, "duration": 3 }
+              }
+            }
+          ]
+        },
+        {
+          "element": "guide_frame",
+          "color": "#3DE0E0",
+          "strokeWidth": 2,
+          "top": 0.456,
+          "bottom": 0.54,
+          "left": 0.151,
+          "right": 0.345,
+          "appear": { "start": 30, "duration": 6 },
+          "exit": { "start": 82, "duration": 12, "distance": 0.8, "easing": "easeIn" },
+          "scaleRamp": { "from": 0.5, "to": 1.0, "start": 50, "duration": 14, "easing": "easeInOut" },
+          "glow": 0.4,
+          "opacity": 0.85
+        }
+      ]
+    }
+  ]
+}

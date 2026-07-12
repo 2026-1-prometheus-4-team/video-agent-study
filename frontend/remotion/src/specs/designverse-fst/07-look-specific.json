@@ -1,0 +1,78 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#FF2EA6"]
+  },
+  "scenes": [
+    {
+      "duration": 3.5,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 70% at 55% 45%, #1D0D30 0%, #0F0719 60%, #0A0512 100%)"
+      },
+      "camera": {
+        "type": "push_in",
+        "scaleKeyframes": [
+          { "t": 0,    "s": 1.0 },
+          { "t": 0.80, "s": 1.0 },
+          { "t": 1.0,  "s": 0.68 }
+        ],
+        "panX": [
+          { "t": 0,    "v": 2.73 },
+          { "t": 0.40, "v": 2.73 },
+          { "t": 0.50, "v": 1.8  },
+          { "t": 0.62, "v": -0.5 },
+          { "t": 0.72, "v": -2.5 },
+          { "t": 0.80, "v": -2.73 },
+          { "t": 1.0,  "v": -2.73 }
+        ]
+      },
+      "elements": [
+        {
+          "element": "streak",
+          "variant": "comet",
+          "colors": ["#FFFFFF", "#A855F7"],
+          "strokeWidth": 34,
+          "glow": 2.2,
+          "bleed": 1.2,
+          "draw": { "duration": 3 },
+          "travel": {
+            "start": 0,
+            "duration": 32,
+            "span": 0.98,
+            "spanFrom": 0.03,
+            "from": 0,
+            "distance": 0,
+            "grow": { "duration": 32, "easing": "linear" },
+            "easing": "linear"
+          },
+          "box": { "x": -2.73, "y": 0.34, "w": 6.46, "h": 0 }
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "Look, want something more specific?",
+            "fontSize": 32,
+            "fontWeight": 600,
+            "color": "#F4EFFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "cursor": "none",
+                "revealBlur": { "from": 6, "duration": 3 },
+                "revealAt": [0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

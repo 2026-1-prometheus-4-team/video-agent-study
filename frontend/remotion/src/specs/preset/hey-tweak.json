@@ -1,0 +1,8 @@
+{
+  "preset": "punch",
+  "text": "Hey",
+  "palette": ["#EB7DD7", "#F1559B", "#D979E5", "#9E7BEB", "#7888D1", "#FFFFFF"],
+  "fontSize": 10,
+  "fontWeight": 700,
+  "duration": 0.75
+}

@@ -1,0 +1,485 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": [
+      "#7C4DFF",
+      "#FF4D9D",
+      "#4D7DFF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "01-hard-cut",
+      "duration": 2,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "01  HARD_CUT (baseline)",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "02-slide-push-left",
+      "duration": 2,
+      "transition_out": {
+        "type": "slide_push",
+        "direction": "left"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "02  SLIDE_PUSH  left",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#7C4DFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "03-slide-push-down",
+      "duration": 2,
+      "transition_out": {
+        "type": "slide_push",
+        "direction": "down"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "03  SLIDE_PUSH  down (drop cut)",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#FF4D9D"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "04-zoom-punch-in",
+      "duration": 2,
+      "transition_out": {
+        "type": "zoom_punch"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "04  ZOOM_PUNCH (dive in, toScale 1.5)",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#4D7DFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "05-zoom-punch-out-variant",
+      "duration": 2,
+      "transition_out": {
+        "type": "zoom_punch",
+        "toScale": 0.6
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "05  ZOOM_PUNCH (zoom-out variant, toScale 0.6)",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "06-wipe-collapse-left",
+      "duration": 2,
+      "transition_out": {
+        "type": "wipe_collapse",
+        "direction": "left"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "06  WIPE_COLLAPSE  left",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#7C4DFF",
+            "position": {
+              "x": 0.5,
+              "y": 0.4999915738595246
+            }
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "07-light-sweep",
+      "duration": 2,
+      "transition_out": {
+        "type": "light_sweep"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "07  LIGHT_SWEEP",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#FF4D9D"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "08-text-collapse-fill",
+      "duration": 2.2,
+      "transition_out": {
+        "type": "text_collapse_fill",
+        "stops": [
+          "#7C4DFF",
+          "#FF4D9D"
+        ]
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "08  TEXT_COLLAPSE_FILL",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#4D7DFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "09-camera-push-in",
+      "duration": 2,
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1,
+        "toScale": 1.4
+      },
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "09  CAMERA push_in (1→1.4) + hard cut",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "10-element-shrink-out-punch",
+      "duration": 2,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "10  ELEMENT shrink_out (punch value)",
+            "fontSize": 4.2,
+            "fontWeight": 600,
+            "color": "#7C4DFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            },
+            {
+              "type": "scale",
+              "role": "out",
+              "props": {
+                "from": 1,
+                "to": 0.4,
+                "duration": 8,
+                "easing": "easeIn"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "11-element-fly-out-hero-zoom-no-blur",
+      "duration": 2.2,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "11  fly_out, NO motionBlur (wrapper only)",
+            "fontSize": 4,
+            "fontWeight": 600,
+            "color": "#FF4D9D"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            },
+            {
+              "type": "scale",
+              "role": "out",
+              "props": {
+                "from": 1,
+                "to": 0.2,
+                "duration": 18,
+                "easing": "easeIn"
+              }
+            },
+            {
+              "type": "move",
+              "role": "out",
+              "props": {
+                "fromX": 0,
+                "toX": 0.4,
+                "duration": 8,
+                "easing": "easeIn"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "11b-element-fly-out-hero-zoom-with-blur",
+      "duration": 2.2,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "11b  fly_out + motionBlur (real hero_zoom fidelity)",
+            "fontSize": 3.6,
+            "fontWeight": 600,
+            "color": "#FF4D9D"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            },
+            {
+              "type": "scale",
+              "role": "out",
+              "props": {
+                "from": 1,
+                "to": 0.2,
+                "duration": 18,
+                "easing": "easeIn"
+              }
+            },
+            {
+              "type": "move",
+              "role": "out",
+              "props": {
+                "fromX": 0,
+                "toX": 0.4,
+                "duration": 8,
+                "easing": "easeIn"
+              }
+            }
+          ],
+          "effects": {
+            "glow": {
+              "enabled": true,
+              "color": "auto",
+              "intensity": 0.6,
+              "radius": 50,
+              "breath": true
+            },
+            "motionBlur": {
+              "enabled": true,
+              "amount": 0.6,
+              "maxBlur": 50
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "12-combo-element-plus-scene",
+      "duration": 2.2,
+      "transition_out": {
+        "type": "slide_push",
+        "direction": "left"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "12  COMBO: element shrink_out + scene slide_push",
+            "fontSize": 4,
+            "fontWeight": 600,
+            "color": "#4D7DFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            },
+            {
+              "type": "scale",
+              "role": "out",
+              "props": {
+                "from": 1,
+                "to": 0.4,
+                "duration": 8,
+                "easing": "easeIn"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "13-end",
+      "duration": 1.2,
+      "elements": [
+        {
+          "element": "text",
+          "id": "t",
+          "base": {
+            "text": "END",
+            "fontSize": 6,
+            "fontWeight": 700,
+            "color": "#FFFFFF"
+          },
+          "layers": [
+            {
+              "type": "fade",
+              "role": "in",
+              "props": {
+                "duration": 8
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

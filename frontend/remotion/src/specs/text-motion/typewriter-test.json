@@ -1,0 +1,60 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": ["#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "id": "type-char",
+      "duration": 3.5,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "tc",
+          "base": { "text": "Building your app", "fontSize": 5, "color": "#FFFFFF" },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "mode": "type",
+                "charsPerSecond": 12,
+                "cursor": "light",
+                "cadence": "human",
+                "seed": 7
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "type-word-blur",
+      "duration": 3.5,
+      "elements": [
+        {
+          "element": "text",
+          "id": "tw",
+          "base": { "text": "Ideas come to life", "fontSize": 5, "color": "#FFFFFF" },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "mode": "type",
+                "wordGap": 8,
+                "cursor": "none",
+                "revealBlur": { "from": 10, "duration": 8 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

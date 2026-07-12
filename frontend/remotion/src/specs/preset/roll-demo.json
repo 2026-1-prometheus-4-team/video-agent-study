@@ -1,0 +1,18 @@
+{
+  "fps": 24,
+  "brand": { "background": "#0B0C10", "colors": ["#FFFFFF"] },
+  "scenes": [
+    {
+      "preset": "roll",
+      "text": "MOTION",
+      "mode": "stagger",
+      "duration": 2.0
+    },
+    {
+      "preset": "roll",
+      "text": "BREATHE",
+      "mode": "together",
+      "duration": 4.5
+    }
+  ]
+}

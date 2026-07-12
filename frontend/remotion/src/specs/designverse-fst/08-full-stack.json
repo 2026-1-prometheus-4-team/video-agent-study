@@ -1,0 +1,73 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#FF2EA6"]
+  },
+  "scenes": [
+    {
+      "duration": 1.7,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(55% 70% at 70% 35%, #2A0B26 0%, #120718 60%, #0A0512 100%)"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "full stack{",
+            "fontSize": 4.8,
+            "fontWeight": 600,
+            "color": "#F4EFFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": -0.06, "fromY": -0.065, "toX": -0.06, "toY": -0.065, "duration": 1, "easing": "linear" }
+            },
+            {
+              "type": "fade",
+              "role": "in",
+              "props": { "duration": 6, "easing": "easeOut" }
+            },
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": 0, "fromY": 0.03, "toX": 0, "toY": 0, "duration": 8, "easing": "easeOut" }
+            }
+          ]
+        },
+        {
+          "element": "text",
+          "base": {
+            "text": "working apps",
+            "fontSize": 4.8,
+            "fontWeight": 600,
+            "color": "#F4EFFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": 0.005, "fromY": 0.065, "toX": 0.005, "toY": 0.065, "duration": 1, "easing": "linear" }
+            },
+            {
+              "type": "fade",
+              "role": "in",
+              "props": { "duration": 12, "easing": "easeOut" }
+            },
+            {
+              "type": "move",
+              "role": "in",
+              "props": { "fromX": 0, "fromY": 0.03, "toX": 0, "toY": 0, "duration": 12, "easing": "easeOut" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

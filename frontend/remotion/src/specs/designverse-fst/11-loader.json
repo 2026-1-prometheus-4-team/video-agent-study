@@ -1,0 +1,29 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": ["#A855F7", "#A3E635"]
+  },
+  "scenes": [
+    {
+      "duration": 1.7,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(50% 60% at 70% 75%, #1E0C2A 0%, #0F0716 60%, #0A0512 100%)"
+      },
+      "elements": [
+        {
+          "element": "badge_logo",
+          "letter": "D",
+          "size": 6.5,
+          "gap": 1.8,
+          "badgeColors": ["#8A5CF6", "#C026D3"],
+          "rimColor": "#FF2EA6",
+          "scaleIn": { "from": 0.7, "duration": 8, "easing": "easeOutBack" },
+          "loader": { "period": 20, "width": 11, "height": 4.4 }
+        }
+      ]
+    }
+  ]
+}

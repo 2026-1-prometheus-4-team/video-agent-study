@@ -1,0 +1,355 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0F14",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#52C5FF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "ferris-wheel",
+      "duration": 8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0D0F14",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "group",
+          "id": "wheel",
+          "layout": {
+            "type": "path",
+            "preset": "circle",
+            "radius": 32,
+            "orient": "upright",
+            "progress": {
+              "loop": true,
+              "durationF": 240
+            },
+            "origin": {
+              "x": -2.37,
+              "y": -0.31
+            }
+          },
+          "children": [
+            {
+              "element": "shape",
+              "id": "car-1",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 11,
+                "fill": "#7C4DFF",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "car-2",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 11,
+                "fill": "#52C5FF",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "car-3",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 11,
+                "fill": "#1DFCB9",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "car-4",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 11,
+                "fill": "#FF4D9D",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "car-5",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 11,
+                "fill": "#FBBF24",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "car-6",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 11,
+                "fill": "#F4F6FB",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "element": "text",
+          "id": "title",
+          "base": {
+            "text": "Ferris wheel",
+            "fontSize": 3.4,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "wave-carousel",
+      "duration": 6,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0D0F14",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "group",
+          "id": "group-2",
+          "layers": [],
+          "children": [
+            {
+              "element": "group",
+              "id": "swimmers",
+              "layout": {
+                "type": "path",
+                "preset": "wave",
+                "orient": "tangent",
+                "progress": {
+                  "loop": true,
+                  "durationF": 168
+                },
+                "origin": {
+                  "x": 48.31,
+                  "y": 24.96
+                }
+              },
+              "children": [
+                {
+                  "element": "shape",
+                  "id": "fish-2",
+                  "base": {
+                    "kind": "rectangle",
+                    "width": 7,
+                    "height": 4.5,
+                    "fill": "#52C5FF",
+                    "radius": 10,
+                    "position": {
+                      "x": 0.5,
+                      "y": 0.5
+                    }
+                  }
+                },
+                {
+                  "element": "shape",
+                  "id": "fish-3",
+                  "base": {
+                    "kind": "rectangle",
+                    "width": 7,
+                    "height": 4.5,
+                    "fill": "#1DFCB9",
+                    "radius": 10,
+                    "position": {
+                      "x": 0.5,
+                      "y": 0.5
+                    }
+                  }
+                },
+                {
+                  "element": "shape",
+                  "id": "fish-4",
+                  "base": {
+                    "kind": "rectangle",
+                    "width": 7,
+                    "height": 4.5,
+                    "fill": "#F4F6FB",
+                    "radius": 10,
+                    "position": {
+                      "x": 0.5,
+                      "y": 0.5
+                    }
+                  }
+                }
+              ],
+              "motionPath": {
+                "preset": "arc",
+                "orient": "tangent",
+                "points": [
+                  {
+                    "x": 8,
+                    "y": 62,
+                    "hOut": {
+                      "x": 14.000000000000004,
+                      "y": -10.665
+                    }
+                  },
+                  {
+                    "x": 55.37125,
+                    "y": 46.386250000000004,
+                    "hIn": {
+                      "x": -15.956249999999997,
+                      "y": -0.19625000000000625
+                    },
+                    "hOut": {
+                      "x": 15.956249999999997,
+                      "y": 0.19624999999999915
+                    }
+                  },
+                  {
+                    "x": 93.99,
+                    "y": 62.82,
+                    "hIn": {
+                      "x": -8.164999999999992,
+                      "y": -10.699999999999996
+                    }
+                  }
+                ]
+              },
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "progress": 0,
+                  "easing": "easeInOut"
+                },
+                {
+                  "frame": 48,
+                  "progress": 1,
+                  "easing": "easeInOut"
+                }
+              ]
+            },
+            {
+              "element": "shape",
+              "id": "fish-1",
+              "base": {
+                "kind": "rectangle",
+                "width": 7,
+                "height": 4.5,
+                "fill": "#7C4DFF",
+                "radius": 10,
+                "position": {
+                  "x": 0.4648953756212149,
+                  "y": 0.5227036085080882
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arc-travel",
+      "duration": 4,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0D0F14",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "shape",
+          "id": "glider",
+          "base": {
+            "kind": "rectangle",
+            "width": 8,
+            "height": 5,
+            "fill": "#52C5FF",
+            "radius": 10,
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "motionPath": {
+            "preset": "arc",
+            "orient": "tangent"
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "progress": 0
+            },
+            {
+              "frame": 48,
+              "progress": 1,
+              "easing": "easeInOut"
+            },
+            {
+              "frame": 72,
+              "progress": 0.62,
+              "easing": "easeOutBack"
+            }
+          ]
+        },
+        {
+          "element": "text",
+          "id": "caption",
+          "base": {
+            "text": "Element motion path",
+            "fontSize": 2.6,
+            "color": "#8B95A5",
+            "position": {
+              "x": 0.5,
+              "y": 0.82
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

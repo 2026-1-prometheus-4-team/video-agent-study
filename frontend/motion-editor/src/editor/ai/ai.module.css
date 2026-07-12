@@ -1,0 +1,342 @@
+/* AIPanel — 좌측 AI 탭. 채팅형 피드 + 하단 컴포저 (AI 채팅 확장 전제 레이아웃) */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---- 피드 ---- */
+.feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty {
+  margin: auto 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.emptyTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.emptyDesc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-4);
+  max-width: 210px;
+}
+.exampleList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+  width: 100%;
+}
+.exampleChip {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--bg-inset);
+  color: var(--text-3);
+  font-size: 11px;
+  text-align: left;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.exampleChip:hover {
+  background: var(--bg-hover);
+  color: var(--text-2);
+}
+
+.userMsg {
+  align-self: flex-end;
+  max-width: 88%;
+  padding: 7px 10px;
+  border-radius: 10px 10px 3px 10px;
+  background: var(--accent-muted);
+  color: var(--text-2);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.userMode {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 2px;
+}
+
+.errMsg {
+  align-self: stretch;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.08);
+  color: var(--danger, #f87171);
+  font-size: 11px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--hairline);
+  border-top-color: var(--accent);
+  animation: aispin 0.7s linear infinite;
+  flex: none;
+}
+@keyframes aispin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- 결과 카드 ---- */
+.card {
+  align-self: stretch;
+  border-radius: 10px;
+  background: var(--bg-inset);
+  padding: 9px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.badge {
+  flex: none;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(124, 77, 255, 0.18);
+  color: #b39dff;
+}
+.badge[data-mode="sfx"] {
+  background: rgba(52, 211, 153, 0.15);
+  color: #6ee7b7;
+}
+.badge[data-mode="voice"] {
+  background: rgba(77, 125, 255, 0.16);
+  color: #93b4ff;
+}
+.cardName {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bpmTag {
+  flex: none;
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.playBtn {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.playBtn:hover {
+  background: var(--accent-muted);
+  color: var(--text-1);
+}
+.progress {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hairline);
+  cursor: pointer;
+  overflow: hidden;
+}
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.dur {
+  flex: none;
+  font-size: 10px;
+  color: var(--text-4);
+  min-width: 30px;
+  text-align: right;
+}
+
+.cardActions {
+  display: flex;
+  gap: 6px;
+}
+.actBtn {
+  flex: 1;
+  height: 23px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  color: var(--text-3);
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.actBtn:hover {
+  background: var(--accent-muted);
+  color: var(--text-1);
+}
+
+/* ---- 컴포저 ---- */
+.composer {
+  flex: none;
+  border-top: 1px solid var(--hairline);
+  padding: 9px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.modes {
+  display: flex;
+  gap: 4px;
+}
+.modeChip {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-4);
+  font-size: 11px;
+  cursor: pointer;
+}
+.modeChip:hover {
+  color: var(--text-2);
+}
+.modeChip[data-active="true"] {
+  background: var(--bg-inset);
+  color: var(--text-1);
+}
+
+.settings {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.setChip {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-4);
+  font-size: 10.5px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  cursor: pointer;
+}
+.setChip[data-active="true"] {
+  background: var(--accent-muted);
+  color: var(--text-1);
+  box-shadow: none;
+}
+.setLabel {
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+.setInput {
+  width: 46px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-size: 11px;
+  padding: 0 6px;
+  border: none;
+  outline: none;
+}
+.voiceSelect {
+  width: 100%;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--bg-inset);
+  color: var(--text-2);
+  font-size: 11px;
+  padding: 0 6px;
+  border: none;
+  outline: none;
+}
+
+.inputRow {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+.promptInput {
+  flex: 1;
+  min-height: 40px;
+  max-height: 110px;
+  resize: none;
+  border-radius: 9px;
+  background: var(--bg-inset);
+  color: var(--text-1);
+  font-size: 11.5px;
+  line-height: 1.45;
+  padding: 8px 9px;
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+.promptInput:focus {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.promptInput::placeholder {
+  color: var(--text-4);
+}
+.sendBtn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.sendBtn:disabled {
+  background: var(--bg-inset);
+  color: var(--text-4);
+  cursor: default;
+}

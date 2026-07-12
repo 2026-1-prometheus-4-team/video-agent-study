@@ -1,0 +1,123 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0B0D12",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#FBBF24",
+      "#7C4DFF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "coin-spin",
+      "duration": 8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0B0D12",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "shape",
+          "id": "coin-lit",
+          "base": {
+            "kind": "ellipse",
+            "width": 12,
+            "height": 21.3,
+            "fill": "#FBBF24",
+            "rotate": 10,
+            "position": {
+              "x": 0.33,
+              "y": 0.46
+            }
+          },
+          "material": {
+            "lit": true,
+            "specular": 0.9,
+            "shininess": 40
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "rotateY": 0
+            },
+            {
+              "frame": 60,
+              "rotateY": 360,
+              "easing": "linear",
+              "loop": "cycle"
+            }
+          ]
+        },
+        {
+          "element": "shape",
+          "id": "coin-unlit",
+          "base": {
+            "kind": "ellipse",
+            "width": 12,
+            "height": 21.3,
+            "fill": "#FBBF24",
+            "rotate": 10,
+            "position": {
+              "x": 0.67,
+              "y": 0.46
+            }
+          },
+          "keyframes": [
+            {
+              "frame": 0,
+              "rotateY": 0
+            },
+            {
+              "frame": 60,
+              "rotateY": 360,
+              "easing": "linear",
+              "loop": "cycle"
+            }
+          ],
+          "material": {
+            "lit": false
+          }
+        },
+        {
+          "element": "text",
+          "id": "cap-lit",
+          "base": {
+            "text": "Lit (light 200deg)",
+            "fontSize": 1.9,
+            "color": "#8B95A5",
+            "position": {
+              "x": 0.33,
+              "y": 0.78
+            }
+          }
+        },
+        {
+          "element": "text",
+          "id": "cap-unlit",
+          "base": {
+            "text": "Unlit",
+            "fontSize": 1.9,
+            "color": "#8B95A5",
+            "position": {
+              "x": 0.67,
+              "y": 0.78
+            }
+          },
+          "material": {
+            "lit": false
+          }
+        }
+      ],
+      "light": {
+        "azimuth": 135,
+        "elevation": 35,
+        "intensity": 0.8,
+        "ambient": 0.35
+      }
+    }
+  ]
+}

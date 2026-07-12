@@ -1,0 +1,112 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0F14",
+    "fontFamily": "General Sans",
+    "colors": [
+      "#FFFFFF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "prompt",
+      "duration": 7,
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "Type. Send. Ship.",
+            "fontSize": 3.2,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.5,
+              "y": 0.24
+            }
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "order": "ltr",
+                "staggerTotal": 12,
+                "staggerEasing": "linear",
+                "perLetter": {
+                  "duration": 10,
+                  "easing": "easeOutExpo",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "blur": {
+                      "from": 14,
+                      "to": 0
+                    },
+                    "y": {
+                      "from": 0.6,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "element": "shape",
+          "id": "rectangle-4",
+          "base": {
+            "kind": "rectangle",
+            "width": 24,
+            "height": 14,
+            "fill": "#7C4DFF",
+            "radius": 16,
+            "position": {
+              "x": 0.21202719279973845,
+              "y": 0.6624271064482788
+            },
+            "extrude": 23,
+            "rotateY": 79.67688
+          },
+          "layers": [],
+          "keyframes": [
+            {
+              "frame": 114,
+              "x": 0.212,
+              "easing": "easeInOut"
+            },
+            {
+              "frame": 0,
+              "x": 0.2116,
+              "easing": "easeInOut"
+            },
+            {
+              "frame": 0,
+              "y": 0.6627,
+              "easing": "easeInOut"
+            }
+          ]
+        },
+        {
+          "element": "text",
+          "id": "text-3",
+          "base": {
+            "text": "Text",
+            "fontSize": 5,
+            "color": "#FFFFFF",
+            "position": {
+              "x": 0.500000011586998,
+              "y": 0.4976336543855336
+            }
+          },
+          "layers": [],
+          "curve3d": {
+            "amount": 30
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,273 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0A0512",
+    "fontFamily": "Inter",
+    "colors": [
+      "#A855F7",
+      "#FF2EA6"
+    ]
+  },
+  "scenes": [
+    {
+      "duration": 0.7,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": [
+          "#A21CAF",
+          "#6D28D9"
+        ]
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.09,
+        "toScale": 0.9,
+        "easing": "linear"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "Idea",
+            "fontSize": 12,
+            "fontWeight": 700,
+            "color": "#F4EFFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "letter_stagger",
+              "role": "in",
+              "props": {
+                "mode": "in",
+                "order": "ltr",
+                "staggerTotal": 6,
+                "staggerEasing": "easeInOut",
+                "perLetter": {
+                  "duration": 6,
+                  "easing": "easeOut",
+                  "channels": {
+                    "opacity": {
+                      "from": 0,
+                      "to": 1
+                    },
+                    "y": {
+                      "from": 0.4,
+                      "to": 0
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "shake",
+              "role": "in",
+              "props": {
+                "amplitude": 20,
+                "frequency": 5,
+                "decay": 8
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "duration": 0.4,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": [
+          "#A21CAF",
+          "#6D28D9"
+        ]
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.05,
+        "toScale": 1.0,
+        "easing": "linear"
+      },
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "to",
+            "fontSize": 12,
+            "fontWeight": 700,
+            "color": "#F4EFFA",
+            "fontFamily": "Inter"
+          },
+          "layers": [
+            {
+              "type": "scale",
+              "role": "in",
+              "props": {
+                "from": 0.88,
+                "to": 1.0,
+                "duration": 5,
+                "easing": "easeOut"
+              }
+            },
+            {
+              "type": "shake",
+              "role": "in",
+              "props": {
+                "amplitude": 20,
+                "frequency": 5,
+                "decay": 5
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "duration": 0.6,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": [
+          "#A21CAF",
+          "#6D28D9"
+        ]
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.97,
+        "toScale": 1.85,
+        "easing": "linear"
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 60,
+          "height": 11.5,
+          "radius": 3.5,
+          "mode": "swap",
+          "swapWords": [
+            {
+              "text": "product  ↗",
+              "frame": 0
+            }
+          ],
+          "letterIn": {
+            "stagger": 1,
+            "duration": 5,
+            "rise": 0.4
+          },
+          "fontSize": 8,
+          "fontWeight": 600,
+          "borderColors": [
+            "#A855F7",
+            "#FF2EA6"
+          ],
+          "borderWidth": 4,
+          "glow": 0.9,
+          "drawStyle": "fade",
+          "drawIn": {
+            "start": 999,
+            "duration": 5
+          }
+        }
+      ]
+    },
+    {
+      "duration": 0.42,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": [
+          "#A21CAF",
+          "#6D28D9"
+        ]
+      },
+      "camera": {
+        "type": "push_in",
+        "fromScale": 1.85,
+        "toScale": 1.0,
+        "easing": "easeOut",
+        "motionBlur": {
+          "amount": 0.12,
+          "maxBlur": 28
+        }
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 60,
+          "height": 11.5,
+          "radius": 3.5,
+          "mode": "swap",
+          "swapWords": [
+            {
+              "text": "product  ↗",
+              "frame": 0
+            }
+          ],
+          "fontSize": 8,
+          "fontWeight": 600,
+          "borderColors": [
+            "#A855F7",
+            "#FF2EA6"
+          ],
+          "borderWidth": 4,
+          "glow": 0.9,
+          "drawStyle": "fade",
+          "drawIn": {
+            "start": 0,
+            "duration": 3,
+            "easing": "easeOut"
+          },
+          "borderFrom": {
+            "scaleX": 1.35,
+            "scaleY": 3.2,
+            "ramp": {
+              "duration": 9,
+              "easing": "easeOut"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "duration": 0.5,
+      "transition_out": "hard_cut",
+      "background": {
+        "gradient": "radial-gradient(60% 70% at 70% 25%, #2A0B33 0%, #140820 55%, #0A0512 100%)",
+        "blobs": [
+          "#A21CAF",
+          "#6D28D9"
+        ]
+      },
+      "elements": [
+        {
+          "element": "neon_pill",
+          "width": 60,
+          "height": 11.5,
+          "radius": 3.5,
+          "mode": "swap",
+          "swapWords": [
+            {
+              "text": "product  ↗",
+              "frame": 0
+            }
+          ],
+          "fontSize": 8,
+          "fontWeight": 600,
+          "borderColors": [
+            "#A855F7",
+            "#FF2EA6"
+          ],
+          "borderWidth": 4,
+          "glow": 0.9,
+          "glowPulse": {
+            "amplitude": 0.12,
+            "period": 28
+          }
+        }
+      ]
+    }
+  ]
+}

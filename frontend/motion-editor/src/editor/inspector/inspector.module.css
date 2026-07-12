@@ -1,0 +1,635 @@
+.panel {
+  /* width 는 인라인(store). 접기/펴기 슬라이드 — 드래그 중엔 off. */
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--hairline);
+  overflow: hidden;
+  position: relative;
+  transition: width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.panel[data-dragging="true"] {
+  transition: none;
+}
+.panel[data-collapsed="true"] {
+  border-left: none;
+}
+/* 고정 헤더 줄 — 접기 버튼 자리(위 경계와 여백 확보) */
+.panelHead {
+  flex: none;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 8px 0;
+}
+.panelScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.collapseBtn {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-2);
+  color: var(--text-4);
+}
+.collapseBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+/* 왼쪽 가장자리 리사이즈 핸들 */
+.resizeLeft {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 20;
+}
+.resizeLeft:hover {
+  background: var(--accent-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 40px;
+}
+
+.hint {
+  padding: 16px 12px;
+  color: var(--text-4);
+  font-size: var(--fs-12);
+}
+
+/* image 요소 — 소스 교체 버튼 (파일명 표시, 넘치면 말줄임) */
+.imgReplaceBtn {
+  width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-2);
+  background: var(--bg-elevated);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.imgReplaceBtn:hover {
+  color: var(--text-1);
+  background: var(--bg-float);
+}
+.note {
+  color: var(--text-4);
+  font-size: var(--fs-10);
+  line-height: 1.4;
+}
+
+.elHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+.elKind {
+  flex: none;
+  font-size: var(--fs-10);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--accent-strong);
+  background: var(--accent-muted);
+  padding: 3px 7px;
+  border-radius: var(--r-1);
+}
+
+/* knob row (라벨 76px + 컨트롤) */
+.knobRow {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.knobLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.knobLabel[data-cemented="true"] {
+  color: var(--text-4);
+}
+.knobControl {
+  min-width: 0;
+}
+.lockGlyph {
+  color: var(--text-4);
+  flex: none;
+}
+
+/* colorList */
+.colorList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.colorListItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.colorListItem > :first-child {
+  flex: 1;
+}
+.colorListRemove,
+.colorListAdd {
+  color: var(--text-4);
+  border-radius: var(--r-1);
+}
+.colorListRemove {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.colorListRemove:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.colorListAdd {
+  height: 24px;
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  text-align: left;
+  padding: 0 4px;
+}
+.colorListAdd:hover {
+  color: var(--accent-strong);
+}
+
+.colorEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 카메라 키프레임 */
+.camManipHint {
+  font-size: var(--fs-10);
+  color: var(--accent-strong);
+  background: var(--accent-muted);
+  padding: 6px 8px;
+  border-radius: var(--r-2);
+  line-height: 1.4;
+}
+/* 카메라 Canvas control 토글 행 — 라벨 안 잘리게(Row 는 라벨 폭 고정) */
+.camToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 26px;
+}
+.camToggleLabel {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.kfAddBtn {
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: var(--r-2);
+  background: rgba(155, 125, 255, 0.14);
+  color: var(--role-afterin);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  white-space: normal;
+  line-height: 1.3;
+}
+.kfAddBtn:hover {
+  background: rgba(155, 125, 255, 0.22);
+}
+.kfFocusBtn {
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: var(--r-2);
+  background: var(--bg-elevated);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  white-space: normal;
+  line-height: 1.3;
+}
+.kfFocusBtn:hover:not(:disabled) {
+  color: var(--accent-strong);
+  background: var(--bg-float);
+}
+.kfFocusBtn:disabled {
+  opacity: 0.5;
+  color: var(--text-4);
+}
+/* 카메라 키프레임 목록 (패널에 쭉 표시, 클릭 선택+시크) */
+.kfList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.kfListItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--r-1);
+  text-align: left;
+  color: var(--text-2);
+}
+.kfListItem:hover {
+  background: var(--bg-hover);
+}
+.kfListItem[data-active="true"] {
+  background: var(--accent-muted);
+  color: var(--text-1);
+}
+.kfListDiamond {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--role-afterin);
+  transform: rotate(45deg);
+  border-radius: 1px;
+}
+.kfListItem[data-active="true"] .kfListDiamond {
+  background: var(--accent);
+}
+.kfListFrame {
+  font-size: var(--fs-11);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+}
+.kfListSummary {
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kfEdit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border-radius: var(--r-2);
+}
+.kfEditHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fs-11);
+  font-weight: 500;
+  color: var(--text-2);
+}
+.kfDel {
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  padding: 2px 6px;
+  border-radius: var(--r-1);
+}
+.kfDel:hover {
+  color: var(--danger);
+  background: var(--danger-muted);
+}
+
+/* 로고 램프 */
+.rampBlock {
+  background: var(--bg-elevated);
+  border-radius: var(--r-2);
+  overflow: hidden;
+}
+.rampHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 8px 0 10px;
+}
+.rampLabel {
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.rampBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 8px 10px;
+}
+.effectKnobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 6px;
+  border-left: 1px solid var(--hairline);
+}
+
+/* layer stack */
+.layerStack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.layerEmpty {
+  color: var(--text-4);
+  font-size: var(--fs-11);
+  padding: 4px 0;
+}
+.layerItem {
+  background: var(--bg-elevated);
+  border-radius: var(--r-2);
+  overflow: hidden;
+}
+.layerItem[data-open="true"] {
+  background: var(--bg-float);
+}
+.layerHead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+.layerHead:hover {
+  background: var(--bg-hover);
+}
+.layerExpand {
+  color: var(--text-4);
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.roleBadge {
+  flex: none;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.badgeIn {
+  background: var(--role-in-muted);
+  color: var(--role-in);
+}
+.badgeOut {
+  background: var(--role-out-muted);
+  color: var(--role-out);
+}
+.badgeHold {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-3);
+}
+.badgeAfter {
+  background: rgba(155, 125, 255, 0.2);
+  color: var(--role-afterin);
+}
+.layerName {
+  /* 내용만큼만 차지(flex:none) — 나머지 헤더 공간은 펼침 클릭 영역. */
+  flex: none;
+  min-width: 0;
+  max-width: 60%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: var(--r-1);
+  font-size: var(--fs-11);
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.layerName:hover {
+  color: var(--accent-strong);
+  background: var(--bg-elevated);
+}
+.layerNameCaret {
+  flex: none;
+  opacity: 0.4;
+}
+.layerName:hover .layerNameCaret {
+  opacity: 0.85;
+}
+/* 효과 교체 드롭다운 — 불투명 배경 + 테두리 (레이어 노브 위에 겹쳐도 안 비침) */
+.swapMenu {
+  position: absolute;
+  left: 28px;
+  top: 28px;
+  z-index: 100;
+  min-width: 190px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--bg-float);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-float);
+  isolation: isolate;
+}
+.structTag {
+  font-size: 9px;
+  color: var(--text-4);
+  background: var(--bg-inset);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.layerActions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+  margin-left: auto; /* 우측 고정 — 이름과의 사이 빈 공간이 펼침 클릭 영역 */
+}
+.layerAct {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-1);
+  color: var(--text-4);
+}
+.layerAct:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.layerAct[data-danger]:hover {
+  color: var(--danger);
+}
+.layerAct:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.layerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 8px 10px;
+}
+.cementedGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.cementedTitle {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-4);
+  text-transform: uppercase;
+}
+
+.addLayerWrap {
+  position: relative;
+}
+.addLayerBtn {
+  width: 100%;
+  height: 28px;
+  border-radius: var(--r-2);
+  background: var(--bg-elevated);
+  color: var(--text-3);
+  font-size: var(--fs-11);
+}
+.addLayerBtn:hover {
+  color: var(--accent-strong);
+  background: var(--bg-float);
+}
+.addMenu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 32px;
+  z-index: 50;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-float);
+  border-radius: var(--r-3);
+  box-shadow: var(--shadow-float);
+}
+.addGroup {
+  padding: 2px 0;
+}
+.addGroupTitle {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-4);
+  text-transform: uppercase;
+  padding: 4px 6px 2px;
+}
+.addItem {
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-align: left;
+}
+.addItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.addItem[data-current="true"] {
+  color: var(--accent-strong);
+  background: var(--accent-muted);
+}
+
+/* multi select */
+.multiHead {
+  padding: 14px 12px 8px;
+  font-size: var(--fs-12);
+  color: var(--text-2);
+}
+.multiActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px;
+}
+.multiBtn {
+  height: 30px;
+  border-radius: var(--r-2);
+  background: var(--bg-elevated);
+  color: var(--text-1);
+  font-size: var(--fs-12);
+}
+.multiBtn:hover {
+  background: var(--bg-float);
+}
+.multiBtn[data-danger]:hover {
+  color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger-muted);
+}
+
+/* Appearance — 라운드 불가 타입(텍스트 등)의 비활성 값 표시 */
+.disabledHint {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  border-radius: var(--r-2);
+  color: var(--text-4);
+  font-size: var(--fs-11);
+  background: var(--bg-card);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* MultiInspector — Selection colors */
+.selColorRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.selColorRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.selColorCount {
+  flex: none;
+  font-size: var(--fs-10);
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* preset element(메뉴 아이템/스텝) 한 줄 편집 — 입력 + 색 + 삭제 버튼 */
+.presetItemRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.presetItemRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}

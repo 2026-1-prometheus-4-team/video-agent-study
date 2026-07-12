@@ -1,0 +1,74 @@
+{
+ "fps": 24,
+ "brandDefaults": {
+  "background": "#000000",
+  "fontFamily": "General Sans",
+  "colors": [
+   "#FFFFFF"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "apple",
+   "duration": 2.8,
+   "elements": [
+    {
+     "element": "text",
+     "id": "at",
+     "base": {
+      "text": "Think different",
+      "fontSize": 5,
+      "color": "#FFFFFF"
+     },
+     "layers": [
+      {
+       "type": "blur",
+       "role": "in",
+       "props": {
+        "from": 28,
+        "to": 0,
+        "duration": 14,
+        "easing": "easeOut"
+       }
+      },
+      {
+       "type": "fade",
+       "role": "in",
+       "props": {
+        "duration": 10
+       }
+      },
+      {
+       "type": "scale",
+       "role": "in",
+       "props": {
+        "from": 1.12,
+        "to": 1,
+        "duration": 16,
+        "easing": "easeOut"
+       }
+      }
+     ],
+     "effects": {
+      "glow": {
+       "enabled": true,
+       "color": "auto",
+       "radius": 40,
+       "timeline": [
+        {
+         "intensity": 0.8,
+         "hold": 2,
+         "transition": 6
+        },
+        {
+         "intensity": 0.15,
+         "hold": 50
+        }
+       ]
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

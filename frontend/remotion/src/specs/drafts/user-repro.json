@@ -1,0 +1,116 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#FFFFFF",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif"
+  },
+  "scenes": [
+    {
+      "id": "scene-1",
+      "duration": 0.8,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#FFFFFF",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "frame",
+          "id": "frame-2",
+          "base": {
+            "position": {
+              "x": 0.49994715303250903,
+              "y": 0.5001390599039497
+            },
+            "width": 56.6,
+            "height": 39.11,
+            "clipsContent": false
+          },
+          "children": [
+            {
+              "element": "text",
+              "id": "text-1",
+              "base": {
+                "text": "Figma",
+                "fontSize": 20,
+                "color": "#000000",
+                "position": {
+                  "x": 0.5,
+                  "y": 0.4527
+                }
+              },
+              "layers": [
+                {
+                  "type": "fade",
+                  "role": "in",
+                  "props": {
+                    "duration": 8
+                  }
+                }
+              ],
+              "keyframes": [
+                {
+                  "frame": 18,
+                  "x": 0.5,
+                  "easing": "cubic(0.348,2.000,0.000,0.806)"
+                },
+                {
+                  "frame": 0,
+                  "y": -0.7388,
+                  "easing": "easeInOut"
+                },
+                {
+                  "frame": 18,
+                  "y": 0.2356,
+                  "easing": "easeOutBack"
+                },
+                {
+                  "frame": 6,
+                  "x": 0.5,
+                  "easing": "easeInOut"
+                },
+                {
+                  "frame": 6,
+                  "y": 0.3846,
+                  "easing": "easeInOut"
+                }
+              ],
+              "curveFlat": false
+            }
+          ],
+          "curve3d": {
+            "amount": 45,
+            "axis": "y"
+          },
+          "curveFlat": false
+        },
+        {
+          "element": "frame",
+          "id": "phone-2",
+          "chrome": {
+            "kind": "phone",
+            "theme": "dark"
+          },
+          "base": {
+            "width": 26,
+            "height": 76,
+            "position": {
+              "x": 0.5001853885187649,
+              "y": 0.500152786240715
+            },
+            "fill": {
+              "type": "solid",
+              "color": "#101623",
+              "visible": true
+            },
+            "clipsContent": true
+          },
+          "children": [],
+          "curveFlat": false
+        }
+      ]
+    }
+  ]
+}

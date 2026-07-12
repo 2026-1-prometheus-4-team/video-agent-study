@@ -1,0 +1,36 @@
+{
+  "fps": 24,
+  "brand": { "background": "#0B0C10", "colors": ["#5E6AD2", "#8B92E8", "#C4B5FD"] },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "soft",
+      "palette": ["#8B92E8", "#FFFFFF"],
+      "emphasis": "soft",
+      "effects": { "glow": { "intensity": 0.2, "radius": 18 } },
+      "duration": 1.5
+    },
+    {
+      "preset": "punch",
+      "text": "STRONG",
+      "palette": ["#8B92E8", "#FFFFFF"],
+      "emphasis": "strong",
+      "effects": { "glow": { "intensity": 1.0, "radius": 90 } },
+      "duration": 1.5
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "blur 0",
+      "gradientStops": ["#5E6AD2", "#8B92E8", "#C4B5FD"],
+      "effects": { "motionBlur": { "enabled": false } },
+      "duration": 1.5
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "blur MAX",
+      "gradientStops": ["#5E6AD2", "#8B92E8", "#C4B5FD"],
+      "effects": { "motionBlur": { "amount": 1.5, "maxBlur": 180 } },
+      "duration": 1.5
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#050507",
+    "fontFamily": "Geist",
+    "colors": ["#9B5CE8", "#C8B0F0", "#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "duration": 2.5,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "base": {
+            "text": "REDEFINING ASSET MANAGEMENT THROUGH",
+            "fontSize": 2.3,
+            "fontWeight": 500,
+            "color": "#FFFFFF",
+            "fontFamily": "Geist"
+          },
+          "color": {
+            "revealLinked": true,
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#9A11C8", "#540A7B"] }, "hold": 2, "transition": 5 },
+              { "fill": { "type": "gradient", "stops": ["#6B2EAA", "#8A6BA2", "#9884AB"] }, "hold": 120 }
+            ]
+          },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "word",
+                "cursor": "none",
+                "delay": 6,
+                "firstGap": 14,
+                "wordGap": 3,
+                "lastGap": 12,
+                "revealBlur": { "from": 6, "duration": 3 },
+                "revealGap": { "from": 1.5, "duration": 9, "easing": "easeOut" },
+                "reflow": "smooth",
+                "reflowSmoothing": 12,
+                "reflowLead": 5
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

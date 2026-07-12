@@ -1,0 +1,275 @@
+.fill {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.previewBar {
+  height: 28px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.imgPreview {
+  height: 90px;
+  border-radius: var(--r-2);
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  background-color: #000;
+}
+.vidPreview {
+  width: 100%;
+  height: 90px;
+  border-radius: var(--r-2);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  background: #000;
+}
+.emptyPreview {
+  height: 64px;
+  border-radius: var(--r-2);
+  display: grid;
+  place-items: center;
+  color: var(--text-4);
+  font-size: var(--fs-11);
+  background: var(--bg-inset);
+}
+.stops {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stopRow {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.stopRow > :first-child {
+  flex: 1;
+}
+.stopRemove {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-1);
+  color: var(--text-4);
+}
+.stopRemove:hover {
+  color: var(--danger);
+  background: var(--danger-muted);
+}
+.addStop {
+  height: 24px;
+  font-size: var(--fs-11);
+  color: var(--text-3);
+  text-align: left;
+  padding: 0 4px;
+}
+.addStop:hover {
+  color: var(--accent-strong);
+}
+
+.source {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sourceRow {
+  display: flex;
+  gap: 5px;
+}
+.urlInput {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  background: var(--bg-elevated);
+  border: none;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  border-radius: var(--r-2);
+  color: var(--text-1);
+  font-size: var(--fs-11);
+  padding: 0 8px;
+  outline: none;
+}
+.urlInput:focus {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.uploadBtn {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-2);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  flex: none;
+}
+.uploadBtn:hover:not(:disabled) {
+  color: var(--text-1);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.thumb {
+  aspect-ratio: 1;
+  border-radius: var(--r-1);
+  overflow: hidden;
+  background: #000;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.thumb:hover {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/* ---- FillStack (멀티 fill 스택) ---- */
+.fillStack { display: flex; flex-direction: column; gap: 4px; }
+.fillStackHead { display: flex; align-items: center; justify-content: space-between; }
+.fillStackTitle { font-size: var(--fs-11); color: var(--text-3); font-weight: 500; }
+.fillStackAdd {
+  width: 20px; height: 20px; display: grid; place-items: center;
+  border-radius: var(--r-1); color: var(--text-3); font-size: 15px; line-height: 1;
+}
+.fillStackAdd:hover { background: var(--bg-hover); color: var(--text-1); }
+.fillStackEmpty {
+  height: 28px; border-radius: var(--r-2); color: var(--text-4);
+  box-shadow: inset 0 0 0 1px var(--hairline); font-size: var(--fs-11); text-align: left; padding: 0 10px;
+}
+.fillStackEmpty:hover { color: var(--text-2); box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+.fillRows { display: flex; flex-direction: column; gap: 3px; }
+.fillRow {
+  display: flex; align-items: center; gap: 5px; height: 28px;
+  padding: 0 4px; border-radius: var(--r-1);
+}
+.fillRow:hover { background: var(--bg-hover); }
+.fillRow[data-dragover="true"] { box-shadow: inset 0 0 0 1px var(--accent); }
+.fillDrag { flex: none; width: 14px; color: var(--text-4); cursor: grab; display: grid; place-items: center; }
+.fillDrag:hover { color: var(--text-2); }
+.fillSwatch {
+  flex: none; width: 20px; height: 20px; border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  background-clip: padding-box;
+}
+.fillLabel {
+  flex: 1; min-width: 0; text-align: left; font-size: var(--fs-11);
+  color: var(--text-1); font-family: var(--font-mono-stack);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fillLabel:hover { color: var(--accent-strong); }
+.fillOpacity {
+  flex: none; width: 34px; text-align: right; background: transparent;
+  border: none; color: var(--text-2); font-size: var(--fs-11);
+  font-family: var(--font-mono-stack);
+}
+.fillOpacity:focus { outline: none; color: var(--text-1); }
+.fillPct { flex: none; font-size: var(--fs-10); color: var(--text-4); margin-left: -2px; }
+.fillEye { flex: none; width: 20px; height: 20px; display: grid; place-items: center; color: var(--text-3); border-radius: var(--r-1); }
+.fillEye:hover { color: var(--text-1); background: var(--bg-elevated); }
+.fillEye[data-off="true"] { color: var(--text-4); }
+.fillRemove { flex: none; width: 18px; height: 20px; display: grid; place-items: center; color: var(--text-4); border-radius: var(--r-1); }
+.fillRemove:hover { color: var(--danger); background: var(--danger-muted); }
+
+/* fill 편집 팝오버 (fixed) — Figma 셸: 라운드 13, Custom/Libraries 탭 헤더 */
+.fillPop {
+  z-index: 95; padding: 10px 12px 12px; background: var(--bg-float);
+  border-radius: 13px; box-shadow: var(--shadow-float);
+  border: 1px solid var(--hairline-strong);
+  max-height: calc(100vh - 24px); overflow-y: auto;
+}
+.fillPopHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.fillTabs { display: flex; gap: 2px; }
+.fillTab {
+  height: 22px; padding: 0 9px; border-radius: 6px;
+  font-size: var(--fs-11); font-weight: 500; color: var(--text-4);
+}
+.fillTab:hover { color: var(--text-2); }
+.fillTab[data-active="true"] { background: var(--bg-hover); color: var(--text-1); }
+.fillPopClose { width: 20px; height: 20px; display: grid; place-items: center; color: var(--text-4); border-radius: var(--r-1); }
+.fillPopClose:hover { color: var(--text-1); background: var(--bg-hover); }
+
+/* 페인트 타입 아이콘 행 (Solid/Gradient/Image/Video/Noise + 블렌드 드롭릿) */
+.typeRow { display: flex; align-items: center; justify-content: space-between; }
+.typeIcons { display: flex; gap: 2px; }
+.typeRowRight { position: relative; display: flex; }
+.typeBtn {
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border-radius: 6px; color: var(--text-3);
+}
+.typeBtn:hover { color: var(--text-1); background: var(--bg-hover); }
+.typeBtn[data-active="true"] { background: var(--bg-hover); color: var(--text-1); }
+.blendMenu {
+  position: absolute; top: 30px; right: 0; z-index: 5; min-width: 130px;
+  background: var(--bg-float); border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-2); box-shadow: var(--shadow-float);
+  padding: 4px; display: flex; flex-direction: column;
+  max-height: 260px; overflow-y: auto;
+}
+.blendItem {
+  height: 22px; padding: 0 8px; text-align: left; border-radius: var(--r-1);
+  font-size: var(--fs-11); color: var(--text-2); text-transform: capitalize;
+}
+.blendItem:hover { background: var(--bg-hover); color: var(--text-1); }
+.blendItem[data-active="true"] { color: var(--accent-strong); }
+.divider { height: 1px; background: var(--hairline); margin: 2px -2px; }
+
+/* Gradient — 컨트롤 행 / stop 핀 프리뷰 / Stops 리스트 */
+.gradCtl { display: flex; align-items: center; gap: 6px; }
+.gradBtn {
+  width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: var(--r-1); color: var(--text-3); flex: none;
+}
+.gradBtn:hover { color: var(--text-1); background: var(--bg-hover); }
+.gradPinArea { position: relative; padding-top: 16px; }
+.gradPins { position: absolute; top: 0; left: 0; right: 0; height: 16px; }
+.gradPin {
+  position: absolute; top: 0; transform: translateX(-50%);
+  width: 16px; height: 16px; padding: 0; cursor: grab;
+  display: grid; place-items: center;
+}
+.gradPinSwatch {
+  width: 12px; height: 12px; border-radius: 3px;
+  box-shadow: 0 0 0 2px #ffffff, 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.gradPin[data-active="true"] .gradPinSwatch { box-shadow: 0 0 0 2px var(--accent), 0 1px 3px rgba(0, 0, 0, 0.5); }
+.stopsHead {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--fs-11); color: var(--text-3); font-weight: 500;
+}
+.fillStackAddSmall {
+  width: 20px; height: 20px; display: grid; place-items: center;
+  border-radius: var(--r-1); color: var(--text-3); font-size: 14px; line-height: 1;
+}
+.fillStackAddSmall:hover { background: var(--bg-hover); color: var(--text-1); }
+.stopRow[data-active="true"] { background: var(--bg-hover); border-radius: var(--r-1); }
+.stopPos {
+  width: 30px; flex: none; text-align: right; background: var(--bg-inset);
+  border: none; box-shadow: inset 0 0 0 1px var(--hairline);
+  border-radius: var(--r-1); color: var(--text-2); font-size: var(--fs-11);
+  font-family: var(--font-mono-stack); padding: 3px 4px; outline: none;
+}
+.stopPct { flex: none; font-size: var(--fs-10); color: var(--text-4); }
+.stopSwatch {
+  flex: none; width: 16px; height: 16px; border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.stopHex {
+  flex: 1; min-width: 0; font-size: var(--fs-11); color: var(--text-2);
+  font-family: var(--font-mono-stack); overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Libraries 탭 */
+.libTab { display: flex; flex-direction: column; gap: 8px; }
+.libSearch {
+  height: 26px; background: var(--bg-inset); border: none;
+  box-shadow: inset 0 0 0 1px var(--hairline); border-radius: var(--r-2);
+  color: var(--text-1); font-size: var(--fs-11); padding: 0 8px; outline: none;
+}
+.libSearch:focus { box-shadow: inset 0 0 0 1px var(--accent); }
+.libSection { font-size: var(--fs-11); color: var(--text-4); font-weight: 500; margin-top: 2px; }
+.libGrid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.libSwatch {
+  width: 100%; aspect-ratio: 1; border-radius: 4px; padding: 0; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.libSwatch:hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.libEmpty { font-size: var(--fs-11); color: var(--text-4); }

@@ -1,0 +1,181 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0F14",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#7C4DFF",
+      "#52C5FF"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "orbit-carousel",
+      "duration": 10,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#0D0F14",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "group",
+          "id": "ring",
+          "layout": {
+            "type": "orbit",
+            "radius": 34,
+            "tilt": 10,
+            "progress": {
+              "loop": true,
+              "durationF": 240
+            },
+            "origin": {
+              "x": 0,
+              "y": 0.05
+            }
+          },
+          "children": [
+            {
+              "element": "text",
+              "id": "center",
+              "base": {
+                "text": "Orbit",
+                "fontSize": 4.6,
+                "color": "#FFFFFF",
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              },
+              "layoutPin": true
+            },
+            {
+              "element": "shape",
+              "id": "o-1",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#7C4DFF",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-2",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#52C5FF",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-3",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#1DFCB9",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-4",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#FF4D9D",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-5",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#FBBF24",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-6",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#F4F6FB",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-7",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#8B95A5",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            },
+            {
+              "element": "shape",
+              "id": "o-8",
+              "base": {
+                "kind": "rectangle",
+                "width": 9,
+                "height": 12,
+                "fill": "#3B82F6",
+                "radius": 14,
+                "position": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "space": "3d",
+      "perspective": 1200
+    }
+  ]
+}

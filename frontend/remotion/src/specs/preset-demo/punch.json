@@ -1,0 +1,20 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "not generated.",
+      "palette": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "baseColor": "#0c0a09",
+      "duration": 1.1,
+      "fontSize": 5.5,
+      "fontWeight": 900,
+      "emphasis": "strong"
+    }
+  ]
+}

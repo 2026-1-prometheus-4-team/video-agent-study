@@ -1,0 +1,70 @@
+{
+ "fps": 30,
+ "brandDefaults": {
+  "background": "#050308",
+  "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+  "colors": [
+   "#7C4DFF",
+   "#FF2EA6",
+   "#4D7DFF"
+  ]
+ },
+ "scenes": [
+  {
+   "id": "glow-input",
+   "duration": 10,
+   "background": "#050308",
+   "elements": [
+    {
+     "element": "neon_pill",
+     "id": "prompt-box",
+     "radius": 3.1,
+     "borderColors": [
+      "#B47CFF",
+      "#7C3AED"
+     ],
+     "borderWidth": 3,
+     "fillColor": "#0B0714",
+     "glow": 0.85,
+     "orbit": {
+      "period": 110,
+      "span": 0.42,
+      "colors": [
+       "#C9A0FF",
+       "#7C3AED"
+      ],
+      "dim": "rgba(124,92,246,0.14)",
+      "bloom": 1.15
+     },
+     "drawIn": {
+      "duration": 14,
+      "easing": "easeOut"
+     },
+     "drawStyle": "fade",
+     "mode": "type",
+     "text": "Create a landing page for my coffee brand",
+     "charsPerSecond": 14,
+     "typeStart": 18,
+     "fontSize": 1.9,
+     "fontWeight": 500,
+     "color": "#EDE9F8",
+     "paddingLeft": 3.2,
+     "align": "left",
+     "caretColor": "#C9A0FF",
+     "freshTint": {
+      "color": "#A78BFA",
+      "fade": 16
+     },
+     "base": {
+      "position": {
+       "x": 0.5,
+       "y": 0.5
+      },
+      "width": 46,
+      "height": 6.2
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+  "fps": 60,
+  "brandDefaults": {
+    "background": "#000000",
+    "fontFamily": "General Sans",
+    "colors": ["#FFFFFF"]
+  },
+  "scenes": [
+    {
+      "id": "characters-settle",
+      "duration": 2.5,
+      "elements": [
+        {
+          "element": "text",
+          "id": "cd",
+          "base": { "text": "Characters Down", "fontSize": 6, "color": "#FFFFFF" },
+          "layers": [
+            {
+              "type": "typewriter",
+              "role": "in",
+              "props": {
+                "unit": "char",
+                "mode": "type",
+                "charsPerSecond": 20,
+                "cursor": "none",
+                "cadence": "uniform",
+                "reflow": "smooth",
+                "reflowSmoothing": 7,
+                "revealBlur": { "from": 3, "duration": 5 },
+                "revealScale": { "from": 0.55, "duration": 7 },
+                "revealRotate": { "from": 12, "duration": 7 },
+                "revealX": { "from": -0.6, "duration": 7 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

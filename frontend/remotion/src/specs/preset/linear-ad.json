@@ -1,0 +1,52 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#0B0C10",
+    "colors": ["#5E6AD2", "#8B92E8", "#C4B5FD"]
+  },
+  "scenes": [
+    {
+      "preset": "punch",
+      "text": "Meet Linear",
+      "palette": ["#8B92E8", "#5E6AD2", "#C4B5FD", "#FFFFFF"],
+      "emphasis": "strong",
+      "effects": { "glow": { "intensity": 0.95, "radius": 48 } },
+      "duration": 1.0
+    },
+    {
+      "preset": "statement",
+      "text": "The issue tracker built for speed",
+      "highlightWord": 5,
+      "highlightCycle": ["#5E6AD2", "#8B92E8", "#C4B5FD"],
+      "exitSpeed": "med",
+      "emphasis": "soft",
+      "effects": { "glow": { "enabled": true, "intensity": 0.7, "radius": 32 } },
+      "duration": 2.6
+    },
+    {
+      "preset": "beat",
+      "text": "Plan.",
+      "duration": 0.8
+    },
+    {
+      "preset": "beat",
+      "text": "Build.",
+      "emphasis": "strong",
+      "effects": { "glow": { "enabled": true, "intensity": 0.55, "radius": 38 } },
+      "duration": 0.8
+    },
+    {
+      "preset": "hero_zoom",
+      "text": "Ship.",
+      "gradientStops": ["#5E6AD2", "#8B92E8", "#C4B5FD"],
+      "flowSpeed": -2.5,
+      "exitDir": "left",
+      "emphasis": "strong",
+      "effects": {
+        "glow": { "intensity": 0.85, "radius": 70 },
+        "motionBlur": { "amount": 1.0, "maxBlur": 90 }
+      },
+      "duration": 2.2
+    }
+  ]
+}

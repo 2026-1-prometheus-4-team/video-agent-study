@@ -1,0 +1,76 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#0D0B10",
+    "fontFamily": "General Sans",
+    "colors": ["#7C4DFF", "#FF4D9D", "#4D7DFF"]
+  },
+  "scenes": [
+    {
+      "id": "gs-hero",
+      "duration": 2,
+      "elements": [
+        {
+          "element": "text",
+          "id": "hero",
+          "base": { "text": "General Sans", "fontSize": 6, "fontWeight": 600, "color": "#FFFFFF" },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 8 } },
+            { "type": "scale", "role": "in", "props": { "from": 0.94, "to": 1, "duration": 12, "easing": "easeOutExpo" } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gs-weights",
+      "duration": 2.4,
+      "elements": [
+        {
+          "element": "text",
+          "id": "wlight",
+          "base": { "text": "Extralight 200", "fontSize": 2.6, "fontWeight": 200, "color": "#C7CDD6", "position": { "x": 0.5, "y": 0.3 } },
+          "layers": [{ "type": "fade", "role": "in", "props": { "duration": 8 } }]
+        },
+        {
+          "element": "text",
+          "id": "wreg",
+          "base": { "text": "Regular 400", "fontSize": 2.6, "fontWeight": 400, "color": "#E4E7EC", "position": { "x": 0.5, "y": 0.43 } },
+          "layers": [{ "type": "fade", "role": "in", "props": { "duration": 8 } }]
+        },
+        {
+          "element": "text",
+          "id": "wmed",
+          "base": { "text": "Medium 500", "fontSize": 2.6, "fontWeight": 500, "color": "#FFFFFF", "position": { "x": 0.5, "y": 0.56 } },
+          "layers": [{ "type": "fade", "role": "in", "props": { "duration": 8 } }]
+        },
+        {
+          "element": "text",
+          "id": "wbold",
+          "base": { "text": "Bold 700", "fontSize": 2.6, "fontWeight": 700, "color": "#FFFFFF", "position": { "x": 0.5, "y": 0.69 } },
+          "layers": [{ "type": "fade", "role": "in", "props": { "duration": 8 } }]
+        }
+      ]
+    },
+    {
+      "id": "gs-sample",
+      "duration": 2.6,
+      "transition_out": "hard_cut",
+      "elements": [
+        {
+          "element": "text",
+          "id": "sample",
+          "base": { "text": "where your calories go?", "fontSize": 3.2, "fontWeight": 500, "color": "#FFFFFF" },
+          "color": {
+            "timeline": [
+              { "fill": { "type": "gradient", "stops": ["#FF4D9D", "#7C4DFF"] }, "hold": 60 }
+            ]
+          },
+          "layers": [
+            { "type": "fade", "role": "in", "props": { "duration": 8 } },
+            { "type": "move", "role": "in", "props": { "fromY": 0.06, "toY": 0, "duration": 14, "easing": "easeOutExpo" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

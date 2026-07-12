@@ -1,0 +1,23 @@
+{
+  "fps": 24,
+  "brand": {
+    "background": "#fdfdfc",
+    "colors": ["#34d6c2", "#e85c9b", "#f4b94c"],
+    "fontFamily": "Fraunces"
+  },
+  "scenes": [
+    {
+      "preset": "stat_counter",
+      "to": 60,
+      "suffix": "s",
+      "caption": "paste to launch film in",
+      "gradient": ["#34d6c2", "#e85c9b", "#f4b94c"],
+      "baseColor": "#fdfdfc",
+      "background": "#0a0b0d",
+      "pace": "med",
+      "fontSize": 9,
+      "fontWeight": 900,
+      "transition_out": "fade"
+    }
+  ]
+}

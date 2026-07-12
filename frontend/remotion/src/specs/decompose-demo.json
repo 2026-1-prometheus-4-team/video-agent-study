@@ -1,0 +1,148 @@
+{
+  "fps": 24,
+  "brandDefaults": {
+    "background": "#101216",
+    "fontFamily": "General Sans, Inter, Helvetica, Arial, sans-serif",
+    "colors": [
+      "#52C5FF",
+      "#1DFCB9"
+    ]
+  },
+  "scenes": [
+    {
+      "id": "decompose-grid",
+      "duration": 4.2,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#101216",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "image",
+          "id": "ui-grid",
+          "base": {
+            "src": "cap-lovable-cleanplate.png",
+            "width": 62,
+            "height": 66,
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            },
+            "fit": "contain"
+          },
+          "decompose": {
+            "mode": "grid",
+            "cols": 3,
+            "rows": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "decompose-masks",
+      "duration": 4.2,
+      "background": {
+        "fill": {
+          "type": "solid",
+          "color": "#101216",
+          "visible": true
+        }
+      },
+      "elements": [
+        {
+          "element": "image",
+          "id": "ui-masks",
+          "base": {
+            "src": "cap-lovable-cleanplate.png",
+            "width": 62,
+            "height": 66,
+            "position": {
+              "x": 0.4998900088493449,
+              "y": 0.5001639509099387
+            },
+            "fit": "contain"
+          },
+          "decompose": {
+            "mode": "masks",
+            "entry": "bottom",
+            "rects": [
+              {
+                "x": 0,
+                "y": 0,
+                "w": 1,
+                "h": 0.14
+              },
+              {
+                "x": 0,
+                "y": 0.14,
+                "w": 0.32,
+                "h": 0.86
+              },
+              {
+                "x": 0.32,
+                "y": 0.14,
+                "w": 0.68,
+                "h": 0.42
+              },
+              {
+                "x": 0.32,
+                "y": 0.56,
+                "w": 0.34,
+                "h": 0.44
+              },
+              {
+                "x": 0.66,
+                "y": 0.56,
+                "w": 0.34,
+                "h": 0.44
+              }
+            ]
+          }
+        },
+        {
+          "element": "shader",
+          "id": "shader-2",
+          "preset": "living_gradient",
+          "palette": [
+            "#0B0E1A",
+            "#31226E",
+            "#7C4DFF",
+            "#52C5FF"
+          ],
+          "speed": 1,
+          "base": {
+            "width": 100,
+            "height": 100,
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        },
+        {
+          "element": "shader",
+          "id": "shader-3",
+          "preset": "living_gradient",
+          "palette": [
+            "#0B0E1A",
+            "#31226E",
+            "#7C4DFF",
+            "#52C5FF"
+          ],
+          "speed": 1,
+          "base": {
+            "width": 100,
+            "height": 100,
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
