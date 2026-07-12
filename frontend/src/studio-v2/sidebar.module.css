@@ -7,10 +7,18 @@
   flex-direction: column;
   min-width: 0;
   position: relative;
-  border-top-right-radius: 14px;
-  border-bottom-right-radius: 14px;
-  margin: 16px 0 16px 12px;
-  box-shadow: 0 0 0 1px var(--hairline);
+}
+
+/* subtle right hairline (구분선 대신 그림자 페이드) */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 1px;
+  background: var(--hairline);
+  pointer-events: none;
 }
 
 .content {
@@ -119,7 +127,7 @@
 
 /* ---- foot ---- */
 .foot {
-  padding: 10px 12px 12px;
+  padding: 10px 14px 18px;
   flex-shrink: 0;
 }
 
