@@ -10,6 +10,7 @@ import { DialogHost } from "@/editor/ui/dialogs";
 import LibraryPanel from "@/editor/library/LibraryPanel";
 import LayersPanel from "@/editor/layers/LayersPanel";
 import AIPanel from "@/editor/ai/AIPanel";
+import AgentPanel from "@/editor/agent/AgentPanel";
 import CanvasStage from "@/editor/canvas/CanvasStage";
 import InspectorPanel from "@/editor/inspector/InspectorPanel";
 import TimelinePanel from "@/editor/timeline/TimelinePanel";
@@ -74,15 +75,33 @@ const LeftPanel: React.FC = () => {
           className={styles.leftTab}
           onClick={() => setUI({ leftTab: "ai" })}
         >
-          {/* 생성(음악/SFX/나레이션) — 이후 AI 채팅 편집도 이 탭 */}
+          {/* 생성(음악/SFX/나레이션) */}
           <svg width="11" height="11" viewBox="0 0 12 12" style={{ marginRight: 4, verticalAlign: "-1px" }}>
             <path d="M6 1l1.1 2.7L10 4.8 7.4 6.4 8 9.5 6 7.8 4 9.5l.6-3.1L2 4.8l2.9-1.1z" fill="currentColor" opacity="0.85" />
           </svg>
           AI
         </button>
+        <button
+          role="tab"
+          aria-selected={leftTab === "agent"}
+          data-active={leftTab === "agent"}
+          className={styles.leftTab}
+          onClick={() => setUI({ leftTab: "agent" })}
+        >
+          {/* 편집 에이전트 — 백엔드 LangGraph 파이프라인 채팅 (E2E) */}
+          Agent
+        </button>
       </div>
       <div className={styles.leftBody}>
-        {leftTab === "library" ? <LibraryPanel /> : leftTab === "layers" ? <LayersPanel /> : <AIPanel />}
+        {leftTab === "library" ? (
+          <LibraryPanel />
+        ) : leftTab === "layers" ? (
+          <LayersPanel />
+        ) : leftTab === "agent" ? (
+          <AgentPanel />
+        ) : (
+          <AIPanel />
+        )}
       </div>
       {/* 오른쪽 가장자리 리사이즈 핸들 */}
       <div className={styles.resizeRight} {...handleProps} />

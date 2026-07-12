@@ -22,7 +22,7 @@ export type EditorSession = {
     rightCollapsed: boolean;
     bottomCollapsed: boolean;
     pxPerFrame: number;
-    leftTab: "library" | "layers" | "ai";
+    leftTab: "library" | "layers" | "ai" | "agent";
   };
 };
 

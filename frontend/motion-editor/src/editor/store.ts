@@ -76,7 +76,7 @@ export type EasingEditorTarget = {
 
 export type UIState = {
   tool: EditorTool;
-  leftTab: "library" | "layers" | "ai";
+  leftTab: "library" | "layers" | "ai" | "agent";
   /** 타임라인 줌: 프레임당 px */
   pxPerFrame: number;
   /** 0.6s(100BPM) 비트 그리드 오버레이 */
