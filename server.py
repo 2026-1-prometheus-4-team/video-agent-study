@@ -49,10 +49,7 @@ class Session:
         self.session_id = session_id
         self.video_context = video_context
         self.checkpointer = MemorySaver()
-        self.graph = build_graph(
-            video_context=video_context,
-            checkpointer=self.checkpointer,
-        )
+        self.graph = build_graph(checkpointer=self.checkpointer)
 
 
 sessions: dict[str, Session] = {}
@@ -271,7 +268,7 @@ async def edit_video(request: EditRequest):
     if request.video_context:
         video_ctx = request.video_context.model_dump()
 
-    graph = build_graph(video_context=video_ctx)
+    graph = build_graph()
 
     result = await asyncio.to_thread(
         graph.invoke,

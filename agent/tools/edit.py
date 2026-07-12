@@ -267,18 +267,130 @@ def _score_segment(query: str, segment: dict) -> int:
     return score
 
 
+# =============================================================
+# 임베딩 기반 시맨틱 검색
+#
+# Gemini embedding API (generateContent 와 쿼터 버킷 분리) 로
+# 세그먼트 설명 <-> 쿼리를 벡터화해 코사인 유사도로 매칭.
+# 세그먼트 임베딩은 {analysis}.emb.json 에 캐싱 -> 영상당 1회만 계산.
+# 임베딩 실패 시 키워드 스코어링으로 자동 폴백.
+# =============================================================
+
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
+EMBEDDING_DIM = 768
+SEMANTIC_MIN_SCORE = float(os.getenv("SEMANTIC_MIN_SCORE", "0.5"))
+
+
+EMBEDDING_BATCH = 100  # Gemini embed API 는 요청당 최대 100개
+
+
+def _embed_texts(texts: list[str], task_type: str) -> Optional[list[list[float]]]:
+    """Gemini embedding 호출 (100개씩 배치 분할). 실패 시 None (폴백 유도)."""
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client()
+        vectors: list[list[float]] = []
+        for i in range(0, len(texts), EMBEDDING_BATCH):
+            batch = texts[i:i + EMBEDDING_BATCH]
+            result = client.models.embed_content(
+                model=EMBEDDING_MODEL,
+                contents=batch,
+                config=types.EmbedContentConfig(
+                    task_type=task_type,
+                    output_dimensionality=EMBEDDING_DIM,
+                ),
+            )
+            vectors.extend(list(e.values) for e in result.embeddings)
+        return vectors
+    except Exception:
+        logger.warning("임베딩 호출 실패 -> 키워드 검색 폴백", exc_info=True)
+        return None
+
+
+def _cosine_matrix(query_vec: list[float], corpus: list[list[float]]) -> list[float]:
+    import numpy as np
+
+    q = np.asarray(query_vec, dtype=np.float32)
+    m = np.asarray(corpus, dtype=np.float32)
+    q = q / (np.linalg.norm(q) + 1e-8)
+    m = m / (np.linalg.norm(m, axis=1, keepdims=True) + 1e-8)
+    return (m @ q).tolist()
+
+
+def _corpus_embeddings(analysis_path: str, segments: list[dict]) -> Optional[list[list[float]]]:
+    """세그먼트 임베딩 로드/생성. {analysis}.emb.json 캐시 사용."""
+    import hashlib
+
+    blobs = [s.get("_search_blob", "") for s in segments]
+    digest = hashlib.md5("\n".join(blobs).encode("utf-8")).hexdigest()
+    cache_path = f"{analysis_path}.emb.json"
+
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, encoding="utf-8") as f:
+                cached = json.load(f)
+            if cached.get("hash") == digest and len(cached.get("vectors", [])) == len(blobs):
+                return cached["vectors"]
+        except Exception:
+            pass
+
+    vectors = _embed_texts(blobs, task_type="RETRIEVAL_DOCUMENT")
+    if vectors is None:
+        return None
+
+    try:
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump({"hash": digest, "model": EMBEDDING_MODEL, "vectors": vectors}, f)
+        logger.info("세그먼트 임베딩 캐시 저장: %s (%d개)", cache_path, len(vectors))
+    except OSError:
+        pass
+    return vectors
+
+
+def _semantic_scores(analysis_path: str, segments: list[dict], query: str) -> Optional[list[float]]:
+    corpus = _corpus_embeddings(analysis_path, segments)
+    if corpus is None:
+        return None
+    query_vecs = _embed_texts([query], task_type="RETRIEVAL_QUERY")
+    if not query_vecs:
+        return None
+    return _cosine_matrix(query_vecs[0], corpus)
+
+
 def _search_segments(video_path: str, query: str, analysis_path: Optional[str], max_results: int) -> tuple[str, list[dict]] | tuple[None, list]:
     loaded = _load_analysis(video_path, analysis_path)
     if not loaded:
         return None, []
 
     resolved_analysis_path, analysis = loaded
+    segments = _analysis_segments(analysis)
+
+    # 1차: 임베딩 시맨틱 검색 (EDIT_SEMANTIC_SEARCH=0 이면 비활성)
+    if os.getenv("EDIT_SEMANTIC_SEARCH", "1") != "0":
+        sims = _semantic_scores(resolved_analysis_path, segments, query)
+        if sims is not None:
+            scored = []
+            for segment, sim in zip(segments, sims):
+                if sim >= SEMANTIC_MIN_SCORE:
+                    public_segment = {k: v for k, v in segment.items() if not k.startswith("_")}
+                    public_segment["score"] = round(float(sim), 3)
+                    public_segment["match_type"] = "semantic"
+                    scored.append(public_segment)
+            scored.sort(key=lambda s: (-s["score"], s["start_ms"]))
+            if scored:
+                return resolved_analysis_path, scored[:max_results]
+            # 시맨틱 결과 없으면 키워드로 폴백
+
+    # 2차: 키워드 스코어링 (폴백)
     scored = []
-    for segment in _analysis_segments(analysis):
+    for segment in segments:
         score = _score_segment(query, segment)
         if score > 0:
             public_segment = {k: v for k, v in segment.items() if not k.startswith("_")}
             public_segment["score"] = score
+            public_segment["match_type"] = "keyword"
             scored.append(public_segment)
 
     scored.sort(key=lambda s: (-s["score"], s["start_ms"]))
@@ -317,12 +429,17 @@ def cut_video(
 
         start_sec = start_ms / 1000.0
         duration_sec = (end_ms - start_ms) / 1000.0
+        # 프레임 정확도 컷: -c copy 는 키프레임 단위로 밀려서 (수 초 오차 + concat 시
+        # 재생 깨짐) 재인코딩으로 자름. 인코딩 설정을 통일해 merge concat 도 안전.
         cmd = [
             "ffmpeg", "-y",
             "-ss", f"{start_sec:.3f}",
             "-i", resolved,
             "-t", f"{duration_sec:.3f}",
-            "-c", "copy",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-avoid_negative_ts", "make_zero",
             output_path,
         ]
 

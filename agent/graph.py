@@ -66,14 +66,21 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
 
     import json as _json
     from pathlib import Path
+    from agent import config
     from agent.tools.video_analysis import analyze_video
 
     first = video_paths[0]
     filename = Path(first).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
 
     try:
-        raw = analyze_video.invoke({"video_path": filename})
-        data = _json.loads(raw)
+        # 기존 분석 JSON 이 있으면 재사용 (재분석 비용 + API 쿼터 절약)
+        cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
+        if cached_json.exists():
+            logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
+            data = _json.loads(cached_json.read_text(encoding="utf-8"))
+        else:
+            raw = analyze_video.invoke({"video_path": filename})
+            data = _json.loads(raw)
 
         if "error" in data:
             logger.warning("analysis_node: analyze_video 오류 -> skeleton. %s", data["error"])

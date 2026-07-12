@@ -1,74 +1,130 @@
-"""
-텍스트 -> 음성 합성 Tool (은채)
+"""Text-to-speech tool for audio_expert using ElevenLabs."""
 
-TODO
-- 실제 TTS 엔진 연동 (예: ElevenLabs, OpenAI TTS, Coqui 등)
-- 결과 오디오 파일 경로 반환
-"""
+from __future__ import annotations
 
 import json
 import logging
-from langchain_core.tools import tool
 import os
 import time
+from pathlib import Path
+
 import requests
 from dotenv import load_dotenv
-import edge_tts
-from pathlib import Path
-import asyncio
+from langchain_core.tools import tool
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = Path(__file__).resolve().parents[2]
+ENV_PATH = BASE_DIR / ".env"
+
+load_dotenv(ENV_PATH)
+
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+ELEVENLABS_DEFAULT_VOICE_ID = os.getenv("ELEVENLABS_DEFAULT_VOICE_ID")
+ELEVENLABS_TTS_MODEL = os.getenv("ELEVENLABS_TTS_MODEL", "eleven_multilingual_v2")
+
+
+def _json_response(**payload: object) -> str:
+    return json.dumps(payload, ensure_ascii=False)
+
+
 @tool
-def text_to_speech(text: str, voice: str = "ko-KR-SunHiNeural") -> str:
-    """텍스트를 음성으로 합성해 오디오 파일로 저장.
+def text_to_speech(text: str, voice: str = "default") -> str:
+    """Convert text to speech and save it as an MP3 file.
 
     Args:
-        text: 음성으로 변환할 텍스트
-        voice: 사용할 보이스 ID (선택)
+        text: Text to synthesize.
+        voice: ElevenLabs voice ID. If "default", ELEVENLABS_DEFAULT_VOICE_ID is used.
     """
-    logger.info(f"text_to_speech 호출 - voice: {voice}, text: {text[:30]}...")
-    
-    # TODO: 실제 TTS 엔진 연동
+    if voice == "default":
+        voice = ELEVENLABS_DEFAULT_VOICE_ID or ""
 
-    output_dir = "audio_files"
-    os.makedirs(output_dir, exist_ok=True)
+    logger.info("text_to_speech called - voice: %s, text: %s...", voice, text[:30])
 
-    filename = f"audio_{int(time.time())}.mp3"
-    file_path = os.path.join(output_dir, filename)
+    if not ELEVENLABS_API_KEY:
+        return _json_response(
+            text=text,
+            voice=voice,
+            output=None,
+            status="error",
+            error="ELEVENLABS_API_KEY is required in .env.",
+        )
 
-    async def run_tts():
-        communicate = edge_tts.Communicate(text, voice)
-        await communicate.save(file_path)
+    if not voice:
+        return _json_response(
+            text=text,
+            voice=voice,
+            output=None,
+            status="error",
+            error="voice_id is required. Set ELEVENLABS_DEFAULT_VOICE_ID in .env.",
+        )
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVENLABS_API_KEY,
+    }
+    data = {
+        "text": text,
+        "model_id": ELEVENLABS_TTS_MODEL,
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75,
+        },
+    }
+
+    output_dir = BASE_DIR / "audio_files"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"audio_{int(time.time())}.mp3"
 
     try:
-        asyncio.run(run_tts())
-        
-        return json.dumps({
-                "text": text,
-                "voice": voice,
-                "output": file_path,
-                "status": "success",
-            })
+        response = requests.post(url, headers=headers, json=data, timeout=60)
+        print("status_code:", response.status_code)
 
-    except Exception as e:
-        return json.dumps({
-        "text": text,
-        "voice": voice,
-        "output": None,
-        "status": "error",
-        "error": str(e)
-    })
+        if response.status_code == 200:
+            output_path.write_bytes(response.content)
+            return _json_response(
+                text=text,
+                voice=voice,
+                model=ELEVENLABS_TTS_MODEL,
+                output=str(output_path),
+                status="success",
+            )
+
+        return _json_response(
+            text=text,
+            voice=voice,
+            model=ELEVENLABS_TTS_MODEL,
+            output=None,
+            status="fail",
+            status_code=response.status_code,
+            error=response.text,
+        )
+
+    except requests.exceptions.Timeout:
+        return _json_response(
+            text=text,
+            voice=voice,
+            model=ELEVENLABS_TTS_MODEL,
+            output=None,
+            status="error",
+            error="ElevenLabs TTS request timed out.",
+        )
+    except Exception as error:
+        return _json_response(
+            text=text,
+            voice=voice,
+            model=ELEVENLABS_TTS_MODEL,
+            output=None,
+            status="error",
+            error=str(error),
+        )
 
 
-
-# 테스트
 if __name__ == "__main__":
     print("실행 시작")
-    result = text_to_speech.invoke({
-        "text": "테스트 음성 안녕하세요",
-        "voice": "ko-KR-SunHiNeural"
-    })
+    result = text_to_speech.invoke({"text": "테스트 음성입니다. 안녕하세요."})
     print(result)
 
 
