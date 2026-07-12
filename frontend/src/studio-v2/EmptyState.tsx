@@ -3,8 +3,10 @@
 import { motion } from "motion/react";
 import { Sparkles, Upload } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { toast } from "sonner";
 import { useAgentStore } from "./state";
 import { playScenario } from "./mock/mockStream";
+import { uploadVideo } from "./backend";
 import styles from "./emptystate.module.css";
 
 const PROMPTS = [
@@ -72,11 +74,24 @@ export function EmptyState() {
             type="file"
             accept="video/*"
             hidden
-            onChange={(e) => {
+            onChange={async (e) => {
               const f = e.target.files?.[0];
-              if (f) {
-                const url = URL.createObjectURL(f);
-                setUpload(100, f.name, url);
+              if (!f) return;
+              const url = URL.createObjectURL(f);
+              setUpload(0, f.name, url, null);
+              try {
+                setUpload(30, f.name, url);
+                const res = await uploadVideo(f);
+                setUpload(100, f.name, url, res.path);
+                toast.success("업로드 완료", {
+                  description: res.path,
+                });
+              } catch (err) {
+                setUpload(100, f.name, url, null);
+                toast("업로드는 로컬만 성공 (백엔드 응답 없음)", {
+                  description:
+                    "지금은 로컬 프리뷰만 가능. 아래 예시 지시로 스트리밍 UX 는 확인 가능.",
+                });
               }
             }}
           />

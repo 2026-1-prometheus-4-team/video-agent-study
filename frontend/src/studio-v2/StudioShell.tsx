@@ -8,6 +8,8 @@ import { Stage } from "./Stage";
 import { Timeline } from "./Timeline";
 import { PipelineHUD } from "./PipelineHUD";
 import { StageToolbar } from "./StageToolbar";
+import { checkHealth } from "./backend";
+import { useAgentStore } from "./state";
 import styles from "./studio-shell.module.css";
 
 /**
@@ -45,6 +47,32 @@ export function StudioShell() {
     };
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  // 백엔드 health check (마운트 + 주기적)
+  useEffect(() => {
+    let cancelled = false;
+    const setConn = useAgentStore.getState().setConnection;
+
+    const probe = async () => {
+      const ok = await checkHealth();
+      if (cancelled) return;
+      const status = useAgentStore.getState().connection;
+      if (ok) {
+        // 이미 online 이면 그대로, 아니면 online 로 (WS 안 붙어있어도 REST 는 살아있다는 뜻)
+        if (status === "offline" || status === "connecting") {
+          setConn("online");
+        }
+      } else {
+        if (status !== "reconnecting") setConn("offline");
+      }
+    };
+    probe();
+    const t = setInterval(probe, 6_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
   }, []);
 
   return (

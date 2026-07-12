@@ -7,6 +7,7 @@ import { Check, MessageSquare, Sparkles } from "lucide-react";
 import type { StreamItem } from "../state";
 import { useAgentStore } from "../state";
 import { playApprovedContinuation } from "../mock/mockStream";
+import { tryResumeInterrupt } from "../backend";
 import styles from "./rows.module.css";
 
 const NODE_LABEL: Record<string, string> = {
@@ -30,14 +31,18 @@ export function InterruptCard({
   const approve = () => {
     if (resolved) return;
     resolve(true);
-    void playApprovedContinuation();
+    // 백엔드 붙어있으면 real resume, 아니면 mock continuation
+    const sent = tryResumeInterrupt(true);
+    if (!sent) void playApprovedContinuation();
   };
 
   const submitFeedback = () => {
     if (!feedback.trim() || resolved) return;
-    resolve(false, feedback.trim());
+    const fb = feedback.trim();
+    resolve(false, fb);
     setFeedback("");
     setShowFeedback(false);
+    tryResumeInterrupt(false, fb);
   };
 
   useHotkeys(

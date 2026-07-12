@@ -111,6 +111,7 @@ export interface AgentState {
   uploadPct: number | null;
   uploadedName: string | null;
   uploadedUrl: string | null;
+  serverVideoPath: string | null;
   // insights (video_context)
   videoContext: {
     file_path: string;
@@ -141,7 +142,8 @@ export interface AgentState {
   setUpload: (
     pct: number | null,
     name?: string | null,
-    url?: string | null
+    url?: string | null,
+    serverPath?: string | null
   ) => void;
   setVideoContext: (ctx: AgentState["videoContext"]) => void;
   clearStream: () => void;
@@ -174,6 +176,7 @@ export const useAgentStore = create<AgentState>()(
     uploadPct: null,
     uploadedName: null,
     uploadedUrl: null,
+    serverVideoPath: null,
     videoContext: null,
 
     setConnection: (c) =>
@@ -332,12 +335,11 @@ export const useAgentStore = create<AgentState>()(
         s.sessionStatus = "error";
       }),
 
-    setUpload: (pct, name, url) =>
+    setUpload: (pct, name, url, serverPath) =>
       set((s) => {
         s.uploadPct = pct;
         if (name !== undefined) s.uploadedName = name;
         if (url !== undefined) {
-          // 기존 blob url 이 있으면 revoke (메모리 leak 방지)
           if (s.uploadedUrl && s.uploadedUrl.startsWith("blob:")) {
             try {
               URL.revokeObjectURL(s.uploadedUrl);
@@ -347,6 +349,7 @@ export const useAgentStore = create<AgentState>()(
           }
           s.uploadedUrl = url;
         }
+        if (serverPath !== undefined) s.serverVideoPath = serverPath;
       }),
 
     setVideoContext: (ctx) =>

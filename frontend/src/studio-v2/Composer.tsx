@@ -4,8 +4,10 @@ import { useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { motion } from "motion/react";
 import { ArrowUp, Paperclip, X } from "lucide-react";
+import { toast } from "sonner";
 import { useAgentStore } from "./state";
 import { playScenario } from "./mock/mockStream";
+import { ensureSessionAndConnect, trySendChat, uploadVideo } from "./backend";
 import styles from "./composer.module.css";
 
 export function Composer() {
@@ -16,19 +18,37 @@ export function Composer() {
   const connection = useAgentStore((s) => s.connection);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const t = text.trim();
     if (!t) return;
-    // 백엔드 오프라인이면 mock 시나리오 시연.
-    const isMockable = detectMockable(t);
-    if (isMockable) {
-      void playScenario(isMockable);
-    } else {
-      // 그 외에는 그냥 유저 메세지만 push (백엔드 없이 아무 응답 없음)
-      useAgentStore.getState().appendUser(t, attached ? [attached.name] : undefined);
-    }
+    const store = useAgentStore.getState();
+    const backendUp =
+      store.connection === "online" || store.connection === "reconnecting";
+    const serverPath = store.serverVideoPath;
+
+    // 유저 메시지는 항상 push (즉각 피드백)
+    store.appendUser(t, attached ? [attached.name] : undefined);
     setText("");
-    setAttached(null);
+
+    if (backendUp) {
+      // 세션 없거나 소켓 없으면 만들고 붙임 (upload 된 서버 path 사용)
+      const sock = await ensureSessionAndConnect(serverPath || undefined);
+      if (sock) {
+        const ok = trySendChat(t);
+        if (!ok) {
+          toast("메시지 전송 실패, 데모 시나리오로 대체", {
+            description: "백엔드 연결 문제",
+          });
+          const kind = detectMockable(t);
+          if (kind) void playScenario(kind);
+        }
+        return;
+      }
+    }
+
+    // 백엔드 없음 → mock
+    const kind = detectMockable(t);
+    if (kind) void playScenario(kind);
   }, [text, attached]);
 
   useHotkeys(
@@ -41,14 +61,23 @@ export function Composer() {
     [handleSend]
   );
 
-  const onDrop = (e: React.DragEvent) => {
+  const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
     const f = e.dataTransfer.files?.[0];
-    if (f) {
-      setAttached(f);
-      const url = URL.createObjectURL(f);
-      useAgentStore.getState().setUpload(100, f.name, url);
+    if (!f) return;
+    setAttached(f);
+    const url = URL.createObjectURL(f);
+    const store = useAgentStore.getState();
+    store.setUpload(0, f.name, url, null);
+    try {
+      store.setUpload(30, f.name, url);
+      const res = await uploadVideo(f);
+      store.setUpload(100, f.name, url, res.path);
+      toast.success("업로드 완료", { description: res.path });
+    } catch {
+      store.setUpload(100, f.name, url, null);
+      toast("로컬 프리뷰만 (백엔드 미응답)");
     }
   };
 
@@ -113,12 +142,23 @@ export function Composer() {
               type="file"
               accept="video/*"
               hidden
-              onChange={(e) => {
+              onChange={async (e) => {
                 const f = e.target.files?.[0];
-                if (f) {
-                  setAttached(f);
-                  const url = URL.createObjectURL(f);
-                  useAgentStore.getState().setUpload(100, f.name, url);
+                if (!f) return;
+                setAttached(f);
+                const url = URL.createObjectURL(f);
+                const store = useAgentStore.getState();
+                store.setUpload(0, f.name, url, null);
+                try {
+                  store.setUpload(30, f.name, url);
+                  const res = await uploadVideo(f);
+                  store.setUpload(100, f.name, url, res.path);
+                  toast.success("업로드 완료", {
+                    description: res.path,
+                  });
+                } catch {
+                  store.setUpload(100, f.name, url, null);
+                  toast("로컬 프리뷰만 (백엔드 미응답)");
                 }
               }}
             />
