@@ -128,7 +128,9 @@ export default function EditorShell() {
     if (hasDoc) return;
     const sess = readSession();
     if (sess?.ui) useEditor.getState().setUI(sess.ui);
-    const wanted = sess?.relPath ?? "text-motion/words-test.json";
+    // 스튜디오 딥링크: /motion?spec=agent/result.json → 해당 spec 우선
+    const specParam = new URLSearchParams(window.location.search).get("spec");
+    const wanted = specParam ?? sess?.relPath ?? "text-motion/words-test.json";
     const fallback = "text-motion/words-test.json";
     const open = (path: string, json: unknown, restore: boolean) => {
       if (!json || useEditor.getState().doc) return;
@@ -142,7 +144,7 @@ export default function EditorShell() {
     fetch("/api/specs/file?path=" + encodeURIComponent(wanted))
       .then((r) => (r.ok ? r.json() : null))
       .then((json) => {
-        if (json) open(wanted, json, true);
+        if (json) open(wanted, json, !specParam);
         else if (wanted !== fallback) {
           // 저장된 파일이 사라짐 → 데모로 폴백
           return fetch("/api/specs/file?path=" + encodeURIComponent(fallback))

@@ -23,7 +23,7 @@ cd ../remotion
 pnpm install            # 렌더(export) 기능에 필요
 
 cd ../motion-editor
-pnpm dev                # http://localhost:3456
+pnpm dev                # http://localhost:3001
 ```
 
 주의: webpack 모드 필수. `--turbopack` 붙이면 엔진의 require.context 가 깨진다.

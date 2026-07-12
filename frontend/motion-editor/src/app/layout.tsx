@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scene24 Motion Editor",
+  title: "Video Agent Studio",
   description: "Spec editor for the Scene24 motion engine",
 };
 

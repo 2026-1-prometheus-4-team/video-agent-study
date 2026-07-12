@@ -76,7 +76,7 @@ frontend/README.md 참고 (pnpm 필요)
 ```bash
 cd frontend/motion-editor
 pnpm install
-pnpm dev        # http://localhost:3454
+pnpm dev        # http://localhost:3001
 ```
 
 ## 6. 각자 작업 방식

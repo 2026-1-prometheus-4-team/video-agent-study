@@ -46,7 +46,7 @@ export default function TopBar() {
         <button className="icon-btn" title={leftCollapsed ? "Show sidebar" : "Hide sidebar"} onClick={() => setUI({ leftCollapsed: !leftCollapsed })}>
           <PanelIcon side="left" open={!leftCollapsed} />
         </button>
-        <span className={s.brand}>scene24 editor</span>
+        <span className={s.brand}>motion editor</span>
         <span className={s.divider} />
         <span className={s.docName}>{name}</span>
         {meta.dirty && <span className={s.dirtyDot} title="Unsaved" />}

@@ -8,7 +8,7 @@
 ```bash
 cd labs/motion-editor
 pnpm install
-pnpm dev            # http://localhost:3456 (webpack 모드 — turbopack 금지)
+pnpm dev            # http://localhost:3001 (webpack 모드 — turbopack 금지)
 ```
 
 - 엔진 소스는 복사하지 않고 `@engine/* = ../remotion/src/*` 로 직접 import.

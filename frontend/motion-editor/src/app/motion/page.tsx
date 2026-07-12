@@ -2,9 +2,8 @@
 
 import dynamic from "next/dynamic";
 
-// Video Agent Studio — 채팅으로 영상을 편집하는 제품 UI (프로젝트 메인 화면).
-// 모션 그래픽 세부 편집은 /motion (에디터) 로 넘긴다.
-const StudioShell = dynamic(() => import("@/studio/StudioShell"), {
+// 에디터 전체는 클라이언트 전용(remotion Player + window 의존).
+const EditorShell = dynamic(() => import("@/editor/EditorShell"), {
   ssr: false,
   loading: () => (
     <div
@@ -16,11 +15,11 @@ const StudioShell = dynamic(() => import("@/studio/StudioShell"), {
         fontSize: "var(--fs-12)",
       }}
     >
-      loading studio...
+      loading editor...
     </div>
   ),
 });
 
 export default function Page() {
-  return <StudioShell />;
+  return <EditorShell />;
 }

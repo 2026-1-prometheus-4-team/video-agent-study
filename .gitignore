@@ -46,3 +46,6 @@ frontend/remotion/.remotion/
 
 # 라이선스 폰트 (General Sans - 재배포 불가, 로컬 전용. frontend/README.md 참고)
 frontend/remotion/public/fonts/
+
+# 에이전트 결과 spec (런타임 생성물)
+frontend/remotion/src/specs/agent/

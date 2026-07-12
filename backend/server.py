@@ -56,7 +56,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "http://localhost:3456",  # frontend/motion-editor
+        "http://localhost:3001",  # frontend/motion-editor (video agent studio)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -548,6 +548,31 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
     return interrupted
 
 
+def _load_transcript_sidecar(session: Session) -> list[dict]:
+    """transcribe(add_auto_subtitle)가 남긴 videos/subtitles/<stem>.json 세그먼트.
+
+    그래프 state 의 video_context.transcript 는 sub-agent 내부에서만 채워지고
+    상위 state 로 반영되지 않는다. 프론트가 자막을 텍스트 요소로 쓸 수 있게
+    사이드카 파일에서 회수한다.
+    """
+    for vp in session.video_paths:
+        stem = Path(vp).stem
+        sidecar = agent_config.VIDEOS_DIR / "subtitles" / f"{stem}.json"
+        if not sidecar.exists():
+            continue
+        try:
+            data = json.loads(sidecar.read_text(encoding="utf-8"))
+            segments = data.get("segments", [])
+            if segments:
+                return [
+                    {"start": float(s.get("start", 0)), "end": float(s.get("end", 0)), "text": str(s.get("text", ""))}
+                    for s in segments
+                ]
+        except Exception:
+            continue
+    return []
+
+
 async def _send_final(websocket: WebSocket, session: Session):
     """그래프 최종 상태에서 결과물 경로 / 컨텍스트를 뽑아 전송."""
     try:
@@ -559,6 +584,12 @@ async def _send_final(websocket: WebSocket, session: Session):
     final_path = values.get("final_output_path", "") or ""
     video_context = values.get("video_context")
     critic = values.get("critic_verdict")
+
+    # transcript 비어 있으면 사이드카에서 보충
+    if isinstance(video_context, dict) and not video_context.get("transcript"):
+        sidecar = _load_transcript_sidecar(session)
+        if sidecar:
+            video_context = {**video_context, "transcript": sidecar}
 
     await websocket.send_json({
         "type": "final",
