@@ -25,12 +25,18 @@ The project has two tracks running in parallel:
 
 ---
 
-## Project Structure
+## Project Structure (Monorepo)
 
 ```
-agent.py           - LangGraph core logic (AgentState, Tools, Graph)
-server.py          - FastAPI server (REST + WebSocket streaming)
-requirements.txt
+backend/
+  agent/           - LangGraph core logic (graph, nodes, tools, sub-agents)
+  server.py        - FastAPI server (REST + WebSocket streaming)
+  remotion/        - effect render engine (invoked via npx remotion render)
+  videos/          - input videos + analysis cache
+  requirements.txt
+frontend/
+  motion-editor/   - Next.js video editor UI (timeline, inspector, agent chat)
+  remotion/        - editor preview/render engine (VideoSpec based)
 SETUP.md           - Git branch strategy and local setup guide
 CLAUDE.md          - This file
 ```

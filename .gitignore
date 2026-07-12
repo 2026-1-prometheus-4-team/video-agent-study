@@ -10,12 +10,12 @@ build/
 .idea/
 .vscode/
 
-videos/*.mp4
-videos/*.mov
-videos/*.avi
-videos/*.mkv
-videos/*.json
-videos/effects/
+backend/videos/*.mp4
+backend/videos/*.mov
+backend/videos/*.avi
+backend/videos/*.mkv
+backend/videos/*.json
+backend/videos/effects/
 
 audio_files/
 video_files/
@@ -23,13 +23,26 @@ bgm_files/
 output/
 outputs/
 
-# Remotion 빌드 / 의존성
-remotion/node_modules/
-remotion/out/
-remotion/.remotion/
+# Remotion 빌드 / 의존성 (backend 렌더 엔진)
+backend/remotion/node_modules/
+backend/remotion/out/
+backend/remotion/.remotion/
 
 # Scene24 reference dump (carve-out 끝나면 로컬에만)
-agent/effects/*_scene24_full.*
+backend/agent/effects/*_scene24_full.*
 
 # Research cache (트렌드 검색 결과 24h TTL)
-.cache/research/
+backend/.cache/research/
+
+# Frontend (Next.js + Remotion 엔진)
+node_modules/
+.next/
+.env.local
+.env*.local
+frontend/motion-editor/public/assets/
+frontend/remotion/public/assets/
+frontend/remotion/out/
+frontend/remotion/.remotion/
+
+# 라이선스 폰트 (General Sans - 재배포 불가, 로컬 전용. frontend/README.md 참고)
+frontend/remotion/public/fonts/
