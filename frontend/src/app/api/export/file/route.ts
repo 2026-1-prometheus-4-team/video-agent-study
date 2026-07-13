@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXPORTS = path.resolve(process.cwd(), "../remotion/out/exports");
+const EXPORTS = path.resolve(process.cwd(), "./remotion/out/exports");
 
 const MIME: Record<string, string> = {
   ".mp4": "video/mp4",

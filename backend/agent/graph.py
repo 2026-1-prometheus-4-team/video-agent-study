@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any, Optional
 
@@ -41,10 +42,13 @@ from agent.nodes import (
     critic_node,
     should_interrupt_for_questions,
     route_after_critic,
+    summary_node,
+    should_summarize,
 )
 from agent.prompt_builder import build_supervisor_system_prompt
 from agent.state import AgentState, ExecutionStep, VideoContext
 from agent.sub_agent import make_spawn_tools
+from agent.tools.memory import MEMORY_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -169,17 +173,33 @@ def _step_completed(step: dict, trace: list[ExecutionStep]) -> bool:
     return any(t.get("step_id") == sid and t.get("status") == "ok" for t in trace)
 
 
+_FINAL_LITERAL = re.compile(r"FINAL_OUTPUT:\s*(\S+)")
+_FINAL_MP4 = re.compile(r"[\w./\-]+\.(?:mp4|mov)\b", re.I)
+_CLIP_HINT = re.compile(r"clip|cut|part|segment|chunk", re.I)
+
+
 def _extract_final_output(text: str) -> Optional[str]:
-    """supervisor 의 마지막 응답에서 FINAL_OUTPUT 경로 추출."""
-    import re
-    m = re.search(r"FINAL_OUTPUT:\s*(\S+)", text)
-    return m.group(1) if m else None
+    """supervisor 의 마지막 응답에서 최종 산출 경로 추출.
+
+    1) `FINAL_OUTPUT: <path>` 리터럴 (프롬프트에서 강제한 형식) — 최우선
+    2) 없으면 텍스트의 마지막 .mp4/.mov 경로 — LLM 이 한국어로 paraphrase 한
+       경우 (예: "최종본은 outputs/xxx.mp4 입니다") 대비. 단 파일명이 clip/cut
+       같은 중간 산출물 힌트를 포함하면 skip.
+    """
+    m = _FINAL_LITERAL.search(text)
+    if m:
+        return m.group(1)
+
+    paths = _FINAL_MP4.findall(text)
+    for p in reversed(paths):
+        if not _CLIP_HINT.search(p):
+            return p
+    return None
 
 
 def _build_trace_from_messages(messages: list, plan: dict) -> list[ExecutionStep]:
     """supervisor 의 spawn tool 호출 메시지에서 ExecutionStep 들 추출."""
     from langchain_core.messages import ToolMessage
-    import re
 
     steps_by_expert = {s.get("expert"): s for s in plan.get("steps", [])}
     path_pat = re.compile(r"\b[\w./\-]+\.(?:mp4|mov|wav|mp3|aac|srt|vtt|png|jpg|json)\b", re.I)
@@ -225,11 +245,15 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         parent_depth=state.get("spawn_depth", 0),
         parent_session_id=state.get("session_id"),
     )
+    # 사용자 장기 기억 툴 추가. supervisor 가 대화에서 발견한 선호를 저장/삭제.
+    spawn_tools = list(spawn_tools) + list(MEMORY_TOOLS)
 
     sys_text = build_supervisor_system_prompt(
         video_context=video_context,
         session_memory=_format_execution_trace(trace),
         script_plan=plan,
+        conversation_summary=state.get("conversation_summary"),
+        user_memories=state.get("user_memories") or [],
     )
 
     from langgraph.prebuilt import create_react_agent
@@ -261,11 +285,21 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         )
     except Exception as e:
         logger.exception("supervisor invoke failed")
+        # 429 · quota · rate limit 계열은 재시도해도 같은 결과 → 즉시 PASS 로
+        # 종료해서 무한 RETRY 방지 + 사용자에게 원인 명시.
+        err_text = f"{type(e).__name__}: {e}"
+        is_quota = any(k in err_text.lower() for k in ("resource_exhausted", "429", "quota"))
         return {
             "critic_verdict": {
-                "verdict": "RETRY",
-                "issues": [f"supervisor 오류: {e}"],
-                "message_to_user": "Supervisor 실행 중 오류. 다시 시도 필요.",
+                "verdict": "PASS" if is_quota else "RETRY",
+                "issues": [f"supervisor 오류: {err_text}"],
+                "message_to_user": (
+                    "Gemini API 쿼터 소진 (무료 티어 하루 20 요청). "
+                    ".env 에 GOOGLE_API_KEY_SUPERVISOR / _SCRIPT / _CRITIC / _SUB_AGENT / "
+                    "_SUMMARY 로 팀원 키를 분산하거나 유료 티어로 전환해줘."
+                    if is_quota
+                    else "Supervisor 실행 중 오류. 다시 시도 필요."
+                ),
             }
         }
 
@@ -278,8 +312,21 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
             c = " ".join((p.get("text", "") if isinstance(p, dict) else str(p)) for p in c)
         last_text = str(c)
 
-    final_output = _extract_final_output(last_text) or state.get("final_output_path")
     new_trace = trace + _build_trace_from_messages(new_messages, plan)
+    # final path 우선순위: (1) supervisor 텍스트의 FINAL_OUTPUT / .mp4
+    # (2) 기존 state.final_output_path (3) execution trace 마지막 산출 경로.
+    # 마지막 fallback 은 supervisor 가 최종 리포트 형식을 어길 때도 결과물이
+    # 사라지지 않게 하는 안전망.
+    final_output = _extract_final_output(last_text) or state.get("final_output_path")
+    if not final_output:
+        for step in reversed(new_trace):
+            paths = step.get("output_paths") or []
+            for p in reversed(paths):
+                if p.lower().endswith((".mp4", ".mov")) and not _CLIP_HINT.search(p):
+                    final_output = p
+                    break
+            if final_output:
+                break
 
     duration = time.monotonic() - started
     logger.info(
@@ -315,6 +362,7 @@ def build_graph(checkpointer=None):
     g.add_node("interrupt_gate", interrupt_gate)
     g.add_node("supervisor", supervisor_node)
     g.add_node("critic", critic_node)
+    g.add_node("summary", summary_node)
 
     g.add_edge(START, "analysis")
     g.add_edge("analysis", "script")
@@ -333,11 +381,15 @@ def build_graph(checkpointer=None):
 
     g.add_edge("supervisor", "critic")
 
+    # critic 뒤: RETRY → supervisor 재실행, 그 외엔 summary (조건부) 후 종료.
     g.add_conditional_edges(
         "critic",
         route_after_critic,
-        {"end": END, "supervisor": "supervisor"},
+        {"end": "summary", "supervisor": "supervisor"},
     )
+
+    # summary_node 는 조건 안 맞으면 no-op (dict {} 리턴) — 부담 없음.
+    g.add_edge("summary", END)
 
     return g.compile(checkpointer=checkpointer)
 

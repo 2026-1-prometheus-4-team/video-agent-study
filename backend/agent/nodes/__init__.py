@@ -13,10 +13,13 @@ LangGraph 노드 모음
 
 from agent.nodes.script_node import script_node, should_interrupt_for_questions
 from agent.nodes.critic_node import critic_node, route_after_critic
+from agent.nodes.summary_node import summary_node, should_summarize
 
 __all__ = [
     "script_node",
     "should_interrupt_for_questions",
     "critic_node",
+    "summary_node",
+    "should_summarize",
     "route_after_critic",
 ]

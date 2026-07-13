@@ -37,8 +37,9 @@ import threading
 import time
 import uuid
 import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,12 +52,28 @@ from langgraph.types import Command
 from agent import config as agent_config
 from agent.graph import build_graph
 from agent.state import VideoContext
+from db import SessionRepo, dispose_db, init_db
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """앱 부팅 시 DB 스키마 확보, 종료 시 커넥션 해제."""
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("db init 실패 — 세션 로그 없이 계속 진행")
+    yield
+    try:
+        await dispose_db()
+    except Exception:
+        logger.exception("db dispose 실패")
 
 
 app = FastAPI(
     title="Video Edit Agent API",
     description="Supervisor + Sub-Agent 구조의 영상 편집 에이전트 (세션 기반)",
     version="0.4.0",
+    lifespan=_lifespan,
 )
 
 app.add_middleware(
@@ -146,6 +163,28 @@ class Session:
         self.run_lock = asyncio.Lock()
         # 같은 결과를 turn 마다 반복 전송하지 않기 위한 dedupe
         self.last_final_sent = ""
+        # 현재 turn 중지 요청 이벤트. `cancel` WS 메시지 도착 시 set.
+        # 다음 chunk 경계에서 relay 루프가 즉시 종료. 진행 중 tool 은 자연 완료.
+        self.turn_stop_event: Optional[threading.Event] = None
+        # 세션 시작 시 DB 에서 로드된 장기 기억 / 이전 세션 요약. graph_input 에 주입.
+        self.user_memories: list[dict] = []
+        self.conversation_summary: Optional[str] = None
+        self.summarized_up_to: int = 0
+
+    async def load_memory(self) -> None:
+        """DB 에서 user_memories + 이 세션의 (재접속이면) summary 복원."""
+        try:
+            self.user_memories = await SessionRepo.list_memories(
+                user_id="default_user", limit=20
+            )
+        except Exception:
+            self.user_memories = []
+        try:
+            summary, up_to = await SessionRepo.get_summary(self.session_id)
+            self.conversation_summary = summary
+            self.summarized_up_to = up_to
+        except Exception:
+            pass
 
     @property
     def config(self) -> dict:
@@ -287,7 +326,12 @@ def _jsonable(obj):
 
 
 def _build_graph_input(session: Session, user_message: str) -> dict:
-    """유저 턴 → 그래프 초기 입력. None 값은 상태를 덮어쓰지 않도록 제외."""
+    """유저 턴 → 그래프 초기 입력. None 값은 상태를 덮어쓰지 않도록 제외.
+
+    memory · summary 는 이 함수 호출 전 async 로 미리 로드해서 session 에
+    캐시해둔다 (`session.attach_memory`). checkpointer 가 있으므로 두 번째
+    turn 부터는 이미 state 에 있음.
+    """
     graph_input: dict = {
         "messages": [{"role": "user", "content": user_message}],
         "user_request": user_message,
@@ -300,6 +344,13 @@ def _build_graph_input(session: Session, user_message: str) -> dict:
         graph_input["video_paths"] = session.video_paths
     if session.video_context:
         graph_input["video_context"] = session.video_context
+    # 세션 시작 시 로드된 memories · summary 를 state 에 주입.
+    if getattr(session, "user_memories", None):
+        graph_input["user_memories"] = session.user_memories
+    if getattr(session, "conversation_summary", None):
+        graph_input["conversation_summary"] = session.conversation_summary
+    if getattr(session, "summarized_up_to", 0):
+        graph_input["summarized_up_to"] = session.summarized_up_to
     return graph_input
 
 
@@ -373,11 +424,21 @@ async def create_session(request: CreateSessionRequest):
     if request.video_context:
         video_ctx = request.video_context.model_dump()
 
-    sessions[session_id] = Session(
+    session = Session(
         session_id=session_id,
         video_context=video_ctx,
         video_paths=request.video_paths,
     )
+    sessions[session_id] = session
+
+    # DB 세션 로그 (비블로킹 — 실패해도 세션 자체는 성립)
+    await SessionRepo.ensure_session(
+        session_id,
+        video_paths=list(request.video_paths or []),
+        meta={"has_video_context": video_ctx is not None},
+    )
+    # 사용자 장기 기억 로드 (세션 간 이월). summary 는 새 세션이라 없음.
+    await session.load_memory()
 
     return CreateSessionResponse(
         session_id=session_id,
@@ -563,16 +624,181 @@ async def edit_video(request: EditRequest):
 MAX_RELAY_CHARS = 1500
 
 
+# 프론트 rail 에 그리는 노드 진행 카드용 (label, detail).
+# state="running" 시 표시할 텍스트. state="done" 시엔 완료 label 을 별도로 계산.
+PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
+    "analysis": (
+        "영상 분석 중",
+        "씬 감지 · Whisper 자막 · Gemini 시각 요약 (최대 60초)",
+    ),
+    "script": (
+        "편집 계획 초안 준비 중",
+        "타겟 포맷 · 6단계 시나리오 · TTS/BGM 옵션 검토",
+    ),
+    "supervisor": (
+        "전문가 실행 중",
+        "승인된 계획대로 sub-agent 를 순차/병렬 spawn",
+    ),
+    "critic": (
+        "결과 검증 중",
+        "길이 · 프레임 · 자막 · 시나리오 부합 여부 확인",
+    ),
+    "reanalysis": (
+        "편집본 재분석 중",
+        "새 mp4 로 씬 · duration 재추출 (Timeline 실시간 갱신)",
+    ),
+}
+
+# 어떤 노드가 끝나면 다음에 어떤 노드가 실행되는지. interrupt_gate 는 phase
+# 이벤트가 아니라 interrupt 이벤트로 대체하므로 매핑에서 skip.
+NEXT_PHASE: dict[str, Optional[str]] = {
+    "analysis": "script",
+    "script": None,   # 다음은 interrupt_gate → interrupt 이벤트가 대체
+    "supervisor": "critic",
+    "critic": None,
+}
+
+
+async def _emit_phase(
+    ws: WebSocket,
+    phase: str,
+    state: str,
+    label: Optional[str] = None,
+    detail: Optional[str] = None,
+) -> None:
+    payload: dict[str, Any] = {"type": "phase", "phase": phase, "state": state}
+    if label is not None:
+        payload["label"] = label
+    if detail is not None:
+        payload["detail"] = detail
+    await ws.send_json(payload)
+
+
+def _node_progress_text(node_name: str, state: dict) -> Optional[str]:
+    """analysis / script / critic 처럼 messages 를 안 채우는 노드가 끝났을 때
+    프론트 chat rail 에 흘릴 진행 메시지를 합성.
+
+    Interrupt 이전 20~60초 침묵을 없애기 위한 UX 안전망. 노드 완료 시점의
+    state 스냅샷에서 유의미한 요약을 뽑아 붙인다.
+    """
+    if node_name == "analysis":
+        vc = state.get("video_context") or {}
+        scenes = vc.get("scenes") or []
+        transcript = vc.get("transcript") or []
+        duration = vc.get("duration") or 0
+        return (
+            f"영상 분석 완료 · {int(duration)}초 · "
+            f"{len(scenes)}씬 · {len(transcript)}개 자막 세그먼트"
+        )
+    if node_name == "script":
+        plan = state.get("script_plan") or {}
+        steps = plan.get("steps") or []
+        target = plan.get("target_format") or "video"
+        return f"편집 계획 초안 준비 완료 · {target} · {len(steps)}개 step"
+    if node_name == "critic":
+        verdict = state.get("critic_verdict") or {}
+        v = verdict.get("verdict") or "OK"
+        return f"결과 검증 완료 · {v}"
+    if node_name == "supervisor":
+        trace = state.get("execution_trace") or []
+        ok = sum(1 for t in trace if t.get("status") == "ok")
+        err = sum(1 for t in trace if t.get("status") == "error")
+        return (
+            f"전문가 실행 완료 · {ok}개 step 성공"
+            + (f" · {err}개 실패" if err else "")
+        )
+    if node_name == "summary":
+        return "대화 요약 저장"
+    return None
+
+
+async def _emit_and_log(
+    websocket: WebSocket, session_id: str, payload: dict, log_kwargs: Optional[dict] = None
+) -> None:
+    """WS 로 이벤트 보내고 DB 에도 append. DB 실패는 삼킨다 (repo 내부에서 처리)."""
+    await websocket.send_json(payload)
+    if log_kwargs is not None:
+        await SessionRepo.log_event(session_id, **log_kwargs)
+
+
 async def _relay_stream(websocket: WebSocket, session: Session, stream_input) -> bool:
     """graph.stream 을 별도 스레드에서 돌리며 chunk 를 실시간 전송.
 
     interrupt 발생 시 {"type": "interrupt"} 를 보내고 True 반환. 정상 종료면 False.
     클라이언트가 중간에 끊기면 producer 에 stop 신호를 보내 push 를 멈춘다
     (진행 중인 그래프 turn 자체는 중단 불가 — 완료 후 스레드 종료).
+
+    Phase 관리:
+    - running_phase 단일 slot. 새 phase 시작 시 이전 것 자동 done.
+    - Chunk 없는 침묵이 5초 넘으면 하트비트로 현재 phase label 갱신 (초 표시).
     """
+    from langgraph.types import Command
+
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
     stop = threading.Event()
+    # 이 turn 을 밖에서 cancel 하기 위해 session 에 노출.
+    session.turn_stop_event = stop
+
+    # ── 진입 phase 결정 (실제 그래프 흐름 반영) ──
+    # video_context 있으면 analysis skip → script 부터. resume 이면 supervisor.
+    # session.video_context 는 session 생성 시 값이라 stale 할 수 있음 →
+    # 체크포인트에서 실제 state 를 봄.
+    has_video_context = session.video_context is not None
+    try:
+        _snap = session.graph.get_state(session.config)
+        if _snap and (_snap.values or {}).get("video_context"):
+            has_video_context = True
+    except Exception:
+        pass
+    if isinstance(stream_input, Command):
+        initial_phase = "supervisor"
+    elif has_video_context:
+        initial_phase = "script"
+    else:
+        initial_phase = "analysis"
+
+    # running_phase 단일 slot. 새 phase 시작 시 이전 것 auto-close.
+    running_phase: dict[str, Any] = {"name": None, "started": time.monotonic()}
+
+    async def _start_phase(name: str) -> None:
+        # 이전 running phase 자동 close.
+        if running_phase["name"] and running_phase["name"] != name:
+            await _emit_phase(websocket, running_phase["name"], "done")
+        if name in PHASE_RUNNING_TEXT:
+            lbl, dtl = PHASE_RUNNING_TEXT[name]
+        else:
+            lbl, dtl = ("에이전트 실행 중", f"{name} 노드")
+        await _emit_phase(websocket, name, "running", lbl, dtl)
+        await SessionRepo.log_event(
+            session.session_id,
+            kind="phase",
+            node=name,
+            content=lbl,
+            detail=dtl,
+            extra={"state": "running"},
+        )
+        running_phase["name"] = name
+        running_phase["started"] = time.monotonic()
+
+    async def _finish_phase(name: str, done_label: Optional[str] = None) -> None:
+        if running_phase["name"] == name:
+            running_phase["name"] = None
+        await _emit_phase(websocket, name, "done", label=done_label)
+        await SessionRepo.log_event(
+            session.session_id,
+            kind="phase",
+            node=name,
+            content=done_label or (PHASE_RUNNING_TEXT.get(name, ("완료", ""))[0]),
+            extra={"state": "done"},
+        )
+
+    async def _close_any_running() -> None:
+        if running_phase["name"]:
+            await _emit_phase(websocket, running_phase["name"], "done")
+            running_phase["name"] = None
+
+    await _start_phase(initial_phase)
 
     def _producer():
         try:
@@ -594,28 +820,139 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
     threading.Thread(target=_producer, daemon=True).start()
 
     interrupted = False
+    cancelled = False
+    HEARTBEAT_SEC = 6.0
     try:
         while True:
-            kind, item = await queue.get()
+            # 침묵 heartbeat — 실행 살아있음 표시 + 현재 phase label 갱신.
+            try:
+                kind, item = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_SEC)
+            except asyncio.TimeoutError:
+                # cancel 체크 (heartbeat 주기 안에 cancel WS 도착했으면 즉시 종료)
+                if stop.is_set():
+                    cancelled = True
+                    break
+                if running_phase["name"]:
+                    elapsed = int(time.monotonic() - running_phase["started"])
+                    base_lbl = PHASE_RUNNING_TEXT.get(
+                        running_phase["name"], ("실행 중", "")
+                    )[0]
+                    await _emit_phase(
+                        websocket,
+                        running_phase["name"],
+                        "running",
+                        label=f"{base_lbl} · {elapsed}s 경과",
+                        detail=PHASE_RUNNING_TEXT.get(
+                            running_phase["name"], ("", "")
+                        )[1],
+                    )
+                else:
+                    # running phase 없는 순간에도 프론트 watchdog 이 오해하지 않게
+                    # 가벼운 ping. handleEvent 에서 unknown type 은 no-op.
+                    await websocket.send_json({"type": "ping"})
+                continue
+
+            # 이벤트 도착 직후에도 cancel 체크 (사용자 중지 우선).
+            if stop.is_set():
+                cancelled = True
+                break
 
             if kind == "end":
+                await _close_any_running()
                 break
 
             if kind == "error":
+                await _close_any_running()
                 await websocket.send_json({"type": "error", "detail": item})
+                await SessionRepo.log_event(
+                    session.session_id,
+                    kind="error",
+                    detail=str(item),
+                )
+                await SessionRepo.set_session_status(session.session_id, "error")
                 break
 
             chunk = item
             # interrupt: 계획 승인 게이트 (agent/graph.py interrupt_gate)
             if "__interrupt__" in chunk:
+                await _close_any_running()
                 interrupts = chunk["__interrupt__"]
                 payload = interrupts[0].value if interrupts else {}
-                await websocket.send_json({"type": "interrupt", "payload": _jsonable(payload)})
+                jsonable_payload = _jsonable(payload)
+                await websocket.send_json({"type": "interrupt", "payload": jsonable_payload})
+                # interrupts 테이블 + messages 테이블 둘 다 로그
+                plan_dict = (
+                    jsonable_payload.get("plan")
+                    if isinstance(jsonable_payload, dict)
+                    else None
+                ) or {}
+                questions = (
+                    jsonable_payload.get("questions")
+                    if isinstance(jsonable_payload, dict)
+                    else None
+                ) or []
+                await SessionRepo.log_interrupt(
+                    session.session_id, plan=plan_dict, questions=questions
+                )
+                await SessionRepo.log_event(
+                    session.session_id,
+                    kind="interrupt",
+                    extra={"payload": jsonable_payload},
+                )
+                await SessionRepo.set_session_status(
+                    session.session_id, "awaiting-interrupt"
+                )
                 interrupted = True
                 continue
 
             for node_name, state in chunk.items():
-                if not isinstance(state, dict) or "messages" not in state:
+                if not isinstance(state, dict):
+                    continue
+
+                # 방금 완료된 노드의 phase 카드를 done 으로 마감 + 다음 예상
+                # 노드가 있으면 그 phase 카드를 running 으로 즉시 열어준다.
+                # 사용자 rail 이 항상 살아있는 카드 하나 이상을 갖도록.
+                progress = _node_progress_text(node_name, state)
+                # 노드가 완료 chunk 를 뱉었다 = 그 노드가 방금 끝났다.
+                # PHASE_RUNNING_TEXT 에 있는 노드만 phase 카드로 표시.
+                if node_name in PHASE_RUNNING_TEXT:
+                    await _finish_phase(node_name, done_label=progress)
+
+                # analysis 노드 완료 즉시 video_context 를 프론트에 흘려서
+                # Timeline 이 씬/자막 데이터를 실시간으로 채우게 함.
+                # (final 이벤트 기다리지 않고 바로 반영)
+                if node_name == "analysis":
+                    vc = state.get("video_context")
+                    if vc:
+                        vc_payload = _jsonable(vc)
+                        await websocket.send_json({
+                            "type": "video_context",
+                            "video_context": vc_payload,
+                        })
+                        # 세션 python attr 도 갱신 (initial_phase 판정용)
+                        if isinstance(vc, dict):
+                            session.video_context = vc
+                        await SessionRepo.log_event(
+                            session.session_id,
+                            kind="video_context",
+                            node="analysis",
+                            extra={"scenes": len(vc.get("scenes") or []),
+                                   "transcript": len(vc.get("transcript") or []),
+                                   "duration": vc.get("duration")},
+                        )
+                # 다음 phase 시작 결정:
+                # - critic 이 RETRY 면 supervisor 재실행 → supervisor phase 열기
+                # - 그 외엔 NEXT_PHASE 매핑
+                if node_name == "critic":
+                    verdict = (state.get("critic_verdict") or {}).get("verdict")
+                    if verdict == "RETRY":
+                        await _start_phase("supervisor")
+                else:
+                    nxt = NEXT_PHASE.get(node_name)
+                    if nxt and nxt in PHASE_RUNNING_TEXT:
+                        await _start_phase(nxt)
+
+                if "messages" not in state:
                     continue
 
                 for msg in state["messages"]:
@@ -628,20 +965,50 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                             "node": node_name,
                             "content": content,
                         })
+                        await SessionRepo.log_event(
+                            session.session_id,
+                            kind="agent_message",
+                            node=node_name,
+                            content=content,
+                        )
 
                     if hasattr(msg, "tool_calls") and msg.tool_calls:
                         for tc in msg.tool_calls:
+                            args = _jsonable(tc["args"])
                             await websocket.send_json({
                                 "type": "tool_call",
                                 "node": node_name,
                                 "tool_name": tc["name"],
-                                "args": _jsonable(tc["args"]),
+                                "args": args,
                             })
+                            await SessionRepo.log_event(
+                                session.session_id,
+                                kind="tool_call",
+                                node=node_name,
+                                tool_name=tc["name"],
+                                args=args if isinstance(args, dict) else {"value": args},
+                            )
     except (WebSocketDisconnect, RuntimeError):
         # 클라이언트 끊김 — push 중단 신호 후 상위로 전파 (그래프 상태는 체크포인트에 보존)
         stop.set()
+        session.turn_stop_event = None
         raise
 
+    # cancel 처리 마감. running phase 정리 + 사용자 안내.
+    if cancelled:
+        await _close_any_running()
+        await websocket.send_json({
+            "type": "info",
+            "content": "작업 중지 요청 수신 — 진행 중이던 도구 작업은 자연 완료 후 종료돼. 새 지시를 내려도 돼.",
+        })
+        await SessionRepo.log_event(
+            session.session_id,
+            kind="cancel",
+            content="사용자 중지 요청",
+        )
+        await SessionRepo.set_session_status(session.session_id, "completed")
+
+    session.turn_stop_event = None
     return interrupted
 
 
@@ -687,6 +1054,64 @@ def _load_transcript_sidecar(session: Session) -> list[dict]:
     return []
 
 
+def _reanalyze_output_sync(final_path: str) -> Optional[dict]:
+    """편집본을 다시 분석해서 정확한 duration + scenes 로 video_context 구성.
+
+    Gemini vision + pyscenedetect 기반 analyze_video 를 그대로 재사용.
+    실패 시 None (호출자는 기존 video_context 로 fallback).
+
+    이 함수는 blocking (~20~60s). asyncio.to_thread 로 감싸서 사용할 것.
+    """
+    try:
+        import json as _json
+        from pathlib import Path
+
+        from agent import config as _cfg
+        from agent.tools.video_analysis import analyze_video
+
+        # analyze_video 는 VIDEOS_DIR 기준 상대경로를 요구. final_path 가
+        # "videos/clips/xxx.mp4" 든 절대경로든 VIDEOS_DIR 상대로 정규화.
+        p = Path(final_path.strip().strip("`'\"*").strip())
+        if not p.is_absolute():
+            candidate = (_cfg.PROJECT_ROOT / p).resolve()
+        else:
+            candidate = p
+        try:
+            rel_to_videos = candidate.relative_to(_cfg.VIDEOS_DIR.resolve())
+        except ValueError:
+            # VIDEOS_DIR 바깥 → 재분석 불가
+            logger.warning("reanalysis: %s is outside VIDEOS_DIR", candidate)
+            return None
+        if not candidate.exists():
+            logger.warning("reanalysis: file not found %s", candidate)
+            return None
+
+        logger.info("reanalysis: %s (via analyze_video)", rel_to_videos)
+        raw = analyze_video.invoke({"video_path": str(rel_to_videos)})
+        data = _json.loads(raw)
+        if "error" in data:
+            logger.warning("reanalysis: analyze_video 오류 - %s", data["error"])
+            return None
+
+        scenes = [
+            {
+                "start": seg["start_ms"] / 1000,
+                "end": seg["end_ms"] / 1000,
+                "description": seg.get("description", ""),
+            }
+            for seg in data.get("segments", [])
+        ]
+        return {
+            "file_path": str(rel_to_videos),
+            "duration": data.get("duration", 0.0),
+            "scenes": scenes,
+            "transcript": [],  # 아래 _send_final 에서 사이드카로 보강
+        }
+    except Exception:
+        logger.exception("reanalysis: unexpected failure")
+        return None
+
+
 async def _send_final(websocket: WebSocket, session: Session):
     """그래프 최종 상태에서 결과물 경로 / 컨텍스트를 뽑아 전송.
 
@@ -707,19 +1132,106 @@ async def _send_final(websocket: WebSocket, session: Session):
     video_context = values.get("video_context")
     critic = values.get("critic_verdict")
 
-    # transcript 비어 있으면 사이드카에서 보충
-    if isinstance(video_context, dict) and not video_context.get("transcript"):
-        sidecar = _load_transcript_sidecar(session)
-        if sidecar:
-            video_context = {**video_context, "transcript": sidecar}
+    # ── 편집본 자동 재분석 ──
+    # final_path 는 편집 결과 (원본 아님) 이므로 그래프 state 의 video_context
+    # (원본 기준 duration · scenes) 을 그대로 프론트에 보내면 Timeline 이 어긋난다.
+    # 여기서 편집본을 다시 analyze_video 로 돌려 정확한 duration/scenes 얻고
+    # 자막은 사이드카에서 보강한다. 재분석 진행 중엔 phase 카드로 사용자 안내.
+    await _emit_phase(
+        websocket,
+        "reanalysis",
+        "running",
+        PHASE_RUNNING_TEXT["reanalysis"][0],
+        PHASE_RUNNING_TEXT["reanalysis"][1],
+    )
+    await SessionRepo.log_event(
+        session.session_id,
+        kind="phase",
+        node="reanalysis",
+        content=PHASE_RUNNING_TEXT["reanalysis"][0],
+        detail=PHASE_RUNNING_TEXT["reanalysis"][1],
+        extra={"state": "running"},
+    )
+    try:
+        reanalyzed = await asyncio.to_thread(_reanalyze_output_sync, final_path)
+    except Exception:
+        logger.exception("reanalysis: to_thread failed")
+        reanalyzed = None
 
+    if reanalyzed:
+        # 사이드카 자막이 있으면 보강 (transcribe/add_auto_subtitle 산출물).
+        if not reanalyzed.get("transcript"):
+            sidecar = _load_transcript_sidecar(session)
+            if sidecar:
+                reanalyzed["transcript"] = sidecar
+        video_context = reanalyzed
+        # 프론트 Timeline 이 즉시 새 데이터로 재구성하도록 video_context 이벤트
+        # 별도 emit (final 이벤트 앞).
+        await websocket.send_json({
+            "type": "video_context",
+            "video_context": _jsonable(video_context),
+        })
+        await SessionRepo.log_event(
+            session.session_id,
+            kind="video_context",
+            node="reanalysis",
+            extra={
+                "scenes": len(video_context.get("scenes") or []),
+                "duration": video_context.get("duration"),
+            },
+        )
+        # 세션 python attr 도 갱신 (다음 turn 의 initial_phase 판정용)
+        session.video_context = video_context
+    else:
+        # 재분석 실패 → 기존 video_context 유지 + 사이드카 자막 보강
+        if isinstance(video_context, dict) and not video_context.get("transcript"):
+            sidecar = _load_transcript_sidecar(session)
+            if sidecar:
+                video_context = {**video_context, "transcript": sidecar}
+
+    await _emit_phase(
+        websocket,
+        "reanalysis",
+        "done",
+        label=(
+            f"편집본 재분석 완료 · {len((video_context or {}).get('scenes') or [])}씬"
+            if reanalyzed
+            else "편집본 재분석 실패 (기존 데이터 유지)"
+        ),
+    )
+    await SessionRepo.log_event(
+        session.session_id,
+        kind="phase",
+        node="reanalysis",
+        extra={"state": "done", "ok": reanalyzed is not None},
+    )
+
+    output_url = _to_file_url(final_path)
+    vc_json = _jsonable(video_context) if video_context else None
+    critic_json = _jsonable(critic) if critic else None
     await websocket.send_json({
         "type": "final",
         "output_path": final_path,
-        "output_url": _to_file_url(final_path),
-        "video_context": _jsonable(video_context) if video_context else None,
-        "critic": _jsonable(critic) if critic else None,
+        "output_url": output_url,
+        "video_context": vc_json,
+        "critic": critic_json,
     })
+    # DB 저장: artifacts + messages(final)
+    await SessionRepo.log_artifact(
+        session.session_id,
+        output_path=final_path,
+        output_url=output_url,
+        duration=(vc_json or {}).get("duration") if isinstance(vc_json, dict) else None,
+        critic=critic_json if isinstance(critic_json, dict) else None,
+        video_context=vc_json if isinstance(vc_json, dict) else None,
+    )
+    await SessionRepo.log_event(
+        session.session_id,
+        kind="final",
+        content=final_path,
+        extra={"output_url": output_url},
+    )
+    await SessionRepo.set_session_status(session.session_id, "completed")
 
 
 async def _run_turn(websocket: WebSocket, session: Session, stream_input) -> None:
@@ -731,6 +1243,25 @@ async def _run_turn(websocket: WebSocket, session: Session, stream_input) -> Non
     if interrupted:
         return
     await _send_final(websocket, session)
+    # rolling summary 가 이번 turn 에 갱신됐으면 DB persist (재접속 후 복원용).
+    try:
+        snapshot = session.graph.get_state(session.config)
+        values = snapshot.values or {}
+        new_summary = values.get("conversation_summary")
+        up_to = values.get("summarized_up_to") or 0
+        if new_summary and new_summary != session.conversation_summary:
+            await SessionRepo.update_summary(
+                session.session_id, new_summary, up_to
+            )
+            session.conversation_summary = new_summary
+            session.summarized_up_to = up_to
+            await websocket.send_json({
+                "type": "message",
+                "node": "orchestrator",
+                "content": f"[대화 요약 업데이트] {len(new_summary)}자",
+            })
+    except Exception:
+        logger.exception("summary persist failed")
     await websocket.send_json({"type": "done"})
 
 
@@ -764,10 +1295,33 @@ async def chat_stream(websocket: WebSocket, session_id: str):
 
             msg_type = payload.get("type", "chat")
 
+            # 사용자 중지 요청 — run_lock 걸린 상태에서만 유효. stop_event 를 즉시
+            # set 해서 relay 루프가 다음 chunk 경계에서 종료. producer 도 그때 exit.
+            if msg_type == "cancel":
+                if session.turn_stop_event is not None:
+                    session.turn_stop_event.set()
+                    await websocket.send_json({
+                        "type": "info",
+                        "content": "중지 요청 접수 — 진행 중이던 tool 완료 후 즉시 종료돼",
+                    })
+                else:
+                    await websocket.send_json({
+                        "type": "info",
+                        "content": "중지할 진행 중 작업이 없어",
+                    })
+                continue
+
             if session.run_lock.locked():
+                # 프론트가 optimistic pending 카드 띄운 상태로 갇히지 않게 명시적
+                # error + pending 종료 신호 발사.
+                await websocket.send_json({
+                    "type": "phase",
+                    "phase": "pending",
+                    "state": "done",
+                })
                 await websocket.send_json({
                     "type": "error",
-                    "detail": "이미 실행 중인 작업이 있습니다. 완료 후 다시 시도하세요.",
+                    "detail": "이전 작업이 아직 진행 중이에요. 완료되면 이어서 요청해줘.",
                 })
                 continue
 
@@ -779,13 +1333,25 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                         "detail": "대기 중인 승인 요청이 없습니다.",
                     })
                     continue
-                if payload.get("approved", False):
+                approved = bool(payload.get("approved", False))
+                feedback = payload.get("feedback", "") if not approved else None
+                if approved:
                     stream_input = Command(resume={"approved": True})
                 else:
                     stream_input = Command(resume={
                         "approved": False,
-                        "feedback": payload.get("feedback", ""),
+                        "feedback": feedback or "",
                     })
+                # interrupt 결과 로그 (interrupts + messages 두 곳)
+                await SessionRepo.resolve_interrupt(
+                    session_id, approved=approved, feedback=feedback
+                )
+                await SessionRepo.log_event(
+                    session_id,
+                    kind="resume",
+                    ok=approved,
+                    content=feedback,
+                )
                 await _run_turn(websocket, session, stream_input)
                 continue
 
@@ -800,6 +1366,11 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                     "detail": "계획 승인 대기 중입니다. 승인하거나 수정 요청을 보내세요.",
                 })
                 continue
+
+            # 유저 메시지 DB 로그
+            await SessionRepo.log_event(
+                session_id, kind="user", content=user_message
+            )
 
             await _run_turn(websocket, session, _build_graph_input(session, user_message))
 

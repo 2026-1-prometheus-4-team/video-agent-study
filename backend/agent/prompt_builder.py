@@ -113,6 +113,8 @@ def build_supervisor_system_prompt(
     video_context: Optional[VideoContext] = None,
     session_memory: Optional[str] = None,
     script_plan: Optional[dict] = None,
+    conversation_summary: Optional[str] = None,
+    user_memories: Optional[list[dict]] = None,
 ) -> str:
     """Supervisor 용 system prompt 조립.
 
@@ -159,6 +161,33 @@ def build_supervisor_system_prompt(
 
     if session_memory:
         sections_dynamic.append("# Session Memory\n\n" + session_memory)
+
+    if conversation_summary:
+        sections_dynamic.append(
+            "# 이전 대화 요약 (rolling summary)\n\n" + conversation_summary
+        )
+
+    if user_memories:
+        # kind 별로 그루핑해서 자연스러운 문장 리스트로.
+        by_kind: dict[str, list[str]] = {}
+        for m in user_memories:
+            by_kind.setdefault(m.get("kind", "other"), []).append(m.get("content", ""))
+        lines = ["# 사용자 장기 기억 (세션 간 이월)"]
+        kind_label = {
+            "preference": "선호",
+            "style": "스타일",
+            "fact": "사실",
+            "example": "예시",
+        }
+        for k, items in by_kind.items():
+            lines.append(f"\n## {kind_label.get(k, k)}")
+            for i in items:
+                lines.append(f"- {i}")
+        lines.append(
+            "\n위 기억을 이번 편집에 반영하되, 사용자가 명시 반대하면 무시하고 "
+            "새 값을 remember_preference 로 갱신하라."
+        )
+        sections_dynamic.append("\n".join(lines))
 
     dynamic_suffix = "\n\n---\n\n".join(sections_dynamic) if sections_dynamic else ""
 

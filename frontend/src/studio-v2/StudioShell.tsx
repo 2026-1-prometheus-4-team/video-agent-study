@@ -6,7 +6,7 @@ import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Stage } from "./Stage";
 import { Timeline } from "./Timeline";
-import { PipelineHUD } from "./PipelineHUD";
+// PipelineHUD 는 phase 카드 rail 이랑 정보 중복이라 제거. 필요 시 재도입.
 import { StageToolbar } from "./StageToolbar";
 import { checkHealth } from "./backend";
 import { useAgentStore } from "./state";
@@ -96,7 +96,7 @@ export function StudioShell() {
             <StageToolbar />
           </div>
 
-          <PipelineHUD />
+          {/* PipelineHUD 제거됨 — phase 카드가 진행 상황을 rail 에 이미 표시 */}
 
           {/* Mobile FAB — 사이드바가 없을 때만 */}
           <button

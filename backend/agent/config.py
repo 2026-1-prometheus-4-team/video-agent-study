@@ -31,19 +31,17 @@ VIDEOS_DIR: Path = PROJECT_ROOT / "videos"
 
 
 # =============================================================
-# 모델 (2026-05 기준 최신)
-#   - Pro reasoning  : gemini-3.1-pro-preview (2026-02-19 release)
-#   - Fast flash     : gemini-3.5-flash (stable)
-#   - deprecated     : gemini-3-pro-preview (shutdown 2026-03-09),
-#                      gemini-2.0-flash, gemini-2.0-flash-lite
+# 모델 — gemini-2.5-flash 통일
+#   비용 · 지연 · 품질 밸런스가 지금 파이프라인에 가장 좋음.
+#   pro 계열은 안 씀 (요청당 비용 · 대기 시간이 커서 supervisor ReAct 루프에
+#   맞지 않음). 특정 노드에서 필요 시 .env 로 개별 override 가능.
 # =============================================================
 
-MODEL_SUPERVISOR: str = os.getenv("MODEL_SUPERVISOR", "gemini-3.5-flash")
-MODEL_SCRIPT: str = os.getenv("MODEL_SCRIPT", "gemini-3.5-flash")
-MODEL_CRITIC: str = os.getenv("MODEL_CRITIC", "gemini-3.5-flash")
-MODEL_SUB_AGENT: str = os.getenv("MODEL_SUB_AGENT", "gemini-3.5-flash")
+MODEL_SUPERVISOR: str = os.getenv("MODEL_SUPERVISOR", "gemini-2.5-flash")
+MODEL_SCRIPT: str = os.getenv("MODEL_SCRIPT", "gemini-2.5-flash")
+MODEL_CRITIC: str = os.getenv("MODEL_CRITIC", "gemini-2.5-flash")
+MODEL_SUB_AGENT: str = os.getenv("MODEL_SUB_AGENT", "gemini-2.5-flash")
 
-# Gemini 3+ 는 temperature 미지정 시 1.0 으로 강제 됨.
 # routing / plan 생성 등 결정성 필요한 노드는 명시적으로 낮추기.
 TEMPERATURE_SUPERVISOR: float = 0.3
 TEMPERATURE_SCRIPT: float = 0.4

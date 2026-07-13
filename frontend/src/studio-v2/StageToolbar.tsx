@@ -1,17 +1,10 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { toast } from "sonner";
 import { useAgentStore } from "./state";
-import { planRefine, saveRefineSpec } from "./refine";
 import styles from "./stage-toolbar.module.css";
-
-const API_BASE = (
-  process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
-).replace(/\/+$/, "");
 
 const CONNECTION_LABEL: Record<string, string> = {
   online: "연결됨",
@@ -29,65 +22,15 @@ export function StageToolbar() {
   const connection = useAgentStore((s) => s.connection);
   const sessionId = useAgentStore((s) => s.sessionId);
   const sessionStatus = useAgentStore((s) => s.sessionStatus);
-  const uploadedUrl = useAgentStore((s) => s.uploadedUrl);
-  const serverVideoPath = useAgentStore((s) => s.serverVideoPath);
-  const videoContext = useAgentStore((s) => s.videoContext);
-  const lastFinal = useAgentStore((s) => s.lastFinal);
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-
-  const openMotionEditor = async (
-    e: React.MouseEvent<HTMLAnchorElement>
-  ) => {
-    e.preventDefault();
-    if (busy) return;
-
-    const plan = planRefine({
-      lastFinal,
-      uploadedUrl,
-      serverVideoPath,
-      videoContext,
-      apiBase: API_BASE,
-    });
-
-    // 편집 컨텍스트 없으면 빈 에디터로.
-    if (!plan) {
-      router.push("/motion");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const link = await saveRefineSpec(plan);
-      toast.success("모션 에디터 열기", { description: plan.label });
-      router.push(link);
-    } catch (err) {
-      toast.error("spec 저장 실패, 빈 에디터로 열기", {
-        description: err instanceof Error ? err.message : String(err),
-      });
-      router.push("/motion");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <div className={styles.wrap}>
       <SessionPill sessionId={sessionId} status={sessionStatus} />
       <ConnectionPill status={connection} />
-      <a
-        href="/motion"
-        onClick={openMotionEditor}
-        className={styles.link}
-        title={
-          uploadedUrl || lastFinal
-            ? "현재 편집 컨텍스트로 모션 에디터 열기"
-            : "심화 편집기"
-        }
-      >
-        <span>{busy ? "여는 중…" : "모션 에디터"}</span>
+      <Link href="/motion" className={styles.link} title="심화 편집기">
+        <span>모션 에디터</span>
         <ArrowUpRight size={11} strokeWidth={2.2} />
-      </a>
+      </Link>
     </div>
   );
 }

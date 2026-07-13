@@ -114,3 +114,14 @@ class AgentState(TypedDict, total=False):
     # ── 메타 ──
     session_id: str
     spawn_depth: int  # graph 진입 시 0
+
+    # ── 메모리 · 컨텍스트 유지 ──
+    conversation_summary: Optional[str]
+    """long-term rolling summary. summary_node 가 채우고 이후 message 압축 근거."""
+
+    summarized_up_to: int
+    """이미 summary 에 흡수된 messages 수 (message trimming 용). 0 이면 압축 X."""
+
+    user_memories: list[dict]
+    """세션 시작 시 DB 에서 로드된 사용자 장기 기억.
+    각 항목: {id, kind, content, weight}. supervisor 프롬프트에 주입."""

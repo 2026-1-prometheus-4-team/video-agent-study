@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
-import { Check, ChevronRight, X, Wrench } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronRight, X } from "lucide-react";
 import type { StreamItem } from "../state";
+import { Markdown } from "../Markdown";
 import { formatDuration } from "@/lib/format";
 import styles from "./rows.module.css";
 
@@ -123,20 +124,48 @@ export function ToolCallCard({
         >
           <div className={styles.toolSection}>
             <div className={styles.toolSectionLabel}>인자</div>
-            <pre className={styles.toolPre}>
-              {JSON.stringify(item.args, null, 2)}
-            </pre>
+            <ToolValue value={item.args} />
           </div>
           {item.result !== undefined && (
             <div className={styles.toolSection}>
               <div className={styles.toolSectionLabel}>결과</div>
-              <pre className={styles.toolPre}>
-                {JSON.stringify(item.result, null, 2)}
-              </pre>
+              <ToolValue value={item.result} />
             </div>
           )}
         </motion.div>
       )}
     </motion.div>
   );
+}
+
+/**
+ * tool 의 args / result 를 상황에 맞게 렌더.
+ * - string 이면 Markdown 으로 (자연어 답변 · 요약)
+ * - object 이면 JSON 코드 블록으로
+ * - null/undefined 는 표시 X
+ */
+function ToolValue({ value }: { value: unknown }) {
+  const rendered = useMemo(() => {
+    if (value == null) return null;
+    if (typeof value === "string") {
+      // 문자열이 JSON 처럼 생겼으면 파싱해서 pretty print, 아니면 그대로 md
+      const trimmed = value.trim();
+      if (
+        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith("[") && trimmed.endsWith("]"))
+      ) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return "```json\n" + JSON.stringify(parsed, null, 2) + "\n```";
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    }
+    return "```json\n" + JSON.stringify(value, null, 2) + "\n```";
+  }, [value]);
+
+  if (rendered == null) return null;
+  return <Markdown text={rendered} />;
 }

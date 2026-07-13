@@ -1,0 +1,241 @@
+/* studio-v2 마크다운 — 다크 톤, 조밀한 line-height, Pretendard base. */
+
+.wrap {
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: -0.02em;
+  word-break: break-word;
+}
+
+.wrap > *:first-child {
+  margin-top: 0;
+}
+.wrap > *:last-child {
+  margin-bottom: 0;
+}
+
+.p {
+  margin: 0 0 8px;
+  color: var(--text-1);
+}
+
+.strong {
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.em {
+  font-style: italic;
+  color: var(--text-2);
+}
+
+.a {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-decoration-color: rgba(124, 141, 241, 0.35);
+  text-underline-offset: 2px;
+}
+
+.a:hover {
+  text-decoration-color: var(--accent-strong);
+}
+
+/* ---- lists ---- */
+
+.ul,
+.ol {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ul {
+  list-style: none;
+}
+
+.ul > .li {
+  position: relative;
+  padding-left: 12px;
+}
+
+.ul > .li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--text-4);
+}
+
+.ol {
+  list-style: decimal;
+}
+
+.ol > .li::marker {
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.li {
+  color: var(--text-2);
+  line-height: 1.55;
+}
+
+.li > .p {
+  margin: 0;
+}
+
+/* nested lists — 한 단계 안으로 */
+.li > .ul,
+.li > .ol {
+  margin: 4px 0 2px;
+}
+
+/* ---- headings ---- */
+
+.h1,
+.h2,
+.h3,
+.h4 {
+  margin: 10px 0 6px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-1);
+}
+
+.h1 {
+  font-size: 14.5px;
+}
+.h2 {
+  font-size: 13.5px;
+}
+.h3 {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.h4 {
+  font-size: 12px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---- code ---- */
+
+.codeInline {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono-stack);
+  font-size: 11.5px;
+  font-weight: 500;
+  background: rgba(124, 141, 241, 0.1);
+  color: var(--accent-strong);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.codeBlockWrap {
+  position: relative;
+  margin: 6px 0 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.codeLang {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-family: var(--font-mono-stack);
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.codeBlock {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono-stack);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  letter-spacing: 0;
+  white-space: pre;
+}
+
+.codeBlock code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+/* ---- quote ---- */
+
+.quote {
+  margin: 6px 0 8px;
+  padding: 6px 12px;
+  border-left: 2px solid var(--accent-strong);
+  background: rgba(124, 141, 241, 0.05);
+  color: var(--text-2);
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}
+
+/* ---- hr ---- */
+
+.hr {
+  margin: 10px 0;
+  border: 0;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* ---- table ---- */
+
+.tableWrap {
+  margin: 6px 0 8px;
+  overflow-x: auto;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.th {
+  text-align: left;
+  padding: 6px 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--hairline);
+  letter-spacing: -0.01em;
+}
+
+.td {
+  padding: 6px 10px;
+  color: var(--text-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.td:last-child,
+.th:last-child {
+  padding-right: 12px;
+}

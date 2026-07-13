@@ -111,7 +111,7 @@ def _gemini_transcribe(chunks: list[tuple[Path, float]]) -> tuple[list[dict], st
         uploaded_file = client.files.upload(file=chunk_path)
         try:
             response = client.models.generate_content(
-                model="gemini-3.5-flash",
+                model="gemini-2.5-flash",
                 contents=[prompt, uploaded_file],
                 config={"response_mime_type": "application/json"},
             )

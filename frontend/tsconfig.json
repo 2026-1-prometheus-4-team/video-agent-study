@@ -17,7 +17,7 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@engine/*": ["../remotion/src/*"]
+      "@engine/*": ["./remotion/src/*"]
     }
   },
   "include": [

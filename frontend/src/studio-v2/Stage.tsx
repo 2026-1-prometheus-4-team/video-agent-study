@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Film, Play, Pause, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Film, Play, Pause, Volume2, VolumeX, Scissors, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgentStore } from "./state";
 import { formatSeconds } from "@/lib/format";
 import styles from "./stage.module.css";
@@ -15,25 +15,89 @@ export function Stage() {
   const activeNode = useAgentStore((s) => s.activeNode);
   const sessionStatus = useAgentStore((s) => s.sessionStatus);
 
-  const [playing, setPlaying] = useState(false);
+  // playhead · playing 은 store 에서 공유 (Timeline 이 seek/play 함께 조작)
+  const playing = useAgentStore((s) => s.playing);
+  const setPlaying = useAgentStore((s) => s.setPlaying);
+  const playhead = useAgentStore((s) => s.playhead);
+  const setPlayhead = useAgentStore((s) => s.setPlayhead);
   const [muted, setMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoDuration, setVideoDurationLocal] = useState(0);
+  // Timeline 이 참조할 실제 mp4 길이를 store 로 전파.
+  const setStageVideoDuration = useAgentStore((s) => s.setStageVideoDuration);
+  const setVideoDuration = (v: number) => {
+    setVideoDurationLocal(v);
+    setStageVideoDuration(v);
+  };
   const [scrubbing, setScrubbing] = useState(false);
+  const currentTime = playhead;
+  const setCurrentTime = setPlayhead;
+  // 편집 결과가 도착하면 자동으로 편집본으로 스위치. 사용자가 명시적으로 원본
+  // 다시 보기를 눌러야 원본으로 돌아감. Timeline 도 이 값을 봐서 씬/자막 소스 결정.
+  const viewMode = useAgentStore((s) => s.stageViewMode);
+  const setViewMode = useAgentStore((s) => s.setStageViewMode);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scrubRef = useRef<HTMLDivElement | null>(null);
 
-  const hasVideo = !!uploadedUrl || !!lastFinal;
+  // Timeline 이 playhead 바꾸면 video seek. 재생 중이 아닐 때만 (재생 중엔
+  // onTimeUpdate 가 이미 store 를 갱신 중이라 재바인딩 하면 stutter).
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || playing) return;
+    if (Math.abs(v.currentTime - playhead) > 0.12) {
+      v.currentTime = playhead;
+    }
+  }, [playhead, playing]);
+
+  // 백엔드 output_url 이 비어있어도 output_path 로 fallback 유추 (videos/, outputs/
+  // 접두사 케이스). _to_file_url 매핑 실패 시 stage 가 원본 계속 재생하는 버그
+  // 방어. API_BASE 는 backend.ts 와 동일한 규칙.
+  const finalUrl = useMemo(() => {
+    if (!lastFinal) return null;
+    if (lastFinal.outputUrl) return lastFinal.outputUrl;
+    const p = lastFinal.outputPath;
+    if (!p) return null;
+    const API_BASE = (
+      process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
+    ).replace(/\/+$/, "");
+    // 상대경로 videos/... outputs/... audio_files/... bgm_files/... → /files/<sub>/...
+    const m = p.match(/^(?:.*[/\\])?(videos|outputs|audio_files|bgm_files)\/(.+)$/);
+    if (m) {
+      const sub =
+        m[1] === "audio_files" ? "audio" : m[1] === "bgm_files" ? "bgm" : m[1];
+      return `${API_BASE}/files/${sub}/${m[2]}`;
+    }
+    return null;
+  }, [lastFinal]);
+
+  const hasFinal = !!finalUrl;
+  const hasSource = !!uploadedUrl;
+  const hasVideo = hasFinal || hasSource || !!lastFinal;
+
+  // 새 편집 결과 도착 → 자동으로 편집본으로 스위치.
+  useEffect(() => {
+    if (hasFinal) setViewMode("final");
+  }, [hasFinal, finalUrl]);
+
+  // 실 재생 src — 편집본이 있고 viewMode==="final" 이면 편집본, 아니면 원본.
+  const activeSrc = useMemo(() => {
+    if (viewMode === "final" && finalUrl) return finalUrl;
+    if (uploadedUrl) return uploadedUrl;
+    return finalUrl ?? null;
+  }, [viewMode, finalUrl, uploadedUrl]);
+
   const displayDuration =
     videoDuration || lastFinal?.duration || videoContext?.duration || 0;
-  const showName = lastFinal?.outputPath ?? uploadedName;
+  const showName =
+    viewMode === "final" && lastFinal?.outputPath
+      ? lastFinal.outputPath
+      : uploadedName ?? lastFinal?.outputPath ?? "";
 
-  // 파일 바뀌면 재생 상태 초기화
+  // 소스가 바뀌면 재생 상태 초기화
   useEffect(() => {
     setPlaying(false);
     setCurrentTime(0);
     setVideoDuration(0);
-  }, [uploadedUrl]);
+  }, [activeSrc]);
 
   // 재생 상태 -> video element sync
   useEffect(() => {
@@ -61,7 +125,7 @@ export function Stage() {
       const target = e.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
       e.preventDefault();
-      setPlaying((p) => !p);
+      setPlaying(!playing);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -145,10 +209,12 @@ export function Stage() {
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className={styles.videoWrap}>
-              {uploadedUrl && (
+              {activeSrc && (
                 <video
                   ref={videoRef}
-                  src={uploadedUrl}
+                  // key 를 src 에 물려서 src 바뀔 때 element 재초기화 (metadata 재로드)
+                  key={activeSrc}
+                  src={activeSrc}
                   className={styles.video}
                   onLoadedMetadata={(e) => {
                     const v = e.currentTarget;
@@ -164,7 +230,7 @@ export function Stage() {
                   preload="metadata"
                 />
               )}
-              {!uploadedUrl && lastFinal && (
+              {!activeSrc && lastFinal && (
                 <div className={styles.previewFallback}>
                   <div className={styles.fallbackLabel}>편집 결과</div>
                   <div className={styles.fallbackName}>{lastFinal.outputPath}</div>
@@ -174,11 +240,35 @@ export function Stage() {
                 </div>
               )}
 
+              {/* Source / Final 토글 — 편집본이 있을 때만 표시 */}
+              {hasFinal && hasSource && (
+                <div className={styles.viewToggle}>
+                  <button
+                    type="button"
+                    className={styles.viewToggleBtn}
+                    data-active={viewMode === "final" || undefined}
+                    onClick={() => setViewMode("final")}
+                  >
+                    <Scissors size={11} strokeWidth={2.2} />
+                    <span>편집본</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.viewToggleBtn}
+                    data-active={viewMode === "source" || undefined}
+                    onClick={() => setViewMode("source")}
+                  >
+                    <Upload size={11} strokeWidth={2.2} />
+                    <span>원본</span>
+                  </button>
+                </div>
+              )}
+
               {/* Filename overlay bottom */}
               {showName && (
                 <div className={styles.nameOverlay}>
                   <span className={styles.nameLabel}>
-                    {lastFinal ? "편집 결과" : "원본"}
+                    {viewMode === "final" && hasFinal ? "편집 결과" : "원본"}
                   </span>
                   <span className={styles.nameFile}>{showName}</span>
                 </div>
@@ -206,7 +296,7 @@ export function Stage() {
               <button
                 type="button"
                 className={styles.playBtn}
-                onClick={() => setPlaying((p) => !p)}
+                onClick={() => setPlaying(!playing)}
                 aria-label={playing ? "일시정지" : "재생"}
                 title="Space"
               >

@@ -110,6 +110,24 @@ def script_node(state: AgentState) -> dict[str, Any]:
         for p in state["video_paths"]:
             user_parts.append(f"- {p}")
 
+    # 이전 turn 에서 만든 편집본이 있으면 새 요청은 그것을 소스로 삼는다.
+    # (원본은 유지 · 편집본을 계속 파생시키는 흐름 — 사용자가 "그럼 자막도"
+    #  같은 후속 요청을 하면 자동으로 편집본 위에서 이어짐)
+    last_output = state.get("final_output_path")
+    if last_output:
+        user_parts.append("\n# 직전 편집 결과 (이번 요청의 실질 소스)")
+        user_parts.append(f"- {last_output}")
+        user_parts.append(
+            "\n중요: 이번 요청은 위 편집본 위에서 이어서 편집한다. "
+            "step 의 video_path 는 원본이 아니라 이 편집본 경로를 사용하라. "
+            "다만 편집본 자체는 덮어쓰지 말고 새 파일로 저장 (예: `..._captioned.mp4`)."
+        )
+        # 이전 turn 의 편집 요약도 알려줌 (사용자가 후속 요청을 이해하기 쉽게).
+        conv_summary = state.get("conversation_summary")
+        if conv_summary:
+            user_parts.append("\n# 이전 대화 요약")
+            user_parts.append(conv_summary)
+
     if previous_plan and feedback:
         user_parts.append("\n# 이전 plan (사용자가 수정 요청)")
         user_parts.append("```json")

@@ -87,6 +87,18 @@ export type StreamItem =
       title: string;
       detail?: string;
       toolId?: string;
+    }
+  | {
+      kind: "phase";
+      id: string;
+      // 실제 노드 이름 (analysis/script/interrupt_gate/supervisor/critic) 또는
+      // pending (첫 이벤트 도착 전 스켈레톤).
+      phase: string;
+      label: string;
+      detail: string;
+      state: "running" | "done";
+      startedAt: number;
+      endedAt?: number;
     };
 
 export interface PlanStep {
@@ -126,6 +138,20 @@ export interface AgentState {
     transcript: TranscriptSeg[];
   } | null;
 
+  // ── Timeline · Stage 동기화 ──
+  playhead: number;              // 현재 재생 위치 (초)
+  playing: boolean;               // 재생 중 여부
+  timelineZoom: number;           // 1 = 100%, 최소 1, 최대 8
+  // 선택된 세그먼트 (scene/subtitle 인스펙터용).
+  selected: { kind: "scene" | "subtitle"; index: number } | null;
+  // Stage 재생 소스 (원본 · 편집본). Timeline 도 이걸 봐서 씬/자막 소스 결정.
+  // 편집본이 도착하면 자동으로 "final" 로 스위치.
+  stageViewMode: "source" | "final";
+  // 현재 활성 재생 소스의 실제 duration (<video> metadata 기반).
+  // lastFinal.duration / videoContext.duration 은 그래프 state 그대로라 편집으로
+  // 실제 mp4 길이가 짧아지면 맞지 않음. Timeline 은 이 값을 우선 사용.
+  stageVideoDuration: number;
+
   // ---- actions ----
   setConnection: (c: ConnectionStatus) => void;
   startSession: (id: string) => void;
@@ -154,6 +180,10 @@ export interface AgentState {
   ) => void;
   pushInfo: (text: string) => void;
   pushError: (title: string, detail?: string, toolId?: string) => void;
+  /** 노드 진행 카드 시작. 이미 같은 phase 카드가 있으면 no-op. */
+  startPhase: (phase: string, label: string, detail: string) => void;
+  /** 진행 중인 phase 카드를 완료 상태로. label/detail 을 갱신하고 elapsed 를 fix. */
+  endPhase: (phase: string, label?: string, detail?: string) => void;
   setUpload: (
     pct: number | null,
     name?: string | null,
@@ -162,6 +192,17 @@ export interface AgentState {
   ) => void;
   setVideoContext: (ctx: AgentState["videoContext"]) => void;
   clearStream: () => void;
+
+  // Timeline · Stage 액션
+  setPlayhead: (t: number) => void;
+  setPlaying: (p: boolean) => void;
+  setTimelineZoom: (z: number) => void;
+  selectSegment: (
+    kind: "scene" | "subtitle" | null,
+    index?: number | null
+  ) => void;
+  setStageViewMode: (m: "source" | "final") => void;
+  setStageVideoDuration: (sec: number) => void;
 }
 
 // ---------- Store ----------
@@ -193,6 +234,12 @@ export const useAgentStore = create<AgentState>()(
     uploadedUrl: null,
     serverVideoPath: null,
     videoContext: null,
+    playhead: 0,
+    playing: false,
+    timelineZoom: 1,
+    selected: null,
+    stageViewMode: "source",
+    stageVideoDuration: 0,
 
     setConnection: (c) =>
       set((s) => {
@@ -203,6 +250,10 @@ export const useAgentStore = create<AgentState>()(
       set((s) => {
         s.sessionId = id;
         s.sessionStatus = "streaming";
+        // 새 세션 = 파이프라인 상태 초기화. 잔재 카운터가 HUD 에 표시되던 이슈
+        // (예: "7" 이 총괄 배지에 남는 것) 방지.
+        s.activeNode = null;
+        s.nodeToolCount = { ...initialNodeCount };
       }),
 
     appendUser: (text, files) =>
@@ -328,6 +379,15 @@ export const useAgentStore = create<AgentState>()(
         s.stream.push(item);
         s.lastFinal = item;
         s.sessionStatus = "completed";
+        // 세션 완료 시 파이프라인 배지 초기화 + 남아있는 running phase 마감.
+        s.activeNode = null;
+        s.nodeToolCount = { ...initialNodeCount };
+        for (const it of s.stream) {
+          if (it.kind === "phase" && it.state === "running") {
+            it.state = "done";
+            it.endedAt = Date.now();
+          }
+        }
       }),
 
     pushInfo: (text) =>
@@ -353,6 +413,44 @@ export const useAgentStore = create<AgentState>()(
         s.sessionStatus = "error";
       }),
 
+    startPhase: (phase, label, detail) =>
+      set((s) => {
+        // 같은 phase 카드가 이미 running 이면 label/detail 만 갱신 (하트비트).
+        const existing = s.stream.find(
+          (x) => x.kind === "phase" && x.phase === phase && x.state === "running"
+        );
+        if (existing && existing.kind === "phase") {
+          existing.label = label;
+          existing.detail = detail;
+          return;
+        }
+        s.stream.push({
+          kind: "phase",
+          id: nextId(),
+          phase,
+          label,
+          detail,
+          state: "running",
+          startedAt: Date.now(),
+        });
+        s.sessionStatus = "streaming";
+      }),
+
+    endPhase: (phase, label, detail) =>
+      set((s) => {
+        // 뒤에서부터 찾아 가장 최근 running 인스턴스만 종료.
+        for (let i = s.stream.length - 1; i >= 0; i--) {
+          const it = s.stream[i];
+          if (it.kind === "phase" && it.phase === phase && it.state === "running") {
+            it.state = "done";
+            it.endedAt = Date.now();
+            if (label !== undefined) it.label = label;
+            if (detail !== undefined) it.detail = detail;
+            break;
+          }
+        }
+      }),
+
     setUpload: (pct, name, url, serverPath) =>
       set((s) => {
         s.uploadPct = pct;
@@ -375,6 +473,46 @@ export const useAgentStore = create<AgentState>()(
     setVideoContext: (ctx) =>
       set((s) => {
         s.videoContext = ctx;
+      }),
+
+    setPlayhead: (t) =>
+      set((s) => {
+        s.playhead = Math.max(0, t);
+      }),
+
+    setPlaying: (p) =>
+      set((s) => {
+        s.playing = p;
+      }),
+
+    setTimelineZoom: (z) =>
+      set((s) => {
+        s.timelineZoom = Math.max(1, Math.min(8, z));
+      }),
+
+    selectSegment: (kind, index) =>
+      set((s) => {
+        if (kind === null || index == null) {
+          s.selected = null;
+        } else {
+          s.selected = { kind, index };
+        }
+      }),
+
+    setStageViewMode: (m) =>
+      set((s) => {
+        s.stageViewMode = m;
+        // 소스 전환 시 playhead 초기화 · 선택 클리어 · 실 duration 리셋
+        // (새 소스가 로드되면 다시 갱신됨).
+        s.playhead = 0;
+        s.playing = false;
+        s.selected = null;
+        s.stageVideoDuration = 0;
+      }),
+
+    setStageVideoDuration: (sec) =>
+      set((s) => {
+        s.stageVideoDuration = Number.isFinite(sec) && sec > 0 ? sec : 0;
       }),
 
     clearStream: () =>

@@ -16,28 +16,29 @@ WebSocket 으로 연결되어 업로드 → 자연어 지시 → 계획 승인 �
 ## 구조
 
 ```
-frontend/
-├── motion-editor/           # Next.js 15 앱
-│   └── src/
-│       ├── studio/          # Video Agent Studio (제품 UI)
-│       ├── editor/          # 모션 에디터 (타임라인 / 인스펙터 / 캔버스)
-│       │   └── agent/       # 백엔드 에이전트 WS 클라이언트 + 스토어
-│       └── app/             # 라우트: / (studio), /motion (editor), /api/*
-└── remotion/                # 프리뷰 + 렌더 엔진 (VideoSpec 기반, @engine/* alias)
+frontend/                    # Next.js 15 앱 (video-agent-studio)
+├── src/
+│   ├── studio/              # Video Agent Studio (제품 UI, / 라우트)
+│   ├── editor/              # 모션 에디터 (타임라인 / 인스펙터 / 캔버스)
+│   │   └── agent/           # 백엔드 에이전트 WS 클라이언트 + 스토어
+│   └── app/                 # 라우트: / (studio), /motion (editor), /api/*
+├── remotion/                # 프리뷰 + 렌더 엔진 (VideoSpec 기반, @engine/* alias)
+└── package.json             # cd frontend && pnpm dev
 ```
 
-두 폴더는 형제 관계를 유지해야 한다. motion-editor 가 `../remotion` 상대 경로로
+Next.js 앱과 Remotion 엔진이 sibling 관계. 앱이 `./remotion` 상대 경로로
 엔진 소스, spec 파일, 폰트를 직접 참조한다 (tsconfig paths + webpack alias).
 
 ## 실행
 
 ```bash
-cd frontend/motion-editor
+cd frontend
 pnpm install
-cd ../remotion
+
+cd remotion
 pnpm install            # 렌더(export) 기능에 필요
 
-cd ../motion-editor
+cd ..
 pnpm dev                # http://localhost:3001
 ```
 
@@ -54,7 +55,7 @@ Google Fonts (Familjen Grotesk, Syne, Geist) 는 @remotion/google-fonts 로 자�
 
 ## 환경변수
 
-`frontend/motion-editor/.env.local` (gitignore):
+`frontend/.env.local` (gitignore):
 
 ```
 NEXT_PUBLIC_AGENT_API=http://localhost:8000   # 생략 시 이 값이 기본

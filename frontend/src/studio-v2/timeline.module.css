@@ -1,19 +1,20 @@
 .wrap {
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px 18px 14px 20px;
+  height: 100%;
+  min-height: 0;
+  padding: 12px 14px 12px 16px;
   background: var(--bg-panel);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 0 0 1px var(--hairline);
 }
 
 .header {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 6px;
   gap: 12px;
-  padding: 0 0 12px;
-  min-height: 22px;
 }
 
 .headerLabel {
@@ -25,7 +26,7 @@
 
 .headerMeta {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   font-size: 10.5px;
   color: var(--text-3);
@@ -35,81 +36,513 @@
   color: var(--text-4);
 }
 
-.headerSep {
-  width: 2px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--text-4);
-  align-self: center;
-}
-
 .headerHint {
   font-size: 11px;
   color: var(--text-4);
 }
 
+.headerSep {
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--text-4);
+}
+
 .tabular {
-  font-variant-numeric: tabular-nums;
   font-family: var(--font-mono-stack);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-2);
 }
 
-.tracks {
+.zoomTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.zoomBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.zoomBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-1);
+}
+
+.zoomBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.zoomLevel {
+  font-family: var(--font-mono-stack);
+  font-size: 10px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: center;
+}
+
+/* ─────────── scroll area ─────────── */
+
+.scrollArea {
+  position: relative;
   flex: 1;
   min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+  border-radius: 6px;
+}
+
+.scrollArea::-webkit-scrollbar {
+  height: 6px;
+}
+
+.scrollArea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollArea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.content {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  min-width: 100%;
+}
+
+.labelCol {
+  position: sticky;
+  left: 0;
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  padding-right: 8px;
+  background: linear-gradient(
+    to right,
+    var(--bg-panel) 85%,
+    transparent
+  );
 }
 
-.trackRow {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 12px;
+.labelRuler {
+  height: 22px;
+}
+
+.labelRow {
+  display: inline-flex;
   align-items: center;
-  min-height: 30px;
-}
-
-.trackLabel {
+  gap: 5px;
+  height: 30px;
+  padding-left: 2px;
   font-size: 10.5px;
   font-weight: 500;
   color: var(--text-4);
-  letter-spacing: -0.005em;
-  text-align: right;
 }
 
-.track {
+.labelRow > svg {
+  opacity: 0.85;
+}
+
+.tracksCol {
   position: relative;
-  height: 26px;
+  min-width: 0;
+}
+
+/* ─────────── ruler ─────────── */
+
+.ruler {
+  position: relative;
+  height: 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: text;
+  touch-action: none;
+  user-select: none;
+}
+
+.rulerTick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+
+.rulerTick::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: -1px;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rulerLabel {
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  font-family: var(--font-mono-stack);
+  font-size: 9.5px;
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* hover 시 마우스 위치 시간 표시 */
+.hoverGuide {
+  position: absolute;
+  top: 0;
+  bottom: -1000px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hoverTip {
+  position: absolute;
+  top: -2px;
+  left: 4px;
+  padding: 2px 6px;
+  background: rgba(20, 22, 40, 0.94);
+  color: var(--text-1);
+  font-family: var(--font-mono-stack);
+  font-size: 10px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* playhead - ruler 안 */
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.playheadCap {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background: var(--accent-strong);
+  filter: drop-shadow(0 0 6px rgba(124, 141, 241, 0.35));
+}
+
+.playheadLine {
+  position: absolute;
+  top: 8px;
+  bottom: -1px;
+  left: 50%;
+  width: 1.5px;
+  background: var(--accent-strong);
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(124, 141, 241, 0.35);
+}
+
+/* playhead extension 세로 track 위까지 */
+.tracksPlayhead {
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--accent-strong);
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(124, 141, 241, 0.3);
+  z-index: 3;
+}
+
+/* ─────────── tracks ─────────── */
+
+.trackRow {
+  position: relative;
+  margin-top: 4px;
   background: var(--bg-inset);
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  overflow: visible;
 }
 
 .trackEmpty {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent 0 6px,
-    rgba(255, 255, 255, 0.015) 6px 12px
-  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.02) 0 6px,
+      rgba(255, 255, 255, 0.005) 6px 12px
+    );
+  border-radius: 4px;
+  color: var(--text-4);
+  font-size: 10.5px;
+  letter-spacing: -0.005em;
 }
+
+/* Scene blocks */
 
 .sceneBlock {
   position: absolute;
   top: 4px;
   bottom: 4px;
-  background: rgba(124, 141, 241, 0.22);
+  background: rgba(124, 141, 241, 0.18);
+  color: var(--text-1);
   border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.32);
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease,
+    filter 140ms ease;
 }
+
+.sceneBlock:hover {
+  background: rgba(124, 141, 241, 0.3);
+  filter: brightness(1.15);
+}
+
+.sceneBlock[data-active] {
+  background: rgba(124, 141, 241, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.6);
+}
+
+.sceneBlock[data-selected] {
+  background: rgba(124, 141, 241, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(124, 141, 241, 0.8),
+    0 0 0 1px var(--bg-panel),
+    0 0 0 2px rgba(124, 141, 241, 0.7);
+  z-index: 2;
+}
+
+.sceneIdx {
+  font-family: var(--font-mono-stack);
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(10, 11, 24, 0.5);
+  flex-shrink: 0;
+  line-height: 1.1;
+}
+
+.sceneDesc {
+  font-size: 10px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.005em;
+}
+
+/* Subtitle blocks */
 
 .subBlock {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 2px;
+  top: 6px;
+  bottom: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-1);
+  border-radius: 3px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.subBlock:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.subBlock[data-active] {
+  background: rgba(240, 214, 108, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(240, 214, 108, 0.45);
+  color: #f9e79f;
+}
+
+.subBlock[data-selected] {
+  background: rgba(240, 214, 108, 0.42);
+  box-shadow:
+    inset 0 0 0 1px rgba(240, 214, 108, 0.7),
+    0 0 0 1px var(--bg-panel),
+    0 0 0 2px rgba(240, 214, 108, 0.5);
+  color: #fff;
+  z-index: 2;
+}
+
+.subText {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.005em;
+}
+
+/* ─────────── inspector (하단) ─────────── */
+
+.inspector {
+  margin-top: 8px;
+  padding: 8px 10px 10px;
+  background: rgba(0, 0, 0, 0.24);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inspectorBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inspectorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inspectorTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  height: 20px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.inspectorTag[data-kind="subtitle"] {
+  background: rgba(240, 214, 108, 0.12);
+  color: #f9e79f;
+  box-shadow: inset 0 0 0 1px rgba(240, 214, 108, 0.28);
+}
+
+.inspectorTag[data-kind="scene"] {
+  background: rgba(124, 141, 241, 0.12);
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.24);
+}
+
+.inspectorIdx {
+  font-family: var(--font-mono-stack);
+  font-size: 9.5px;
+  color: var(--text-4);
+}
+
+.inspectorClear {
+  padding: 2px 8px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-3);
+  font-size: 10px;
+  transition: background 140ms ease;
+}
+
+.inspectorClear:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-1);
+}
+
+.inspectorText {
+  font-size: 12px;
+  color: var(--text-1);
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+  padding: 2px 0;
+}
+
+.inspectorTextMuted {
+  font-size: 11px;
+  color: var(--text-4);
+  padding: 2px 0;
+}
+
+.inspectorMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.inspectorSep {
+  color: var(--text-4);
+}
+
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-3);
+  background: rgba(255, 255, 255, 0.05);
+  letter-spacing: -0.005em;
+}
+
+.sourceBadge[data-final] {
+  background: rgba(62, 207, 142, 0.14);
+  color: #3ecf8e;
+  box-shadow: inset 0 0 0 1px rgba(62, 207, 142, 0.28);
+}
+
+.reanalyzeHint {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  color: #f0a76f;
+  background: rgba(240, 167, 111, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(240, 167, 111, 0.28);
+  margin-left: 6px;
+  cursor: help;
 }

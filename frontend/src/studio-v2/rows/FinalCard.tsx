@@ -1,19 +1,11 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useState } from "react";
 import { CheckCircle2, Film, PenLine } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import type { StreamItem } from "../state";
-import { useAgentStore } from "../state";
-import { planRefine, saveRefineSpec } from "../refine";
 import { formatSeconds } from "@/lib/format";
 import styles from "./rows.module.css";
-
-const API_BASE = (
-  process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
-).replace(/\/+$/, "");
 
 export function FinalCard({
   item,
@@ -21,38 +13,10 @@ export function FinalCard({
   item: Extract<StreamItem, { kind: "final" }>;
 }) {
   const router = useRouter();
-  const [refining, setRefining] = useState(false);
-  const uploadedUrl = useAgentStore((s) => s.uploadedUrl);
-  const serverVideoPath = useAgentStore((s) => s.serverVideoPath);
-  const videoContext = useAgentStore((s) => s.videoContext);
-  const lastFinal = useAgentStore((s) => s.lastFinal);
 
-  const onRefine = async () => {
-    if (refining) return;
-    setRefining(true);
-    const plan = planRefine({
-      lastFinal,
-      uploadedUrl,
-      serverVideoPath,
-      videoContext,
-      apiBase: API_BASE,
-    });
-    if (!plan) {
-      toast.error("열 수 있는 영상이 없어요");
-      setRefining(false);
-      return;
-    }
-    try {
-      const link = await saveRefineSpec(plan);
-      toast.success("모션 에디터 열기", { description: plan.label });
-      router.push(link);
-    } catch (err) {
-      toast.error("spec 저장 실패", {
-        description: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setRefining(false);
-    }
+  const onRefine = () => {
+    // 우리 프로젝트 전용 모션 에디터 (studio-v2 store 를 그대로 참조).
+    router.push("/motion");
   };
 
   return (
@@ -92,10 +56,9 @@ export function FinalCard({
           type="button"
           className={styles.finalMotionLink}
           onClick={onRefine}
-          disabled={refining}
         >
           <Film size={12} />
-          <span>{refining ? "여는 중…" : "모션 에디터에서 다듬기"}</span>
+          <span>모션 에디터에서 다듬기</span>
         </button>
       </div>
     </motion.div>

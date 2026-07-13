@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SPECS_ROOT = path.resolve(process.cwd(), "../remotion/src/specs");
+const SPECS_ROOT = path.resolve(process.cwd(), "./remotion/src/specs");
 
 type SpecShape = "video" | "scene" | "preset" | "invalid";
 

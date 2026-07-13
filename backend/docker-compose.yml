@@ -1,0 +1,25 @@
+services:
+  # 세션·메시지·아티팩트·인터럽트 로컬 DB. Supabase 로 이관 시 DATABASE_URL 만 교체.
+  postgres:
+    image: postgres:16-alpine
+    container_name: video-agent-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"   # 5432 는 로컬 postgres 와 충돌 가능 → 5433 노출
+    environment:
+      POSTGRES_USER: video_agent
+      POSTGRES_PASSWORD: video_agent_dev
+      POSTGRES_DB: video_agent
+      # 한글 정렬을 위해 유니코드 로케일 (`C.UTF-8` 은 alpine 에서 지원 안 됨 → C 로).
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+      TZ: Asia/Seoul
+    volumes:
+      - video-agent-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U video_agent -d video_agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  video-agent-pgdata:

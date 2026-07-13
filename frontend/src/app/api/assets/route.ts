@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const ASSETS_DIR = path.resolve(process.cwd(), "public/assets");
 // 렌더(remotion 번들)는 remotion/public 에서 에셋을 찾는다 — 여기에도 미러
 // 저장 (안 하면 에디터 프리뷰는 되고 익스포트만 404 -> MEDIA Format error).
-const RENDER_ASSETS_DIR = path.resolve(process.cwd(), "../remotion/public/assets");
+const RENDER_ASSETS_DIR = path.resolve(process.cwd(), "./remotion/public/assets");
 const IMG_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif"]);
 const VID_EXT = new Set([".mp4", ".mov", ".webm", ".m4v"]);
 const AUD_EXT = new Set([".mp3", ".wav", ".m4a", ".aac", ".ogg"]);

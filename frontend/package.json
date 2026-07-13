@@ -37,6 +37,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hotkeys-hook": "^5.3.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "remotion": "4.0.473",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",

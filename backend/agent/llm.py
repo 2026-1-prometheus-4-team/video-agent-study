@@ -42,6 +42,8 @@ def make_llm(
         "script":     (config.MODEL_SCRIPT,     config.TEMPERATURE_SCRIPT),
         "critic":     (config.MODEL_CRITIC,     config.TEMPERATURE_CRITIC),
         "sub_agent":  (config.MODEL_SUB_AGENT,  config.TEMPERATURE_SUB_AGENT),
+        # rolling summarization — critic 이랑 동일 결정성 · 짧은 응답이라 같은 세팅.
+        "summary":    (config.MODEL_CRITIC,     config.TEMPERATURE_CRITIC),
     }
     if role not in role_map:
         raise ValueError(f"Unknown LLM role: {role}. Use one of {list(role_map)}.")

@@ -1,12 +1,20 @@
 """
-edit_expert 시연용 스크립트
+edit_expert 시연용 스크립트.
 
 analyze_video, cut_video, merge_video, search_video_segments,
 cut_by_description 툴을 직접 호출해서 테스트.
+
+실행:
+    cd backend
+    python -m scripts.tools_demo
 """
 
 import logging
 import sys
+from pathlib import Path
+
+# backend/ 를 sys.path 에 추가
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 logging.basicConfig(
     level=logging.INFO,

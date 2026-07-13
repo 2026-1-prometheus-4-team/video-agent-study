@@ -7,7 +7,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const ASSETS_DIR = path.resolve(process.cwd(), "public/assets");
-const RENDER_ASSETS_DIR = path.resolve(process.cwd(), "../remotion/public/assets");
+const RENDER_ASSETS_DIR = path.resolve(process.cwd(), "./remotion/public/assets");
 
 export const ELEVEN_BASE = "https://api.elevenlabs.io";
 

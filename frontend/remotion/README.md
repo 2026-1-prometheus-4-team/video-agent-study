@@ -45,7 +45,7 @@ node --env-file=.env scripts/generate.mjs "15초짜리 에너지 넘치는 SaaS 
 # Studio 에서 'Generated' 컴포지션 새로고침
 ```
 
-모델 바꾸려면 `GEMINI_MODEL=gemini-2.5-pro` 같이 환경변수로 (`.env` 에 추가하거나 inline).
+모델 바꾸려면 `GEMINI_MODEL=gemini-2.5-flash` 같이 환경변수로 (`.env` 에 추가하거나 inline).
 
 ## 품질 평가 체크리스트
 

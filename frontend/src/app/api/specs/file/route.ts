@@ -11,7 +11,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SPECS_ROOT = path.resolve(process.cwd(), "../remotion/src/specs");
+const SPECS_ROOT = path.resolve(process.cwd(), "./remotion/src/specs");
 
 // rel 을 SPECS_ROOT 기준 절대경로로. 벗어나면 null.
 function resolveSafe(rel: string | null): string | null {

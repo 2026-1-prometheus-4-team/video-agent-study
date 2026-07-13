@@ -9,7 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SPECS_ROOT = path.resolve(process.cwd(), "../remotion/src/specs");
+const SPECS_ROOT = path.resolve(process.cwd(), "./remotion/src/specs");
 
 function resolveSafe(rel: string | null): string | null {
   if (!rel) return null;

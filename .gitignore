@@ -1,51 +1,89 @@
+# =============================================================
+# Video Agent — .gitignore
+# =============================================================
+
+# ── Python / venv ──
 venv/
 .venv/
-.env
 __pycache__/
 *.pyc
-.DS_Store
+*.pyo
+*.pyd
 *.egg-info/
 dist/
 build/
+
+# ── OS / IDE ──
+.DS_Store
+Thumbs.db
 .idea/
 .vscode/
+*.swp
 
-backend/videos/*.mp4
-backend/videos/*.mov
-backend/videos/*.avi
-backend/videos/*.mkv
-backend/videos/*.json
-backend/videos/effects/
+# ── 환경 변수 (모든 위치) ──
+# 루트 · backend/ · frontend/ 어디에 있든 .env 는 절대 커밋 X.
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
 
-audio_files/
-video_files/
-bgm_files/
-output/
-outputs/
+# ── Frontend (Next.js) ──
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
 
-# Remotion 빌드 / 의존성 (backend 렌더 엔진)
+# ── 미디어 입력 · 편집 산출물 · 분석 캐시 (전부 로컬 재생성 가능) ──
+# 폴더 자체는 .gitkeep 으로만 유지. 내용은 전부 로컬 전용.
+# 하위 디렉토리도 재귀적으로 (glob 은 한 depth 만 잡아서 subtitles/ 등 제외 실패
+# 방지). "!"" 예외로 .gitkeep 만 tracked 상태 유지.
+backend/videos/**
+!backend/videos/
+!backend/videos/.gitkeep
+!backend/videos/subtitles/
+!backend/videos/subtitles/.gitkeep
+
+backend/audio_files/**
+!backend/audio_files/
+!backend/audio_files/.gitkeep
+
+backend/bgm_files/**
+!backend/bgm_files/
+!backend/bgm_files/.gitkeep
+
+backend/outputs/**
+!backend/outputs/
+!backend/outputs/.gitkeep
+
+# ── Remotion (렌더 엔진 · 산출물 · 대용량 데모 데이터) ──
 backend/remotion/node_modules/
 backend/remotion/out/
 backend/remotion/.remotion/
-
-# Scene24 reference dump (carve-out 끝나면 로컬에만)
-backend/agent/effects/*_scene24_full.*
-
-# Research cache (트렌드 검색 결과 24h TTL)
-backend/.cache/research/
-
-# Frontend (Next.js + Remotion 엔진)
-node_modules/
-.next/
-.env.local
-.env*.local
-frontend/motion-editor/public/assets/
-frontend/remotion/public/assets/
+frontend/remotion/node_modules/
 frontend/remotion/out/
 frontend/remotion/.remotion/
 
-# 라이선스 폰트 (General Sans - 재배포 불가, 로컬 전용. frontend/README.md 참고)
+# Remotion 라이선스 폰트 (General Sans 등 재배포 불가)
 frontend/remotion/public/fonts/
 
-# 에이전트 결과 spec (런타임 생성물)
+# 런타임 생성 spec (에이전트가 저장하는 결과물)
 frontend/remotion/src/specs/agent/
+
+# 사용자 업로드 자산 (프론트 preview 용)
+frontend/public/assets/*
+!frontend/public/assets/.gitkeep
+
+# ── Scene24 legacy reference dump (필요 시 로컬 전용) ──
+backend/agent/effects/*_scene24_full.*
+
+# ── Research cache (트렌드 검색 24h TTL) ──
+backend/.cache/
+
+# ── Docker 볼륨 · 로그 ──
+backend/postgres-data/
+*.log
+
+# ── 팀 원격 세션 임시 파일 ──
+.claude-code-worktree/

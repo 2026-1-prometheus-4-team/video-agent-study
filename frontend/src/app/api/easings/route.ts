@@ -1,5 +1,5 @@
 // /api/easings — 사용자 정의 커스텀 이징 라이브러리(이름 붙인 cubic-bezier)를
-// 영구 저장. 엔진 옆(../remotion/src/customEasings.json)에 저장해 나중에 엔진이
+// 영구 저장. 엔진 옆(./remotion/src/customEasings.json)에 저장해 나중에 엔진이
 // import 해서 named 로 쓸 수도 있게(현재는 에디터가 spec 에 cubic() 문자열로 적용).
 //   GET  -> { easings: [{ name, bezier: [x1,y1,x2,y2] }] }
 //   PUT  { easings } -> 저장
@@ -11,7 +11,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const FILE = path.resolve(process.cwd(), "../remotion/src/customEasings.json");
+const FILE = path.resolve(process.cwd(), "./remotion/src/customEasings.json");
 
 export async function GET() {
   try {

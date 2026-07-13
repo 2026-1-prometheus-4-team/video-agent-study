@@ -10,6 +10,7 @@ import { InterruptCard } from "./rows/InterruptCard";
 import { FinalCard } from "./rows/FinalCard";
 import { InfoRow } from "./rows/InfoRow";
 import { ErrorRow } from "./rows/ErrorRow";
+import { PhaseCard } from "./rows/PhaseCard";
 import styles from "./thread.module.css";
 
 /**
@@ -89,5 +90,7 @@ function renderRow(item: ReturnType<typeof useAgentStore.getState>["stream"][num
       return <InfoRow item={item} />;
     case "error":
       return <ErrorRow item={item} />;
+    case "phase":
+      return <PhaseCard item={item} />;
   }
 }

@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ENGINE_PUBLIC = path.resolve(process.cwd(), "../remotion/public");
+const ENGINE_PUBLIC = path.resolve(process.cwd(), "./remotion/public");
 
 const MIME: Record<string, string> = {
   ".png": "image/png",

@@ -89,6 +89,22 @@ type BackendEvent =
       };
     }
   | {
+      type: "phase";
+      phase: string; // "analysis" | "script" | "supervisor" | "critic" | ...
+      state?: "running" | "done";
+      label?: string;
+      detail?: string;
+    }
+  | {
+      type: "video_context";
+      video_context: {
+        file_path?: string;
+        duration?: number;
+        scenes?: Array<{ start: number; end: number; description?: string }>;
+        transcript?: Array<{ start: number; end: number; text?: string }>;
+      };
+    }
+  | {
       type: "final";
       output_path?: string;
       output_url?: string;
@@ -184,6 +200,21 @@ export function tryResumeInterrupt(
   }
 }
 
+/** 진행 중 turn 중지. Backend 가 다음 chunk 경계에서 종료. */
+export function tryCancel(): boolean {
+  if (!currentSocket) return false;
+  try {
+    currentSocket.cancel();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 서버가 아무 이벤트도 안 보내면 이 시간 뒤에 sessionStatus=error 로 전환.
+// analysis+script 가 60s+ 걸리는 케이스가 있어 넉넉하게 90s.
+const WATCHDOG_MS = 90_000;
+
 export class AgentSocket {
   private ws: WebSocket | null = null;
   private sessionId: string;
@@ -192,9 +223,24 @@ export class AgentSocket {
   private currentAgentMsgId: string | null = null;
   private currentToolStack: string[] = []; // FIFO 로 tool_result 매핑
   private openWaiters: Array<() => void> = [];
+  private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
+  }
+
+  /** 어떤 이벤트든 오면 watchdog 리셋. */
+  bumpWatchdog() {
+    if (this.watchdogTimer) clearTimeout(this.watchdogTimer);
+    this.watchdogTimer = setTimeout(() => {
+      const st = useAgentStore.getState();
+      if (st.sessionStatus === "streaming") {
+        st.pushError(
+          "응답 없음",
+          `${Math.round(WATCHDOG_MS / 1000)}초간 서버 이벤트 없음. 백엔드 상태 확인해봐.`
+        );
+      }
+    }, WATCHDOG_MS);
   }
 
   /** open 상태가 될 때까지 대기 (5초 이내). */
@@ -227,14 +273,30 @@ export class AgentSocket {
       const list = this.openWaiters.slice();
       this.openWaiters = [];
       list.forEach((fn) => fn());
+      this.bumpWatchdog();
     });
 
     ws.addEventListener("message", (ev) => {
+      // 어떤 event 든 도착했으면 watchdog 리셋 — 사용자에게 "살아있음" 표시.
+      this.bumpWatchdog();
+      let data: BackendEvent | null = null;
       try {
-        const data = JSON.parse(ev.data) as BackendEvent;
+        data = JSON.parse(ev.data) as BackendEvent;
+      } catch (e) {
+        console.warn("bad WS payload (parse)", ev.data, e);
+        return;
+      }
+      try {
         this.handleEvent(data);
       } catch (e) {
-        console.warn("bad WS payload", ev.data, e);
+        // 어떤 케이스 (예: interrupt/final 파싱) 라도 실패하면 조용히 죽지 않고
+        // error 이벤트로 UI 에 명시. 이전엔 파싱 예외가 handler 를 벗어나
+        // session 이 무한 streaming 에 갇혔다.
+        console.error("handleEvent failed", data, e);
+        useAgentStore.getState().pushError(
+          "이벤트 처리 실패",
+          e instanceof Error ? e.message : String(e)
+        );
       }
     });
 
@@ -242,7 +304,29 @@ export class AgentSocket {
       console.warn("WS error", ev);
     });
 
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (ev) => {
+      // 서버가 명시적 코드로 close 한 경우 재접속 X:
+      //  1000 정상 종료 · 1001 endpoint going away
+      //  4004 세션 없음 (서버 재시작 후 in-memory session 사라짐)
+      const permanentCodes = new Set([1000, 1001, 1008, 4004]);
+      if (permanentCodes.has(ev.code)) {
+        this.closedByUser = true;
+        useAgentStore.getState().setConnection("offline");
+        if (ev.code === 4004) {
+          useAgentStore.getState().pushError(
+            "세션이 사라졌어",
+            "서버가 재시작됐거나 세션이 만료됨. 새 지시를 내리면 새 세션이 자동 생성됨.",
+          );
+          // 다음 send 에서 새 세션을 만들도록 sessionId 초기화.
+          useAgentStore.setState((s) => {
+            s.sessionId = null;
+            s.sessionStatus = "idle";
+          });
+          currentSocket = null;
+        }
+        return;
+      }
+
       useAgentStore.getState().setConnection("reconnecting");
       if (!this.closedByUser) {
         const delay = Math.min(30_000, 500 * 2 ** this.retries);
@@ -256,6 +340,10 @@ export class AgentSocket {
 
   disconnect() {
     this.closedByUser = true;
+    if (this.watchdogTimer) {
+      clearTimeout(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
     this.ws?.close();
     this.ws = null;
   }
@@ -277,6 +365,10 @@ export class AgentSocket {
       approved,
       feedback: approved ? undefined : feedback,
     });
+  }
+
+  cancel() {
+    this.send({ type: "cancel" });
   }
 
   private handleEvent(ev: BackendEvent) {
@@ -304,20 +396,70 @@ export class AgentSocket {
         }
         break;
       }
+      case "video_context": {
+        // analysis 완료 즉시 도착 — Timeline 이 씬/자막을 실시간으로 그리게.
+        const vc = ev.video_context ?? {};
+        const duration = typeof vc.duration === "number" ? vc.duration : 0;
+        const scenes = (vc.scenes ?? []).map((sc) => ({
+          start: sc.start,
+          end: sc.end,
+          description: sc.description ?? "",
+        }));
+        const transcript = (vc.transcript ?? []).map((t) => ({
+          start: t.start,
+          end: t.end,
+          text: t.text ?? "",
+        }));
+        store.setVideoContext({
+          file_path: vc.file_path ?? "",
+          duration,
+          scenes,
+          transcript,
+        });
+        break;
+      }
+      case "phase": {
+        const phase = String(ev.phase || "").trim();
+        if (!phase) break;
+        // 첫 실제 phase 도착 시 optimistic pending 카드는 종료.
+        store.endPhase("pending");
+        if (ev.state === "done") {
+          store.endPhase(phase, ev.label, ev.detail);
+        } else {
+          store.startPhase(
+            phase,
+            ev.label || phase,
+            ev.detail || ""
+          );
+        }
+        break;
+      }
       case "interrupt": {
-        const payload = ev.payload || {};
-        const script = payload.script_plan || {};
-        const stepsRaw = (script.steps as Array<Record<string, unknown>>) || (payload.plan as Array<Record<string, unknown>>) || [];
+        const payload = (ev.payload || {}) as Record<string, unknown>;
+        // Backend 는 { type:"script_approval", plan:{steps,questions,...}, questions, instructions }
+        // 형태로 보낸다. 예전 이름 script_plan 도 방어적으로 지원.
+        const planLike =
+          (payload.plan as Record<string, unknown> | undefined) ??
+          (payload.script_plan as Record<string, unknown> | undefined) ??
+          {};
+        const stepsRaw = Array.isArray(planLike.steps)
+          ? (planLike.steps as Array<Record<string, unknown>>)
+          : [];
         const steps = stepsRaw.map((raw, idx) => ({
           id: (raw.step_id as number) ?? idx + 1,
           action: (raw.action as string) ?? "",
           expert: asNode((raw.expert as string) ?? "orchestrator"),
           rationale: (raw.rationale as string) ?? "",
-          estimatedSec: (raw.estimated_sec as number | undefined),
-          parallelGroup: (raw.parallel_group as number | null | undefined) ?? null,
+          estimatedSec: raw.estimated_sec as number | undefined,
+          parallelGroup:
+            (raw.parallel_group as number | null | undefined) ?? null,
           dependsOn: raw.depends_on as number[] | undefined,
         }));
-        const questions = script.questions ?? payload.questions ?? [];
+        const questions = Array.isArray(planLike.questions)
+          ? (planLike.questions as string[])
+          : Array.isArray(payload.questions)
+            ? (payload.questions as string[])
+            : [];
         store.pushInterrupt(steps, questions);
         break;
       }

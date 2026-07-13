@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { motion } from "motion/react";
-import { ArrowUp, Paperclip, X } from "lucide-react";
+import { ArrowUp, Paperclip, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAgentStore } from "./state";
-import { ensureSessionAndConnect, trySendChat, uploadVideo } from "./backend";
+import {
+  ensureSessionAndConnect,
+  tryCancel,
+  trySendChat,
+  uploadVideo,
+} from "./backend";
 import styles from "./composer.module.css";
 
 export function Composer() {
@@ -15,6 +20,8 @@ export function Composer() {
   const [attached, setAttached] = useState<File | null>(null);
   const uploadedName = useAgentStore((s) => s.uploadedName);
   const connection = useAgentStore((s) => s.connection);
+  const sessionStatus = useAgentStore((s) => s.sessionStatus);
+  const isRunning = sessionStatus === "streaming";
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-grow textarea (line-count 기반, max 160px)
@@ -78,7 +85,15 @@ export function Composer() {
       toast.error("메시지 전송 실패", {
         description: "WebSocket 상태를 확인해줘",
       });
+      return;
     }
+    // Optimistic pending phase — 백엔드 첫 이벤트 도착 전까지 rail 이 살아있는
+    // 것처럼 보이게. 백엔드가 phase_start 를 보내면 endPhase("pending") 로 마감.
+    store.startPhase(
+      "pending",
+      "에이전트 준비 중",
+      "요청을 수신하고 파이프라인을 여는 중이야"
+    );
   }, [text, attached]);
 
   useHotkeys(
@@ -202,15 +217,38 @@ export function Composer() {
             <kbd>↵</kbd>
           </div>
 
-          <button
-            type="button"
-            className={styles.sendBtn}
-            onClick={handleSend}
-            disabled={!text.trim()}
-            aria-label="보내기"
-          >
-            <ArrowUp size={14} strokeWidth={2.6} />
-          </button>
+          {isRunning ? (
+            <button
+              type="button"
+              className={styles.stopBtn}
+              onClick={() => {
+                const ok = tryCancel();
+                if (ok) {
+                  toast("중지 요청 전송", {
+                    description: "진행 중이던 tool 완료 후 즉시 종료",
+                  });
+                } else {
+                  toast.error("중지 실패", {
+                    description: "WebSocket 상태 확인 필요",
+                  });
+                }
+              }}
+              aria-label="중지"
+              title="중지 (⌘.)"
+            >
+              <Square size={11} strokeWidth={0} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={styles.sendBtn}
+              onClick={handleSend}
+              disabled={!text.trim()}
+              aria-label="보내기"
+            >
+              <ArrowUp size={14} strokeWidth={2.6} />
+            </button>
+          )}
         </div>
 
         {dragging && (

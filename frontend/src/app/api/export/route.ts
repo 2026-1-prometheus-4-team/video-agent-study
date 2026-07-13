@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ENGINE = path.resolve(process.cwd(), "../remotion");
+const ENGINE = path.resolve(process.cwd(), "./remotion");
 
 type Job = {
   progress: number; // 0..1 (프레임 파싱 실패 시 -1 = 불확정)
