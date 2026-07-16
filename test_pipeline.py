@@ -59,13 +59,29 @@ def print_chunk(chunk: dict) -> None:
             print(f"   critic: {verdict.get('verdict')} - {verdict.get('message_to_user', '')[:100]}")
 
 
+DEFAULT_VIDEOS = ["videos/worldcup.mp4"]
+
+
 def main() -> None:
     # 사용법 1 (대화형): python test_pipeline.py
-    # 사용법 2 (인자):   python test_pipeline.py "프롬프트" [--auto]
-    #   --auto 면 plan 을 자동 승인 (비대화형 테스트용)
+    # 사용법 2 (인자):   python test_pipeline.py "프롬프트" [--auto] [--videos a.mp4,b.mp4]
+    #   --auto            plan 을 자동 승인 (비대화형 테스트용)
+    #   --videos x,y,z    입력 영상 여러 개 지정 (쉼표 구분, videos/ 접두어 생략 가능)
     import sys
-    auto_approve = "--auto" in sys.argv
-    args = [a for a in sys.argv[1:] if a != "--auto"]
+    argv = sys.argv[1:]
+    auto_approve = "--auto" in argv
+
+    video_paths = list(DEFAULT_VIDEOS)
+    if "--videos" in argv:
+        i = argv.index("--videos")
+        raw = argv[i + 1] if i + 1 < len(argv) else ""
+        video_paths = [
+            v if v.startswith("videos/") else f"videos/{v}"
+            for v in (p.strip() for p in raw.split(",")) if v
+        ]
+        argv = argv[:i] + argv[i + 2:]
+
+    args = [a for a in argv if a != "--auto"]
 
     if args:
         user_request = args[0].strip()
@@ -76,12 +92,14 @@ def main() -> None:
         print("프롬프트가 비어 있습니다.")
         return
 
+    print(f"입력 영상: {video_paths}")
+
     checkpointer = MemorySaver()
     app = build_graph(checkpointer=checkpointer)
 
     initial: AgentState = {
         "user_request": user_request,
-        "video_paths": ["videos/worldcup.mp4"],
+        "video_paths": video_paths,
         "video_context": None,
         "execution_trace": [],
         "script_revision": 0,
