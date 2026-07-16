@@ -47,6 +47,20 @@ def _resolve_output_path(output_path: str = "") -> Path:
     output_dir = BASE_DIR / "audio_files"
     return output_dir / f"audio_{int(time.time())}.mp3"
 
+def _resolve_voice_id(voice: str = "default", voice_id: str = "") -> str:
+    if voice_id:
+        return voice_id
+
+    if not voice or voice == "default":
+        return os.getenv("ELEVENLABS_DEFAULT_VOICE_ID", "")
+
+    voice_key = str(voice).strip()
+
+    if voice_key.isdigit():
+        return os.getenv(f"ELEVENLABS_VOICE_{voice_key}", "")
+
+    return voice_key
+
 
 @tool
 def text_to_speech(
@@ -73,9 +87,7 @@ def text_to_speech(
     if not api_key:
         return _json_error("ELEVENLABS_API_KEY가 .env에 필요합니다.")
 
-    selected_voice = voice_id or voice
-    if not selected_voice or selected_voice == "default":
-        selected_voice = os.getenv("ELEVENLABS_DEFAULT_VOICE_ID", "")
+    selected_voice = _resolve_voice_id(voice=voice, voice_id=voice_id)
 
     if not selected_voice:
         return _json_error("ELEVENLABS_DEFAULT_VOICE_ID가 .env에 필요합니다.")
@@ -130,6 +142,90 @@ def text_to_speech(
         return _json_error(str(error), voice=selected_voice, model=model_id)
 
 
+def _join_transcript_segments(segments: list[dict]) -> str:
+    return " ".join(
+        str(segment.get("text", "")).strip()
+        for segment in segments
+        if str(segment.get("text", "")).strip()
+    ).strip()
+
+
+@tool
+def transcribe_video_to_speech(
+    video_path: str,
+    voice: str = "default",
+    voice_id: str = "",
+    output_path: str = "",
+    model: str = "",
+) -> str:
+    """영상 오디오를 전사한 뒤, 그 텍스트를 TTS로 변환함.
+
+    Args:
+        video_path: 영상 파일 경로
+        voice: ElevenLabs voice id. default면 .env의 기본 voice 사용
+        voice_id: voice의 별칭
+        output_path: 생성할 TTS 오디오 저장 경로
+        model: ElevenLabs TTS 모델
+    """
+    from agent.tools.transcribe import transcribe_video
+
+    try:
+        transcript_result = json.loads(
+            transcribe_video.invoke({"video_path": video_path})
+        )
+    except Exception as error:
+        return _json_error("영상 오디오 전사 호출에 실패했습니다.", detail=str(error))
+
+    if transcript_result.get("status") != "success":
+        return json.dumps(
+            {
+                "status": "error",
+                "success": False,
+                "output": None,
+                "error": "영상 오디오 전사에 실패했습니다.",
+                "transcribe_result": transcript_result,
+            },
+            ensure_ascii=False,
+        )
+
+    transcript_text = _join_transcript_segments(
+        transcript_result.get("segments", [])
+    )
+
+    if not transcript_text:
+        return _json_error(
+            "영상에서 TTS로 변환할 음성 텍스트를 찾지 못했습니다.",
+            transcribe_result=transcript_result,
+        )
+
+    tts_result = json.loads(
+        text_to_speech.invoke(
+            {
+                "text": transcript_text,
+                "voice": voice,
+                "voice_id": voice_id,
+                "output_path": output_path,
+                "model": model,
+            }
+        )
+    )
+
+    return json.dumps(
+        {
+            "status": tts_result.get("status", "error"),
+            "success": tts_result.get("status") == "success",
+            "output": tts_result.get("output"),
+            "text": transcript_text,
+            "transcript": transcript_result,
+            "tts": tts_result,
+            "report": (
+                f"segments: {transcript_result.get('segment_count', 0)}, "
+                f"output: {tts_result.get('output')}"
+            ),
+        },
+        ensure_ascii=False,
+    )
+
 if __name__ == "__main__":
     result = text_to_speech.invoke(
         {
@@ -139,4 +235,4 @@ if __name__ == "__main__":
     print(result)
 
 
-TOOLS = [text_to_speech]
+TOOLS = [text_to_speech, transcribe_video_to_speech]
