@@ -19,12 +19,12 @@ pip install -r requirements.txt
 
 프로젝트 루트에 `.env` 파일 생성
 
-```
+```env
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-`.env` 파일은 절대 Git에 올리면 안됨
-`.gitignore` 에 이미 추가되어 있음
+`.env` 파일은 절대 Git에 올리면 안 됩니다.
+`.gitignore`에 이미 추가되어 있습니다.
 
 ## 4. 폰트 다운로드
 
@@ -34,7 +34,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 python scripts/download_fonts.py
 ```
 
-`assets/fonts/` 에 6개 폰트가 저장됩니다. 이미 있으면 건너뜁니다.
+`assets/fonts/`에 6개의 폰트가 저장됩니다. 이미 존재하는 폰트는 건너뜁니다.
 
 ## 5. 실행
 
@@ -50,14 +50,14 @@ python agent.py
 python server.py
 ```
 
-서버 실행 후 http://localhost:8000/docs 에서 API 확인 가능
+서버 실행 후 http://localhost:8000/docs 에서 API를 확인할 수 있습니다.
 
-## 5. 각자 작업 방식
+## 6. 각자 작업 방식
 
 ### 브랜치 전략
 
 ```bash
-# 각자 브랜치 만들어서 작업
+# 각자 브랜치를 만들어 작업
 git checkout -b feature/이름-기능명
 
 # 예시
@@ -73,15 +73,15 @@ git commit -m "feat: cut_video tool 추가"
 git push origin feature/minsu-cut-tool
 ```
 
-GitHub에서 main 브랜치로 PR 올리기
+GitHub에서 `main` 브랜치로 PR을 올립니다.
 
-## 6. 숙제 제출 방식
+## 7. 숙제 제출 방식
 
-각자 브랜치에서 작업 후 PR 올리면 됨
-머지는 성민이가 리뷰 후 진행
+각자 브랜치에서 작업 후 PR을 올리면 됩니다.
+머지는 성민이가 리뷰 후 진행합니다.
 
 ## 주의사항
 
 - `.env` 절대 커밋 금지
 - `venv/` 폴더 커밋 금지
-- PR 올리기 전에 `python agent.py` 돌려서 동작 확인
+- PR 올리기 전에 `python agent.py`를 실행하여 정상 동작을 확인

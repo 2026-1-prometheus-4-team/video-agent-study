@@ -1,0 +1,30 @@
+# 줄바꿈 통일 — 팀원 간 CRLF/LF 전체 파일 충돌 방지
+# (git 이 저장소에는 LF 로 저장하고, 체크아웃도 LF 로 통일)
+
+* text=auto eol=lf
+
+*.py   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.txt  text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.sh   text eol=lf
+
+# Windows 배치 파일만 CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# 바이너리
+*.mp4  binary
+*.mov  binary
+*.avi  binary
+*.mkv  binary
+*.mp3  binary
+*.wav  binary
+*.jpg  binary
+*.jpeg binary
+*.png  binary
+*.ttf  binary

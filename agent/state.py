@@ -108,6 +108,9 @@ class AgentState(TypedDict, total=False):
 
     critic_verdict: Optional[CriticVerdict]
 
+    critic_retries: int
+    """critic 이 RETRY 를 낸 횟수. 무한 supervisor-critic 루프 방지용."""
+
     # ── 메타 ──
     session_id: str
     spawn_depth: int  # graph 진입 시 0

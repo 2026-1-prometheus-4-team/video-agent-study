@@ -172,7 +172,7 @@ def transcribe_video(video_path: str) -> str:
         for index, engine in enumerate(engines):
             try:
                 if engine == "openai":
-                    segments, language = _openai_whisper(chunks)
+                    segments, language = _gemini_transcribe(chunks)
                 elif engine == "faster-whisper":
                     segments, language = _local_whisper(normalized_path)
                 else:
