@@ -26,7 +26,17 @@ ANTHROPIC_API_KEY=sk-ant-...
 `.env` 파일은 절대 Git에 올리면 안됨
 `.gitignore` 에 이미 추가되어 있음
 
-## 4. 실행
+## 4. 폰트 다운로드
+
+자막 렌더링에 필요한 한국어 폰트를 다운로드합니다.
+
+```bash
+python scripts/download_fonts.py
+```
+
+`assets/fonts/` 에 6개 폰트가 저장됩니다. 이미 있으면 건너뜁니다.
+
+## 5. 실행
 
 ### 에이전트 단독 실행
 
