@@ -33,3 +33,6 @@ agent/effects/*_scene24_full.*
 
 # Research cache (트렌드 검색 결과 24h TTL)
 .cache/research/
+
+# 폰트 (scripts/download_fonts.py 로 다운로드)
+assets/fonts/

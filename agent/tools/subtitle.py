@@ -10,8 +10,10 @@ import json
 import logging
 import os
 import subprocess
+from dotenv import load_dotenv
 from langchain_core.tools import tool
 
+load_dotenv()
 logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(__file__)
@@ -19,7 +21,7 @@ VIDEOS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "videos"))
 SUBTITLES_DIR = os.path.join(VIDEOS_DIR, "subtitles")
 FONTS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "assets", "fonts"))
 
-_DEFAULT_FONT_FILE = "NotoSansKR-Regular.ttf"
+_DEFAULT_FONT_FILE = os.getenv("SUBTITLE_FONT", "NotoSansKR-Regular.ttf")
 _EMOJI_FONT_FILE = "NotoColorEmoji.ttf"
 
 
