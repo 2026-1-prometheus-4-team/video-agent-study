@@ -166,6 +166,20 @@ def _json_text(value: Any) -> str:
     return str(value)
 
 
+def _scoped_analysis_stem(video_path: str) -> Optional[str]:
+    """video_analysis 의 분석 JSON 명명 규칙을 그대로 사용 (규칙 이중화 방지).
+
+    video_analysis 는 cv2 / google.generativeai 를 module import 하므로 지연 임포트.
+    실패해도 아래 videos/ 기준 후보로 폴백하면 되니 조용히 None.
+    """
+    try:
+        from agent.tools.video_analysis import analysis_stem
+
+        return analysis_stem(video_path, VIDEOS_DIR)
+    except Exception:
+        return None
+
+
 def _find_analysis_path(video_path: str, analysis_path: Optional[str] = None) -> Optional[str]:
     if analysis_path:
         if os.path.isabs(analysis_path):
@@ -177,7 +191,16 @@ def _find_analysis_path(video_path: str, analysis_path: Optional[str] = None) ->
         return in_videos if os.path.exists(in_videos) else None
 
     base = os.path.splitext(os.path.basename(video_path))[0]
-    candidates = [
+    candidates: list[str] = []
+
+    # videos/ 밖(편집 결과물 등) 영상의 분석은 basename 충돌을 피하려고
+    # <stem>_<경로해시>_analysis.json 으로 저장된다 (video_analysis.analysis_stem).
+    # 그 파일이 이 영상의 정확한 분석이므로 원본 basename 후보보다 먼저 확인.
+    scoped = _scoped_analysis_stem(video_path)
+    if scoped and scoped != base:
+        candidates.append(os.path.join(VIDEOS_DIR, f"{scoped}_analysis.json"))
+
+    candidates += [
         os.path.join(VIDEOS_DIR, f"{base}_analysis.json"),
         os.path.join(VIDEOS_DIR, f"{base}_analysis_v2.json"),
         os.path.join(VIDEOS_DIR, f"{base}_analysis_gemini-only.json"),
@@ -359,42 +382,155 @@ def _semantic_scores(analysis_path: str, segments: list[dict], query: str) -> Op
     return _cosine_matrix(query_vecs[0], corpus)
 
 
-def _search_segments(video_path: str, query: str, analysis_path: Optional[str], max_results: int) -> tuple[str, list[dict]] | tuple[None, list]:
+DEFAULT_MERGE_GAP_MS = int(os.getenv("EDIT_MERGE_GAP_MS", "500"))
+
+
+def _merge_adjacent_matches(matches: list[dict], gap_ms: int) -> list[dict]:
+    """인접/중첩 매칭을 하나의 구간으로 union.
+
+    분석 세그먼트는 고정 3초 창이라 연속 장면이 조각 매칭으로 흩어진다
+    ("가족 장면" 30초 = 10 조각). gap_ms 이내로 붙어 있으면 병합.
+    """
+    if not matches or gap_ms < 0:
+        return matches
+    items = sorted((dict(m) for m in matches), key=lambda m: m["start_ms"])
+    merged: list[dict] = [items[0]]
+    merged[0]["merged_from"] = 1
+    for m in items[1:]:
+        cur = merged[-1]
+        if m["start_ms"] - cur["end_ms"] <= gap_ms:
+            cur["end_ms"] = max(cur["end_ms"], m["end_ms"])
+            cur["duration_ms"] = cur["end_ms"] - cur["start_ms"]
+            desc = m.get("description") or ""
+            if desc and desc not in (cur.get("description") or ""):
+                cur["description"] = f"{cur.get('description', '')} / {desc}"[:300]
+            cur["score"] = max(cur.get("score", 0), m.get("score", 0))
+            cur["merged_from"] = cur.get("merged_from", 1) + 1
+        else:
+            m["merged_from"] = 1
+            merged.append(m)
+    return merged
+
+
+def _public_segment(segment: dict, score: float, match_type: str) -> dict:
+    public = {k: v for k, v in segment.items() if not k.startswith("_")}
+    public["score"] = round(float(score), 3) if match_type == "semantic" else score
+    public["match_type"] = match_type
+    return public
+
+
+def _search_segments(
+    video_path: str,
+    query: str,
+    analysis_path: Optional[str],
+    max_results: int,
+    queries: Optional[list[str]] = None,
+    merge_gap_ms: Optional[int] = None,
+) -> dict:
+    """검색 코어. 신뢰도 메타 + 인접 병합 + near_misses 포함 결과 반환.
+
+    Returns:
+        {analysis_path: str|None, matches: [...], stats: {...}, near_misses: [...]}
+        analysis_path 가 None 이면 분석 JSON 자체가 없음.
+    """
+    gap_ms = DEFAULT_MERGE_GAP_MS if merge_gap_ms is None else max(0, int(merge_gap_ms))
+    all_queries = [q for q in ([query] + list(queries or [])) if q and q.strip()]
+    if not all_queries:
+        all_queries = [query]
+    near_misses: list[dict] = []
+
     loaded = _load_analysis(video_path, analysis_path)
     if not loaded:
-        return None, []
+        return {"analysis_path": None, "matches": [], "stats": {}, "near_misses": []}
 
     resolved_analysis_path, analysis = loaded
     segments = _analysis_segments(analysis)
+    stats: dict = {"segments_total": len(segments), "queries": all_queries}
 
-    # 1차: 임베딩 시맨틱 검색 (EDIT_SEMANTIC_SEARCH=0 이면 비활성)
+    # 사용 가능한 세그먼트가 없으면 (빈/깨진 분석 JSON) 임베딩 경로가 빈 행렬로
+    # numpy AxisError 를 낸다 — 검색 자체가 무의미하므로 즉시 no_match.
+    if not segments:
+        return {
+            "analysis_path": resolved_analysis_path,
+            "matches": [],
+            "stats": stats,
+            "near_misses": [],
+        }
+
+    # 1차: 임베딩 시맨틱 검색 (EDIT_SEMANTIC_SEARCH=0 이면 비활성).
+    # 쿼리 확장: 각 쿼리로 코사인 계산 후 세그먼트별 max.
     if os.getenv("EDIT_SEMANTIC_SEARCH", "1") != "0":
-        sims = _semantic_scores(resolved_analysis_path, segments, query)
-        if sims is not None:
-            scored = []
-            for segment, sim in zip(segments, sims):
-                if sim >= SEMANTIC_MIN_SCORE:
-                    public_segment = {k: v for k, v in segment.items() if not k.startswith("_")}
-                    public_segment["score"] = round(float(sim), 3)
-                    public_segment["match_type"] = "semantic"
-                    scored.append(public_segment)
-            scored.sort(key=lambda s: (-s["score"], s["start_ms"]))
-            if scored:
-                return resolved_analysis_path, scored[:max_results]
-            # 시맨틱 결과 없으면 키워드로 폴백
+        best_sims: Optional[list[float]] = None
+        for q in all_queries:
+            sims = _semantic_scores(resolved_analysis_path, segments, q)
+            if sims is None:
+                best_sims = None
+                break
+            if best_sims is None:
+                best_sims = list(sims)
+            else:
+                best_sims = [max(a, b) for a, b in zip(best_sims, sims)]
 
-    # 2차: 키워드 스코어링 (폴백)
+        if best_sims is not None:
+            ranked = sorted(
+                zip(segments, best_sims), key=lambda t: (-t[1], t[0]["start_ms"])
+            )
+            above = [
+                _public_segment(seg, sim, "semantic")
+                for seg, sim in ranked
+                if sim >= SEMANTIC_MIN_SCORE
+            ]
+            stats.update({
+                "match_type": "semantic",
+                "threshold": SEMANTIC_MIN_SCORE,
+                "total_above_threshold": len(above),
+                "top_score": round(ranked[0][1], 3) if ranked else 0.0,
+                "second_score": round(ranked[1][1], 3) if len(ranked) > 1 else 0.0,
+            })
+            stats["margin"] = round(stats["top_score"] - stats["second_score"], 3)
+            if above:
+                merged = _merge_adjacent_matches(above, gap_ms)
+                merged.sort(key=lambda s: (-s["score"], s["start_ms"]))
+                return {
+                    "analysis_path": resolved_analysis_path,
+                    "matches": merged[:max_results],
+                    "stats": stats,
+                    "near_misses": [],
+                }
+            # 임계 미달 — 상위 후보를 near_misses 로 챙겨두되 *키워드 폴백은
+            # 계속 진행*한다. 고유명사/로마자처럼 임베딩이 약한 쿼리는 literal
+            # 매칭이 정답인 경우가 많아, 여기서 끊으면 되던 검색이 죽는다.
+            near_misses = [
+                _public_segment(seg, sim, "semantic")
+                for seg, sim in ranked[:3]
+                if sim > 0.25
+            ]
+
+    # 2차: 키워드 스코어링 (폴백). 쿼리 확장: max 점수.
     scored = []
     for segment in segments:
-        score = _score_segment(query, segment)
+        score = max(_score_segment(q, segment) for q in all_queries)
         if score > 0:
-            public_segment = {k: v for k, v in segment.items() if not k.startswith("_")}
-            public_segment["score"] = score
-            public_segment["match_type"] = "keyword"
-            scored.append(public_segment)
+            scored.append(_public_segment(segment, score, "keyword"))
 
     scored.sort(key=lambda s: (-s["score"], s["start_ms"]))
-    return resolved_analysis_path, scored[:max_results]
+    if scored:
+        # 키워드가 잡았으면 그 통계로 덮어쓴다 (semantic stats 는 참고용 유지).
+        stats.update({
+            "match_type": "keyword",
+            "total_above_threshold": len(scored),
+            "top_score": scored[0]["score"],
+            "second_score": scored[1]["score"] if len(scored) > 1 else 0,
+        })
+        stats["margin"] = stats["top_score"] - stats["second_score"]
+    merged = _merge_adjacent_matches(scored, gap_ms) if scored else []
+    merged.sort(key=lambda s: (-s["score"], s["start_ms"]))
+    return {
+        "analysis_path": resolved_analysis_path,
+        "matches": merged[:max_results],
+        "stats": stats,
+        "near_misses": [] if merged else near_misses,
+    }
 
 
 @tool
@@ -591,33 +727,63 @@ def search_video_segments(
     query: str,
     analysis_path: Optional[str] = None,
     max_results: int = 5,
+    queries: Optional[list[str]] = None,
+    merge_gap_ms: Optional[int] = None,
 ) -> str:
     """분석 JSON에서 자연어 query와 일치하는 영상 구간을 찾는다.
+
+    모호한 요청("가족", "지루한 부분")은 queries 로 동의어/구체 표현을 함께
+    넘기면 재현율이 올라간다 (예: ["가족", "여러 사람", "아이와 부모"]).
+    인접한 매칭(기본 0.5초 이내)은 하나의 구간으로 병합돼 돌아온다.
 
     Args:
         video_path: 원본 영상 경로 또는 파일명.
         query: 찾을 장면 설명. 예: "타워 브리지", "공중전화", "노란 상자".
         analysis_path: 분석 JSON 경로. 생략 시 videos/<영상명>_analysis.json 자동 탐색.
         max_results: 최대 반환 개수.
+        queries: 추가 검색 표현 목록 (동의어 확장). 각 세그먼트는 최고 점수 채택.
+        merge_gap_ms: 이 간격(ms) 이하로 붙은 매칭을 병합. 기본 500.
 
     Returns:
-        JSON 문자열: status, analysis_path, matches[{start_ms,end_ms,description,score}].
+        JSON 문자열:
+        - 매칭 있음: {status:"success", matches:[{start_ms,end_ms,description,score,
+          match_type,merged_from}], stats:{top_score,margin,total_above_threshold,...}}
+        - 매칭 없음: {status:"no_match", near_misses:[임계 미달 상위 후보], stats}
+          -> 임의로 자르지 말고 near_misses 를 사용자에게 후보로 제시할 것.
+        stats.margin 이 작으면 (동점 후보 다수) 사용자 확인을 권장.
     """
     try:
         max_results = max(1, int(max_results))
-        resolved_analysis_path, matches = _search_segments(video_path, query, analysis_path, max_results)
-        if not resolved_analysis_path:
+        result = _search_segments(
+            video_path, query, analysis_path, max_results,
+            queries=queries, merge_gap_ms=merge_gap_ms,
+        )
+        if not result["analysis_path"]:
             return json.dumps({
                 "status": "error",
                 "error": "analysis_not_found",
                 "message": "분석 JSON이 없습니다. analyze_video 후 다시 호출하세요.",
             }, ensure_ascii=False)
 
+        if not result["matches"]:
+            return json.dumps({
+                "status": "no_match",
+                "query": query,
+                "analysis_path": result["analysis_path"],
+                "near_misses": result["near_misses"],
+                "stats": result["stats"],
+                "message": (
+                    "임계값 이상 매칭 없음. near_misses 가 있으면 사용자에게 "
+                    "후보로 확인받고, 없으면 쿼리를 바꿔 재시도하거나 사용자에게 물어볼 것."
+                ),
+            }, ensure_ascii=False)
+
         return json.dumps({
             "status": "success",
             "query": query,
-            "analysis_path": resolved_analysis_path,
-            "matches": matches,
+            "analysis_path": result["analysis_path"],
+            "matches": result["matches"],
+            "stats": result["stats"],
         }, ensure_ascii=False)
     except Exception as e:
         logger.exception("search_video_segments 예외")
@@ -649,7 +815,9 @@ def cut_by_description(
         JSON 문자열: status, clips, merged_output.
     """
     try:
-        resolved_analysis_path, matches = _search_segments(video_path, query, analysis_path, max_segments)
+        search = _search_segments(video_path, query, analysis_path, max_segments)
+        resolved_analysis_path = search["analysis_path"]
+        matches = search["matches"]
         if not resolved_analysis_path:
             return json.dumps({
                 "status": "error",
@@ -662,15 +830,34 @@ def cut_by_description(
                 "error": "no_match",
                 "query": query,
                 "analysis_path": resolved_analysis_path,
+                "near_misses": search["near_misses"],
+                "stats": search["stats"],
             }, ensure_ascii=False)
 
         matches = sorted(matches, key=lambda item: item["start_ms"])
         padding_ms = max(0, int(padding_ms))
-        clips = []
-        for i, match in enumerate(matches):
+
+        # padding 적용 후 중첩 구간 union — 겹치는 클립을 각각 잘라 병합하면
+        # 같은 프레임이 반복 재생된다.
+        padded: list[dict] = []
+        for match in matches:
             start_ms = max(0, int(match["start_ms"]) - padding_ms)
             end_ms = int(match["end_ms"]) + padding_ms
-            per_clip_output = output_path if output_path and len(matches) == 1 and not merge else None
+            if padded and start_ms <= padded[-1]["end_ms"]:
+                padded[-1]["end_ms"] = max(padded[-1]["end_ms"], end_ms)
+                padded[-1]["sources"].append(match)
+            else:
+                padded.append({"start_ms": start_ms, "end_ms": end_ms, "sources": [match]})
+
+        clips = []
+        for i, rng in enumerate(padded):
+            start_ms = rng["start_ms"]
+            end_ms = rng["end_ms"]
+            match = rng["sources"][0]
+            # 구간이 하나면 merge 여부와 무관하게 요청 경로로 바로 쓴다.
+            # merge_video 는 클립 1개면 입력 경로를 그대로 반환해서 output_path 를
+            # 무시하므로, 여기서 안 쓰면 결과가 요청한 경로에 안 생긴다.
+            per_clip_output = output_path if output_path and len(padded) == 1 else None
             cut_result = cut_video.invoke({
                 "video_path": video_path,
                 "start_ms": start_ms,
@@ -683,6 +870,7 @@ def cut_by_description(
             clips.append({
                 "match_index": i,
                 "source_segment": match,
+                "source_segments": rng["sources"],
                 "start_ms": start_ms,
                 "end_ms": end_ms,
                 "output": cut_result,

@@ -5,6 +5,7 @@ OpenCV 로 N초 간격 프레임 추출 -> Gemini Vision 배치 호출 -> 타임
 텍스트/오디오 분석은 별도 Tool에서 추가 예정.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -20,6 +21,34 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 VIDEOS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "videos")
+
+
+def analysis_stem(video_path: str, videos_dir: str) -> str:
+    """분석 JSON 의 stem 을 결정 — videos/ 안이면 <stem>, 밖이면 <stem>_<해시8>.
+
+    videos/ 밖(편집 결과물 outputs/ 등)의 영상이 원본과 basename 이 같으면
+    (supervisor 가 output_path="london.mp4" 지정 → outputs/london.mp4 vs
+    videos/london.mp4) videos/london_analysis.json 을 조용히 덮어써 원본 분석이
+    사라진다. 절대경로 해시를 붙여 분리한다.
+
+    videos/ 기준 상대경로는 기존 이름을 그대로 유지 — graph.py 의 캐시 탐색
+    (videos/<stem>_analysis.json) 과 edit.py 자동 탐색이 이 이름을 기대한다.
+
+    Args:
+        video_path: 영상 경로 (절대경로 또는 videos/ 기준 상대경로)
+        videos_dir: videos 루트 (호출 측 모듈 상수 — 테스트 patch 대응)
+    """
+    stem = os.path.splitext(os.path.basename(video_path))[0]
+    if not os.path.isabs(video_path):
+        return stem  # 상대경로 = videos/ 기준 (analyze_video 입력 규칙)
+
+    videos_root = os.path.realpath(videos_dir)
+    target = os.path.realpath(video_path)
+    if target == videos_root or target.startswith(videos_root + os.sep):
+        return stem
+
+    digest = hashlib.sha1(target.encode("utf-8")).hexdigest()[:8]
+    return f"{stem}_{digest}"
 
 
 def _extract_frames(video_path: str, interval_sec: float) -> tuple[float, list[tuple[int, bytes]]]:
@@ -79,8 +108,11 @@ start_ms / end_ms 는 반드시 위에 적힌 타임스탬프 값만 사용할 �
     {{
       "start_ms": <시작 ms>,
       "end_ms": <끝 ms>,
-      "description": "<장면 설명 한국어>",
+      "description": "<장면 설명 한국어 — 인물 관계 추정 포함 (예: 가족으로 보이는 어른 2명과 아이)>",
       "objects": ["<주요 객체>"],
+      "people_count": <화면 속 사람 수, 없으면 0>,
+      "people": ["<인물 짧은 묘사: 성별/연령대/관계 추정, 예: 아이, 아버지로 보이는 남성>"],
+      "actions": ["<진행 중인 행동, 예: 식사, 걷기, 웃으며 대화>"],
       "scene_change": <true/false>,
       "mood": "<calm|energetic|tense|neutral 중 하나>"
     }}
@@ -108,11 +140,15 @@ def analyze_video(video_path: str, interval_sec: float = 3.0) -> str:
     프레임이 많으면 청크(기본 100장)로 나눠 Gemini Vision을 여러 번 호출.
 
     Args:
-        video_path: 영상 파일명 (예: london.mp4). videos/ 폴더 기준.
+        video_path: 영상 파일명 (videos/ 기준 상대경로) 또는 절대경로.
+            편집 결과물(outputs/...) 재분석 시 절대경로로 호출 가능.
         interval_sec: 프레임 샘플링 간격(초). 기본값 3.0. 짧은 영상은 0.5 권장.
     """
     try:
-        input_path = os.path.join(VIDEOS_DIR, video_path)
+        if os.path.isabs(video_path):
+            input_path = video_path
+        else:
+            input_path = os.path.join(VIDEOS_DIR, video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"파일을 찾을 수 없음: {input_path}"}, ensure_ascii=False)
 
@@ -178,7 +214,10 @@ def analyze_video(video_path: str, interval_sec: float = 3.0) -> str:
             "summary": " / ".join(chunk_summaries),
         }
 
-        name = os.path.splitext(video_path)[0]
+        # 항상 VIDEOS_DIR 에 저장 — 절대경로(편집 결과물) 재분석도 검색 도구의
+        # 자동 탐색에 걸리게. 단 videos/ 밖 입력은 basename 충돌로 원본 분석을
+        # 덮어쓰지 않도록 stem 에 경로 해시를 붙인다 (analysis_stem 참고).
+        name = analysis_stem(input_path, VIDEOS_DIR)
         output_path = os.path.join(VIDEOS_DIR, f"{name}_analysis.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
