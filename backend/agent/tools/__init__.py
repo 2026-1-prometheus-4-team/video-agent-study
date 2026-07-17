@@ -26,6 +26,7 @@ from agent.tools.remotion_render import TOOLS as remotion_tools
 from agent.tools.research_llm import TOOLS as research_llm_tools
 from agent.tools.research_external import TOOLS as research_external_tools
 from agent.tools.subtitle import TOOLS as subtitle_tools
+from agent.tools.subtitle_cues import TOOLS as subtitle_cues_tools
 # ===========================================
 
 
@@ -46,6 +47,7 @@ tools = [
     *research_llm_tools,
     *research_external_tools,
     *subtitle_tools,
+    *subtitle_cues_tools,
 ]
 
 tool_map = {t.name: t for t in tools}
@@ -62,7 +64,7 @@ tool_groups = {
         *audio_denoise_tools,
         *audio_normalize_tools,
     ],
-    "text": [*subtitle_tools],
+    "text": [*subtitle_tools, *subtitle_cues_tools],
     "effect": [*remotion_tools],
     "analysis": [
         *scene_tools,

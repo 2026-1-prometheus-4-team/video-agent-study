@@ -2,8 +2,13 @@
   "_meta": {
     "purpose": "Supervisor 가 사용자에게 제시할 TTS 선택지. agent/prompt_builder.py 가 stable prefix 에 주입.",
     "engine_default": "edge-tts",
-    "engine_alternatives": ["openai-tts", "elevenlabs", "google-cloud-tts"],
-    "updated": "2026-05-25",
+    "engine_alternatives": [
+      "openai-tts",
+      "elevenlabs",
+      "google-cloud-tts"
+    ],
+    "elevenlabs_voice_id_note": "text_to_speech(ElevenLabs) 가 카탈로그 id 를 받으면 이 필드로 실제 voice id 를 해석. 'env:<NAME>' 값은 해당 환경변수 참조 (실제 id 확보 전까지 기본값). 실제 ElevenLabs voice id 를 알면 문자열로 직접 교체.",
+    "updated": "2026-07-17",
     "owner": "audio_expert (ML dev)"
   },
   "voices": [
@@ -11,60 +16,86 @@
       "id": "male_ko_general",
       "engine": "edge-tts",
       "engine_voice": "ko-KR-InJoonNeural",
+      "elevenlabs_voice_id": "env:ELEVENLABS_DEFAULT_VOICE_ID",
       "lang": "ko-KR",
       "gender": "male",
       "style": "neutral",
-      "use_cases": ["youtube", "shorts", "general"],
+      "use_cases": [
+        "youtube",
+        "shorts",
+        "general"
+      ],
       "description": "한국어 남성, 자연스러운 톤. 일반 나래이션 default."
     },
     {
       "id": "male_ko_energetic",
       "engine": "edge-tts",
       "engine_voice": "ko-KR-HyunsuNeural",
+      "elevenlabs_voice_id": "env:ELEVENLABS_DEFAULT_VOICE_ID",
       "lang": "ko-KR",
       "gender": "male",
       "style": "energetic",
-      "use_cases": ["shorts", "reels"],
+      "use_cases": [
+        "shorts",
+        "reels"
+      ],
       "description": "한국어 남성, 밝고 빠른 톤. 쇼츠/릴스 후킹에 적합."
     },
     {
       "id": "female_ko_general",
       "engine": "edge-tts",
       "engine_voice": "ko-KR-SunHiNeural",
+      "elevenlabs_voice_id": "env:ELEVENLABS_DEFAULT_VOICE_ID",
       "lang": "ko-KR",
       "gender": "female",
       "style": "neutral",
-      "use_cases": ["youtube", "shorts", "general"],
+      "use_cases": [
+        "youtube",
+        "shorts",
+        "general"
+      ],
       "description": "한국어 여성, 부드럽고 또렷한 톤."
     },
     {
       "id": "male_en_general",
       "engine": "edge-tts",
       "engine_voice": "en-US-GuyNeural",
+      "elevenlabs_voice_id": "env:ELEVENLABS_DEFAULT_VOICE_ID",
       "lang": "en-US",
       "gender": "male",
       "style": "neutral",
-      "use_cases": ["youtube", "general"],
+      "use_cases": [
+        "youtube",
+        "general"
+      ],
       "description": "외국인 (영어) 남성, 일반 톤. 영문 자막 / 외국인 ver."
     },
     {
       "id": "female_en_general",
       "engine": "edge-tts",
       "engine_voice": "en-US-JennyNeural",
+      "elevenlabs_voice_id": "env:ELEVENLABS_DEFAULT_VOICE_ID",
       "lang": "en-US",
       "gender": "female",
       "style": "neutral",
-      "use_cases": ["youtube", "general"],
+      "use_cases": [
+        "youtube",
+        "general"
+      ],
       "description": "외국인 (영어) 여성, 일반 톤."
     },
     {
       "id": "male_ja_general",
       "engine": "edge-tts",
       "engine_voice": "ja-JP-KeitaNeural",
+      "elevenlabs_voice_id": "env:ELEVENLABS_DEFAULT_VOICE_ID",
       "lang": "ja-JP",
       "gender": "male",
       "style": "neutral",
-      "use_cases": ["youtube", "general"],
+      "use_cases": [
+        "youtube",
+        "general"
+      ],
       "description": "일본어 남성 (확장용)."
     }
   ],

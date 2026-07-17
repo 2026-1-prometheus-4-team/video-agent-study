@@ -20,6 +20,7 @@ def mix_audio(
     audio_path: str,
     mode: str = "overlay",
     output_path: str = "",
+    at_time_ms: int = 0,
 ) -> str:
     """Mix audio into video using replace or overlay mode.
 
@@ -28,6 +29,9 @@ def mix_audio(
         audio_path: Audio track path.
         mode: replace or overlay.
         output_path: Optional output video path.
+        at_time_ms: Overlay mode only - delay the audio track by this many
+            milliseconds so it starts at that point in the video (adelay).
+            Ignored in replace mode.
     """
     try:
         video = resolve_input_path(video_path)
@@ -42,10 +46,20 @@ def mix_audio(
                 "-c:v", "copy", "-shortest", "-y", str(output),
             )
         elif mode == "overlay":
+            delay = max(0, int(at_time_ms))
+            if delay > 0:
+                # all=1: 채널 수와 무관하게 모든 채널을 같은 값으로 지연.
+                # "{delay}|{delay}" 형태는 앞 2채널만 지연시켜 5.1 등 다채널
+                # 오디오에서 나머지 채널이 어긋난다.
+                audio_filter = (
+                    f"[1:a]adelay={delay}:all=1[ovl];"
+                    "[0:a][ovl]amix=inputs=2:duration=first:normalize=0[mix]"
+                )
+            else:
+                audio_filter = "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[mix]"
             run_ffmpeg(
                 "-i", str(video), "-i", str(audio),
-                "-filter_complex",
-                "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[mix]",
+                "-filter_complex", audio_filter,
                 "-map", "0:v?", "-map", "[mix]",
                 "-c:v", "copy", "-y", str(output),
             )
@@ -53,7 +67,12 @@ def mix_audio(
             raise ValueError("mode must be replace or overlay")
 
         return json.dumps(
-            {"status": "success", "output": str(output), "mode": mode},
+            {
+                "status": "success",
+                "output": str(output),
+                "mode": mode,
+                "at_time_ms": max(0, int(at_time_ms)) if mode == "overlay" else 0,
+            },
             ensure_ascii=False,
         )
     except Exception as error:

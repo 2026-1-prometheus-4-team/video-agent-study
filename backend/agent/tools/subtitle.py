@@ -9,6 +9,7 @@ FFmpeg subtitles= (SRT burn-in) / drawtext= (오버레이) 필터로 텍스트�
 import json
 import logging
 import os
+import re
 import subprocess
 from langchain_core.tools import tool
 
@@ -141,16 +142,58 @@ def _ass_alignment(position: str) -> int:
     return {"bottom": 2, "center": 5, "top": 8}.get(position, 2)
 
 
+_NAMED_COLORS = {
+    "white": "FFFFFF",
+    "black": "000000",
+    "yellow": "FFFF00",
+    "red": "FF0000",
+    "green": "00FF00",
+    "blue": "0000FF",
+    "orange": "FFA500",
+    "cyan": "00FFFF",
+    "magenta": "FF00FF",
+    "pink": "FFC0CB",
+    "gray": "808080",
+    "grey": "808080",
+}
+
+
+def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+    """'#RRGGBB' / 'RGB' / 색 이름 → (r, g, b). 형식 오류 시 ValueError."""
+    v = str(value).strip().lower()
+    v = _NAMED_COLORS.get(v, v)
+    v = v.lstrip("#")
+    if len(v) == 3:
+        v = "".join(ch * 2 for ch in v)
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", v):
+        raise ValueError(f"색상 형식 오류: {value}")
+    return int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)
+
+
+def _color_to_ass(value: str, alpha: str | None = None) -> str:
+    """임의 hex/색 이름 → ASS 색 문자열 (&H[AA]BBGGRR — BGR 순서).
+
+    alpha=None 이면 force_style/인라인 태그용 &HBBGGRR,
+    alpha='00' 등 지정 시 [V4+ Styles] 라인용 &HAABBGGRR.
+    """
+    r, g, b = _hex_to_rgb(value)
+    if alpha is None:
+        return f"&H{b:02X}{g:02X}{r:02X}"
+    return f"&H{alpha}{b:02X}{g:02X}{r:02X}"
+
+
 def _srt_force_style(style: dict, font_name: str) -> str:
-    """FFmpeg subtitles= force_style 문자열 생성."""
-    color_hex = {
-        "white": "&HFFFFFF",
-        "yellow": "&H00FFFF",
-        "black": "&H000000",
-        "red": "&H0000FF",
-    }
-    primary = color_hex.get(style.get("color", "white"), "&HFFFFFF")
-    outline = color_hex.get(style.get("stroke_color", "black"), "&H000000")
+    """FFmpeg subtitles= force_style 문자열 생성. 색은 임의 hex/색 이름 허용."""
+    try:
+        primary = _color_to_ass(style.get("color", "white"))
+    except ValueError:
+        logger.warning(f"color 파싱 실패({style.get('color')}) — white 사용")
+        primary = "&HFFFFFF"
+    try:
+        outline = _color_to_ass(style.get("stroke_color", "black"))
+    except ValueError:
+        logger.warning(f"stroke_color 파싱 실패({style.get('stroke_color')}) — black 사용")
+        outline = "&H000000"
     return (
         f"FontName={font_name},"
         f"FontSize={style.get('font_size', 24)},"
@@ -233,6 +276,13 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
         with open(srt_abs, encoding="utf-8") as f:
             segments = len([b for b in f.read().split("\n\n") if b.strip()])
 
+        # 큐 문서 동기화 — 기존 문서가 없을 때만 SRT 기반으로 생성 (best-effort)
+        try:
+            from agent.tools import subtitle_cues  # 지연 임포트 (순환 방지)
+            subtitle_cues.sync_cues_from_srt(input_path, srt_abs, style=s)
+        except Exception as sync_error:
+            logger.warning(f"큐 문서 동기화 스킵: {sync_error}")
+
         return json.dumps({
             "output": output_name,
             "style": {"font": font_name, "size": s["font_size"], "color": s["color"]},
@@ -249,9 +299,12 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
 
 @tool
 def add_auto_subtitle(video_path: str, style: str = "") -> str:
-    """영상을 자동 전사(Whisper)하고 SRT 자막을 생성 후 burn-in — one-shot 처리.
+    """영상을 자동 전사(Whisper)하고 자막 큐 문서 생성 후 burn-in — one-shot 처리.
 
-    내부 흐름: Whisper API 전사 → SRT 파일 생성(videos/subtitles/) → add_subtitle 호출.
+    내부 흐름: Whisper 전사 → SRT/JSON 사이드카 저장(프론트 호환) →
+    큐 문서(videos/subtitles/<stem>.cues.json, source_video 기록) 생성 →
+    render_subtitles 로 ASS 렌더 + burn-in.
+    이후 개별 수정은 update_subtitle_cues / set_subtitle_style + render_subtitles 로 처리.
     플랫폼(shorts/youtube)에 따라 줄 길이와 폰트 크기 자동 조정.
 
     Args:
@@ -300,8 +353,38 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
             json.dump({"segments": transcript, "language": result.get("language"), "engine": result.get("engine")}, f, ensure_ascii=False, indent=2)
         logger.info(f"SRT/JSON 저장: {srt_abs} ({len(transcript)}개 세그먼트)")
 
-        # 3. burn-in
-        return add_subtitle.invoke({"video_path": video_path, "srt_path": srt_abs, "style": style})
+        # 3. 큐 문서 생성 (진실의 원천) — source_video 기록 필수
+        from agent.tools import subtitle_cues  # 지연 임포트 (순환 방지)
+
+        defaults = subtitle_cues.style_defaults_from_legacy(s_tmp)
+        _, cues_doc_path = subtitle_cues.create_cues_doc(
+            stem=name,
+            source_video=input_path,
+            segments=transcript,
+            style_defaults=defaults,
+        )
+
+        # 4. 큐 문서 기준 ASS 렌더 + burn-in (기존 출력 위치/이름 유지 — 프론트 호환)
+        _, ext = os.path.splitext(video_path)
+        output_name = f"{name}_subtitled{ext}"
+        rendered = subtitle_cues.render_subtitles.invoke({
+            "video_path": video_path,
+            "output_path": os.path.join(VIDEOS_DIR, output_name),
+        })
+        if isinstance(rendered, str) and rendered.startswith("ERROR"):
+            return json.dumps({"error": rendered}, ensure_ascii=False)
+
+        return json.dumps({
+            "output": output_name,
+            "cues_doc": cues_doc_path,
+            "style": {
+                "font": defaults["font"],
+                "size": defaults["size"],
+                "color": defaults["color"],
+            },
+            "segments": len(transcript),
+            "status": "success",
+        }, ensure_ascii=False)
 
     except Exception as e:
         logger.error(f"add_auto_subtitle 오류: {e}")
