@@ -52,6 +52,10 @@ def make_llm(
     kwargs: dict = {
         "model": model_name,
         "temperature": temperature if temperature is not None else default_temp,
+        # 일시적 서버 오류(503, RemoteProtocolError 등) 자동 재시도.
+        # 서버가 응답 없이 끊는 경우가 있어 파이프라인 안정성을 위해 필수.
+        "max_retries": 5,
+        "timeout": 120,
     }
     if cached_content:
         kwargs["cached_content"] = cached_content

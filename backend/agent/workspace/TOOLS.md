@@ -41,15 +41,19 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
 | tool                 | 시그니처                                                              | 설명                                   |
 |----------------------|------------------------------------------------------------------------|----------------------------------------|
 | `transcribe_video`   | `(video_path) -> [{start, end, text}]`                                | Whisper 자막/발화 추출 (timestamp)     |
-| `text_to_speech`     | `(text, voice?, stability?, style?, speed?, output_path?) -> json`    | TTS / 나래이션 합성. 생성 이력은 narration.json manifest 에 자동 기록 |
+| `text_to_speech`     | `(text, voice?, voice_id?, stability?, style?, speed?, output_path?, model?) -> json` | TTS / 나래이션 합성. 생성 이력은 narration.json manifest 에 자동 기록 |
+| `transcribe_video_to_speech` | `(video_path, voice?, voice_id?, output_path?, model?, stability?, style?, speed?) -> json` | 영상 발화를 전사해 그대로 다른 목소리로 재생성 (더빙 / 보이스 교체) |
 | `add_bgm`            | `(video_path, bgm_path, volume, ducking, narration_path?) -> path`    | BGM 깔기 (ducking = 발화 구간 자동 감쇠) |
 | `add_sfx`            | `(video_path, sfx_path, at_time) -> path`                             | 효과음 (woosh, ding, beat 등) 삽입     |
 | `mix_audio`          | `(video_path, audio_path, mode, output_path?, at_time_ms?) -> path`   | 오디오 mix. overlay + at_time_ms 로 특정 시점 배치 |
 | `denoise`            | `(audio_path) -> path`                                                 | 노이즈 제거                            |
 | `normalize_loudness` | `(path, target_lufs) -> path`                                          | 라우드니스 정규화 (-14 LUFS 등)        |
 
-TTS voice 는 assets/tts_voices.json 의 카탈로그 id (예: `male_ko_general`) 또는
-raw ElevenLabs voice id. 사용자 표현 매핑: "더 차분하게" -> stability 상향(0.7~0.9)
+TTS voice 는 assets/tts_voices.json 의 카탈로그 id (예: `male_ko_general`),
+숫자 별칭 (`"2"` -> .env 의 ELEVENLABS_VOICE_2), 또는 raw ElevenLabs voice id.
+명시적 id 를 쓰려면 voice_id 파라미터 (voice 보다 우선).
+"이 영상 목소리만 바꿔줘" = transcribe_video_to_speech (전사 + 재합성 한 번에).
+사용자 표현 매핑: "더 차분하게" -> stability 상향(0.7~0.9)
 + speed 하향(0.9), "더 밝게/에너지있게" -> stability 하향(0.3) + style 상향.
 특정 구간 나래이션 교체 = 해당 문장만 재합성 -> mix_audio(overlay, at_time_ms).
 나래이션 / TTS 는 같은 tool — 사용 맥락만 다르다.

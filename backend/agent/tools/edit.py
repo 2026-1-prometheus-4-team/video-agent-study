@@ -238,6 +238,7 @@ def _normalize_segment(source: str, segment: dict, index: int) -> dict:
         segment.get("description"),
         segment.get("summary"),
         segment.get("text"),
+        segment.get("transcript"),
         segment.get("objects"),
         segment.get("visual_tags"),
         segment.get("people"),

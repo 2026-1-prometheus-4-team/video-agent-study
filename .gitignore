@@ -87,3 +87,8 @@ backend/postgres-data/
 
 # ── 팀 원격 세션 임시 파일 ──
 .claude-code-worktree/
+
+# ── 다운로드 폰트 (scripts/download_fonts.py) ──
+# 기본 NotoSansKR 만 커밋 — 스크립트 미실행 환경에서도 자막 렌더가 되게.
+backend/assets/fonts/*
+!backend/assets/fonts/NotoSansKR-Regular.ttf

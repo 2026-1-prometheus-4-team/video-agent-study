@@ -283,6 +283,9 @@ action 종류 (TOOLS.md 참조):
 - **자막 수정 요청 ("두번째 자막 오타", "이 자막만 노란색", "자막 전부 위로") 은 재전사가 아니라
   큐 수정이다**: text_expert 의 list_subtitle_cues → update_subtitle_cues / set_subtitle_style →
   render_subtitles 경로. 전체 재전사(add_auto_subtitle 재실행) 금지 — 기존 수정이 다 날아간다.
+- **입력 영상이 여러 개인 경우**: 각 scene 의 `video` 필드가 어느 영상의 장면인지 알려준다.
+  cut step 의 video_path 에 반드시 그 scene 의 video 값을 그대로 지정할 것.
+  서로 다른 영상에서 자른 클립들도 merge_video 로 이어붙일 수 있다 (해상도/코덱이 달라도 자동 재인코딩).
 - 단, 한 expert 가 한 turn 에서 다 처리 가능한 작업은 *하나의 step* 으로 묶기 (예: 3 개 cut 동시).
 - 병렬 가능한 step 들은 같은 `parallel_group` 번호 부여 -> Supervisor 가 동시 spawn.
 - 타겟 포맷에 따라 SOUL.md 의 default 컨벤션 적용 (쇼츠 = 9:16 / 60 초 / 큰 자막 등).

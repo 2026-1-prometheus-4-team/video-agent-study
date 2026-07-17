@@ -65,8 +65,32 @@ logger = logging.getLogger(__name__)
 # analysis_node — 사전 영상 분석
 # =============================================================
 
+def _analyze_one_video(path: str) -> tuple[str, dict]:
+    """영상 하나 분석 (캐시 JSON 우선). 반환: (파일명, 분석 데이터 or {'error': ...})."""
+    import json as _json
+    from pathlib import Path
+    from agent import config
+    from agent.tools.video_analysis import analyze_video
+
+    filename = Path(path).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
+    try:
+        cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
+        if cached_json.exists():
+            logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
+            return filename, _json.loads(cached_json.read_text(encoding="utf-8"))
+        raw = analyze_video.invoke({"video_path": filename})
+        return filename, _json.loads(raw)
+    except Exception as e:
+        logger.exception("analysis_node: %s 분석 실패", filename)
+        return filename, {"error": str(e)}
+
+
 def analysis_node(state: AgentState) -> dict[str, Any]:
-    """video_context 가 없고 video_paths 가 있으면 사전 분석."""
+    """video_context 가 없고 video_paths 가 있으면 사전 분석.
+
+    여러 영상이 입력되면 ThreadPoolExecutor 로 병렬 분석하고,
+    scenes 에 video 필드를 붙여 어느 영상의 장면인지 구분한다.
+    """
     if state.get("video_context"):
         logger.info("analysis_node: video_context 이미 있음 -> skip")
         return {}
@@ -76,48 +100,55 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         logger.warning("analysis_node: video_paths 비어 있음. analysis skip.")
         return {}
 
-    import json as _json
-    from pathlib import Path
-    from agent import config
-    from agent.tools.video_analysis import analyze_video
+    from concurrent.futures import ThreadPoolExecutor
 
-    first = video_paths[0]
-    filename = Path(first).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
+    multi = len(video_paths) > 1
+    if multi:
+        logger.info("analysis_node: 영상 %d개 병렬 분석 시작", len(video_paths))
+        with ThreadPoolExecutor(max_workers=min(3, len(video_paths))) as pool:
+            results = list(pool.map(_analyze_one_video, video_paths))
+    else:
+        results = [_analyze_one_video(video_paths[0])]
 
-    try:
-        # 기존 분석 JSON 이 있으면 재사용 (재분석 비용 + API 쿼터 절약)
-        cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
-        if cached_json.exists():
-            logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
-            data = _json.loads(cached_json.read_text(encoding="utf-8"))
-        else:
-            raw = analyze_video.invoke({"video_path": filename})
-            data = _json.loads(raw)
+    scenes: list = []
+    videos_meta: list[dict] = []
+    total_duration = 0.0
 
+    for filename, data in results:
         if "error" in data:
-            logger.warning("analysis_node: analyze_video 오류 -> skeleton. %s", data["error"])
-            ctx: VideoContext = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
-        else:
-            scenes = [
-                {
-                    "start": seg["start_ms"] / 1000,
-                    "end": seg["end_ms"] / 1000,
-                    "description": seg.get("description", ""),
-                }
-                for seg in data.get("segments", [])
-            ]
-            ctx = {
-                "file_path": first,
-                "duration": data.get("duration", 0.0),
-                "scenes": scenes,
-                "transcript": [],  # transcript 는 audio_expert 가 채움
+            logger.warning("analysis_node: %s 오류 -> 제외. %s", filename, data["error"])
+            continue
+        duration = data.get("duration", 0.0)
+        total_duration += duration
+        videos_meta.append({"file_path": f"videos/{filename}", "duration": duration})
+        for seg in data.get("segments", []):
+            scene = {
+                "start": seg["start_ms"] / 1000,
+                "end": seg["end_ms"] / 1000,
+                "description": seg.get("description", ""),
             }
-            logger.info("analysis_node: %d scenes 추출 완료 (%.1fs)", len(scenes), ctx["duration"])
+            if multi:
+                scene["video"] = f"videos/{filename}"  # 어느 영상의 장면인지
+            scenes.append(scene)
 
-    except Exception as e:
-        logger.exception("analysis_node: analyze_video 실패 -> skeleton")
-        ctx = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
+    if not videos_meta:
+        first = video_paths[0]
+        ctx: VideoContext = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
+        return {"video_context": ctx}
 
+    ctx = {
+        "file_path": videos_meta[0]["file_path"],
+        "duration": total_duration,
+        "scenes": scenes,
+        "transcript": [],  # transcript 는 audio_expert 가 채움
+    }
+    if multi:
+        ctx["videos"] = videos_meta  # 다중 영상 목록 (script 가 참조)
+
+    logger.info(
+        "analysis_node: 영상 %d개, %d scenes 추출 완료 (총 %.1fs)",
+        len(videos_meta), len(scenes), total_duration,
+    )
     return {"video_context": ctx}
 
 

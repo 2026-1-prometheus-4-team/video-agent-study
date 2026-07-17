@@ -52,21 +52,40 @@ def _load_voice_catalog() -> list[dict]:
         return []
 
 
-def _resolve_voice(voice: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+def _resolve_voice(
+    voice: str, voice_id: str = ""
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve the voice argument. Returns (elevenlabs_voice_id, catalog_id, error).
 
-    - "default": use ELEVENLABS_DEFAULT_VOICE_ID from .env.
-    - Catalog id (assets/tts_voices.json): resolve its "elevenlabs_voice_id" field.
-      A value of "env:<NAME>" points to an environment variable; a missing
-      mapping falls back to ELEVENLABS_DEFAULT_VOICE_ID, else returns an error.
-    - Anything else: treated as a raw ElevenLabs voice ID.
+    Precedence (merges both selection schemes the team uses):
+    1. voice_id: explicit ElevenLabs voice ID — always wins.
+    2. "default" / empty: ELEVENLABS_DEFAULT_VOICE_ID from .env.
+    3. Numeric alias ("1", "2", ...): ELEVENLABS_VOICE_<N> from .env.
+    4. Catalog id (assets/tts_voices.json): resolve its "elevenlabs_voice_id" field.
+       A value of "env:<NAME>" points to an environment variable; a missing
+       mapping falls back to ELEVENLABS_DEFAULT_VOICE_ID, else returns an error.
+    5. Anything else: treated as a raw ElevenLabs voice ID.
     """
-    if voice == "default":
+    if voice_id:
+        return voice_id, None, None
+
+    if not voice or voice == "default":
         return (ELEVENLABS_DEFAULT_VOICE_ID or None), None, None
 
-    entry = next((v for v in _load_voice_catalog() if v.get("id") == voice), None)
+    voice_key = str(voice).strip()
+
+    if voice_key.isdigit():
+        mapped = os.getenv(f"ELEVENLABS_VOICE_{voice_key}")
+        if mapped:
+            return mapped, voice_key, None
+        return None, voice_key, (
+            f"ERROR: 보이스 별칭 {voice_key} 매핑 없음 — "
+            f".env 에 ELEVENLABS_VOICE_{voice_key} 를 추가하거나 다른 보이스를 지정"
+        )
+
+    entry = next((v for v in _load_voice_catalog() if v.get("id") == voice_key), None)
     if entry is None:
-        return voice, None, None
+        return voice_key, None, None
 
     mapped = entry.get("elevenlabs_voice_id")
     if isinstance(mapped, str) and mapped.startswith("env:"):
@@ -79,8 +98,8 @@ def _resolve_voice(voice: str) -> tuple[Optional[str], Optional[str], Optional[s
         mapped = ELEVENLABS_DEFAULT_VOICE_ID
 
     if mapped:
-        return mapped, voice, None
-    return None, voice, _NO_MAPPING_ERROR
+        return mapped, voice_key, None
+    return None, voice_key, _NO_MAPPING_ERROR
 
 
 def _append_narration_manifest(
@@ -129,17 +148,21 @@ def _append_narration_manifest(
 def text_to_speech(
     text: str,
     voice: str = "default",
+    voice_id: str = "",
     stability: Optional[float] = None,
     style: Optional[float] = None,
     speed: Optional[float] = None,
     output_path: str = "",
+    model: str = "",
 ) -> str:
     """Convert text to speech and save it as an MP3 file.
 
     Args:
         text: Text to synthesize.
-        voice: Catalog voice id from assets/tts_voices.json (e.g. "male_ko_general")
-            or a raw ElevenLabs voice ID. "default" uses ELEVENLABS_DEFAULT_VOICE_ID.
+        voice: Catalog voice id from assets/tts_voices.json (e.g. "male_ko_general"),
+            a numeric alias resolved via ELEVENLABS_VOICE_<N>, or a raw ElevenLabs
+            voice ID. "default" uses ELEVENLABS_DEFAULT_VOICE_ID.
+        voice_id: Explicit ElevenLabs voice ID. Overrides `voice` when set.
         stability: Voice stability 0.0-1.0 (default 0.5). Higher = calmer/steadier,
             lower = more expressive.
         style: Style exaggeration 0.0-1.0. Sent only when provided.
@@ -147,8 +170,10 @@ def text_to_speech(
         output_path: Optional output MP3 path. Defaults to
             audio_files/audio_<ts>_<rand>.mp3. The narration manifest is grouped by
             the output file stem, so pass a stable output_path to group takes.
+        model: ElevenLabs model id. Defaults to ELEVENLABS_TTS_MODEL.
     """
-    resolved_voice, catalog_id, resolve_error = _resolve_voice(voice)
+    resolved_voice, catalog_id, resolve_error = _resolve_voice(voice, voice_id)
+    model_id = model or ELEVENLABS_TTS_MODEL
 
     logger.info(
         "text_to_speech called - voice: %s (resolved: %s), text: %s...",
@@ -198,7 +223,7 @@ def text_to_speech(
         voice_settings["speed"] = speed
     data = {
         "text": text,
-        "model_id": ELEVENLABS_TTS_MODEL,
+        "model_id": model_id,
         "voice_settings": voice_settings,
     }
 
@@ -228,7 +253,7 @@ def text_to_speech(
                 text=text,
                 voice=resolved_voice,
                 catalog_voice=catalog_id,
-                model=ELEVENLABS_TTS_MODEL,
+                model=model_id,
                 voice_settings=voice_settings,
                 output=str(resolved_output),
                 manifest=manifest,
@@ -238,7 +263,7 @@ def text_to_speech(
         return _json_response(
             text=text,
             voice=resolved_voice,
-            model=ELEVENLABS_TTS_MODEL,
+            model=model_id,
             output=None,
             status="fail",
             status_code=response.status_code,
@@ -249,7 +274,7 @@ def text_to_speech(
         return _json_response(
             text=text,
             voice=resolved_voice,
-            model=ELEVENLABS_TTS_MODEL,
+            model=model_id,
             output=None,
             status="error",
             error="ElevenLabs TTS request timed out.",
@@ -258,11 +283,97 @@ def text_to_speech(
         return _json_response(
             text=text,
             voice=resolved_voice,
-            model=ELEVENLABS_TTS_MODEL,
+            model=model_id,
             output=None,
             status="error",
             error=str(error),
         )
+
+
+def _join_transcript_segments(segments: list[dict]) -> str:
+    return " ".join(
+        str(segment.get("text", "")).strip()
+        for segment in segments
+        if str(segment.get("text", "")).strip()
+    ).strip()
+
+
+@tool
+def transcribe_video_to_speech(
+    video_path: str,
+    voice: str = "default",
+    voice_id: str = "",
+    output_path: str = "",
+    model: str = "",
+    stability: Optional[float] = None,
+    style: Optional[float] = None,
+    speed: Optional[float] = None,
+) -> str:
+    """영상 오디오를 전사한 뒤, 그 텍스트를 TTS로 변환함.
+
+    영상의 발화를 그대로 다른 목소리로 다시 읽히는 용도 (더빙/보이스 교체).
+
+    Args:
+        video_path: 영상 파일 경로
+        voice: 카탈로그 보이스 id / 숫자 별칭 / raw ElevenLabs voice id. default 면 .env 기본값
+        voice_id: 명시적 ElevenLabs voice id (voice 보다 우선)
+        output_path: 생성할 TTS 오디오 저장 경로
+        model: ElevenLabs TTS 모델
+        stability: 목소리 안정도 0.0-1.0 (높을수록 차분)
+        style: 스타일 과장 0.0-1.0
+        speed: 말 속도 배율 (0.9 차분 / 1.1 빠름)
+    """
+    from agent.tools.transcribe import transcribe_video
+
+    try:
+        transcript_result = json.loads(
+            transcribe_video.invoke({"video_path": video_path})
+        )
+    except Exception as error:
+        return _json_response(
+            status="error", output=None,
+            error="영상 오디오 전사 호출에 실패했습니다.", detail=str(error),
+        )
+
+    if transcript_result.get("status") != "success":
+        return _json_response(
+            status="error", output=None,
+            error="영상 오디오 전사에 실패했습니다.",
+            transcribe_result=transcript_result,
+        )
+
+    transcript_text = _join_transcript_segments(transcript_result.get("segments", []))
+    if not transcript_text:
+        return _json_response(
+            status="error", output=None,
+            error="영상에서 TTS로 변환할 음성 텍스트를 찾지 못했습니다.",
+            transcribe_result=transcript_result,
+        )
+
+    tts_result = json.loads(
+        text_to_speech.invoke({
+            "text": transcript_text,
+            "voice": voice,
+            "voice_id": voice_id,
+            "output_path": output_path,
+            "model": model,
+            "stability": stability,
+            "style": style,
+            "speed": speed,
+        })
+    )
+
+    return _json_response(
+        status=tts_result.get("status", "error"),
+        output=tts_result.get("output"),
+        text=transcript_text,
+        transcript=transcript_result,
+        tts=tts_result,
+        report=(
+            f"segments: {len(transcript_result.get('segments', []))}, "
+            f"output: {tts_result.get('output')}"
+        ),
+    )
 
 
 if __name__ == "__main__":
@@ -271,4 +382,4 @@ if __name__ == "__main__":
     print(result)
 
 
-TOOLS = [text_to_speech]
+TOOLS = [text_to_speech, transcribe_video_to_speech]
