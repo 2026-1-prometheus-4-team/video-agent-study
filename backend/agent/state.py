@@ -67,6 +67,23 @@ class CriticVerdict(TypedDict, total=False):
     message_to_user: str
 
 
+class CandidateSegment(TypedDict, total=False):
+    """clarify 질문에 첨부되는 후보 구간. 프론트가 클릭 -> 해당 시점 재생."""
+    start_ms: int
+    end_ms: int
+    label: str
+    score: Optional[float]
+
+
+class PendingQuestion(TypedDict, total=False):
+    """supervisor 가 실행 중 사용자에게 묻는 질문 (ask_user 툴 산출)."""
+    question: str
+    candidates: list[CandidateSegment]
+    options: list[str]
+    context: str
+    """왜 묻는지 한 줄 (예: '가족 검색 신뢰도가 낮아 후보 확인 필요')."""
+
+
 class AgentState(TypedDict, total=False):
     """그래프 전체 상태.
 
@@ -101,6 +118,17 @@ class AgentState(TypedDict, total=False):
     # ── 실행 ──
     execution_trace: list[ExecutionStep]
     """sub-agent 호출 결과 누적."""
+
+    # ── 실행 중 사용자 확인 (clarify 루프) ──
+    pending_question: Optional[PendingQuestion]
+    """supervisor 가 ask_user 로 멈춘 경우 질문 페이로드. clarify 노드가 소비."""
+
+    clarify_answer: Optional[dict]
+    """clarify interrupt 의 resume 값 {reply?, selected?, approved?}.
+    supervisor 재진입 시 프롬프트에 주입 후 소거."""
+
+    clarify_history: list[dict]
+    """이번 턴의 Q&A 누적 [{question, answer}]. supervisor 재진입 프롬프트용."""
 
     # ── 최종 ──
     final_output_path: Optional[str]

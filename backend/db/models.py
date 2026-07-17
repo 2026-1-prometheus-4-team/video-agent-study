@@ -170,6 +170,13 @@ class Interrupt(Base):
     )
     plan: Mapped[dict] = mapped_column(JSONB, nullable=False)
     questions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # interrupt 종류: script_approval | clarify (이후 확장). 기존 행은 script_approval.
+    kind: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="script_approval",
+        server_default="script_approval",
+    )
+    # kind 별 원본 payload 전체 (clarify 의 question/candidates 등).
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # 사용자 응답 도착 시 update.
     approved: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     feedback: Mapped[str | None] = mapped_column(Text, nullable=True)

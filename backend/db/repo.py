@@ -122,6 +122,8 @@ class SessionRepo:
         session_id: str,
         plan: dict,
         questions: list[str],
+        kind: str = "script_approval",
+        payload: Optional[dict] = None,
     ) -> Optional[int]:
         try:
             async with get_session() as db:
@@ -129,6 +131,8 @@ class SessionRepo:
                     session_id=session_id,
                     plan=_safe_json(plan),
                     questions=list(questions or []),
+                    kind=kind,
+                    payload=_safe_json(payload) if payload else None,
                 )
                 db.add(obj)
                 await db.commit()
@@ -143,10 +147,14 @@ class SessionRepo:
         cls,
         session_id: str,
         *,
-        approved: bool,
+        approved: Optional[bool],
         feedback: Optional[str] = None,
     ) -> None:
-        """가장 최근 미해결 interrupt 를 approved/feedback 으로 마감."""
+        """가장 최근 미해결 interrupt 를 approved/feedback 으로 마감.
+
+        approved=None 은 승인/거부 개념이 없는 응답 (clarify 답변) — 컬럼을
+        NULL 로 남겨 '전부 승인됨' 으로 통계가 오염되는 것을 막는다.
+        """
         try:
             async with get_session() as db:
                 stmt = (

@@ -70,6 +70,16 @@ async def init_db() -> None:
         await conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_sessions_user_id ON sessions(user_id)")
         )
+        # interrupts: kind / payload (clarify interrupt 지원)
+        await conn.execute(
+            text(
+                "ALTER TABLE interrupts "
+                "ADD COLUMN IF NOT EXISTS kind VARCHAR(32) NOT NULL DEFAULT 'script_approval'"
+            )
+        )
+        await conn.execute(
+            text("ALTER TABLE interrupts ADD COLUMN IF NOT EXISTS payload JSONB")
+        )
     logger.info("db: schema ensured (create_all + idempotent alters)")
 
 

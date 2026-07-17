@@ -7,11 +7,13 @@ LangGraph 메인 그래프
       ↓
     [analysis_node]    ← video_context 가 없고 video_paths 있으면 사전 분석
       ↓
-    [script_node]      ← 6 단계 plan JSON 생성
+    [script_node]      ← plan JSON 생성 (mode=chat 이면 respond 로 즉답)
       ↓ (questions 있거나 gate 정책 켜져 있으면)
     [interrupt_gate]   ← LangGraph interrupt(): 사용자 승인 / 수정 피드백
       ↓ (OK)
     [supervisor_node]  ← ReAct 루프, spawn_tools 로 sub-agent 격리 호출
+      ↓ (ask_user 로 멈추면)
+    [clarify]          ← interrupt(): 후보 확인 → supervisor 재진입
       ↓
     [critic_node]      ← PASS / RETRY
       ↓
@@ -31,10 +33,16 @@ import re
 import time
 from typing import Any, Optional
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
 from langgraph.checkpoint.memory import MemorySaver
+
+try:
+    from langgraph.errors import GraphInterrupt
+except ImportError:  # 구버전 호환
+    class GraphInterrupt(Exception):
+        pass
 
 from agent.llm import make_llm
 from agent.nodes import (
@@ -144,12 +152,60 @@ def interrupt_gate(state: AgentState) -> dict[str, Any]:
     if user_response.get("approved"):
         return {"script_feedback": None}
 
-    return {"script_feedback": user_response.get("feedback") or "사용자가 수정 요청 (구체 없음)"}
+    feedback = (
+        user_response.get("feedback")
+        or user_response.get("reply")
+        or "사용자가 수정 요청 (구체 없음)"
+    )
+    return {"script_feedback": feedback}
 
 
 def route_after_interrupt(state: AgentState) -> str:
     """interrupt 결과로 라우팅."""
     return "script" if state.get("script_feedback") else "supervisor"
+
+
+# =============================================================
+# clarify_gate — 실행 중 사용자 되묻기 (ask_user 툴 산출 소비)
+# =============================================================
+
+def clarify_gate(state: AgentState) -> dict[str, Any]:
+    """supervisor 가 실행 도중 ask_user 로 멈췄을 때의 사용자 확인 게이트.
+
+    interrupt payload:
+      {"type": "clarify", "question": str,
+       "candidates": [{start_ms, end_ms, label, score}], "options": [str],
+       "context": str, "instructions": str}
+
+    resume value (프론트 카드 버튼 또는 자유 채팅에서 변환):
+      {"reply": "두번째꺼", "selected": [1]} / {"approved": true} 등 —
+      해석은 supervisor LLM 에 맡기고 여기선 원문 그대로 저장한다.
+    """
+    q = state.get("pending_question") or {}
+    payload = {
+        "type": "clarify",
+        "question": q.get("question", ""),
+        "candidates": q.get("candidates") or [],
+        "options": q.get("options") or [],
+        "context": q.get("context", ""),
+        "instructions": (
+            "후보 타임스탬프를 클릭하면 해당 구간을 미리 볼 수 있어요. "
+            "번호로 선택하거나 자유롭게 답해주세요. 다른 요청을 보내도 됩니다."
+        ),
+    }
+
+    answer = interrupt(payload)
+    if not isinstance(answer, dict):
+        answer = {"reply": str(answer)}
+
+    history = list(state.get("clarify_history") or [])
+    history.append({"question": q, "answer": answer})
+
+    return {
+        "pending_question": None,
+        "clarify_answer": answer,
+        "clarify_history": history,
+    }
 
 
 # =============================================================
@@ -197,11 +253,49 @@ def _extract_final_output(text: str) -> Optional[str]:
     return None
 
 
-def _build_trace_from_messages(messages: list, plan: dict) -> list[ExecutionStep]:
-    """supervisor 의 spawn tool 호출 메시지에서 ExecutionStep 들 추출."""
+_SPAWN_TOOL_NAMES = {"edit", "audio", "text", "effect", "research"}
+_STATUS_TOKEN = re.compile(r"status=(ok|error|needs_user)")
+
+
+def _tool_result_status(content: str) -> str:
+    """SubAgentResult.as_tool_result_text 형식에서 status 파싱.
+
+    'error' 단어 단순 검색은 성공 요약에 'error 없이 완료' 같은 문구만 있어도
+    오판하므로 명시 토큰 우선, 폴백은 ERROR 접두/라인만 본다.
+    """
+    m = _STATUS_TOKEN.search(content)
+    if m:
+        return "error" if m.group(1) == "error" else "ok"
+    if content.startswith("ERROR") or "\nERROR:" in content:
+        return "error"
+    return "ok"
+
+
+def _build_trace_from_messages(
+    messages: list, plan: dict, prior_trace: Optional[list[ExecutionStep]] = None
+) -> list[ExecutionStep]:
+    """supervisor 의 spawn tool 호출 메시지에서 ExecutionStep 들 추출.
+
+    같은 expert 가 여러 step 을 가질 수 있으므로 (expert, 등장 순서) 로 plan
+    step 과 매칭한다 — expert 단독 키는 마지막 step 만 남아 스킵/재실행 오판.
+
+    prior_trace 를 넘기면 그 expert 의 *성공* 횟수부터 이어서 센다. clarify /
+    critic RETRY 로 supervisor 에 재진입하면 inner agent 는 fresh message 로
+    시작하므로, 0 부터 세면 이미 끝난 step 에 새 결과를 덮어써 (완료 step 재실행
+    + 미완료 step 을 done 으로 오인) 실행이 어긋난다. 실패한 step 은 재시도
+    대상이므로 세지 않는다 — 재시도 결과가 같은 step 에 매핑돼야 한다.
+    """
     from langchain_core.messages import ToolMessage
 
-    steps_by_expert = {s.get("expert"): s for s in plan.get("steps", [])}
+    steps_by_expert: dict[str, list[dict]] = {}
+    for s in plan.get("steps", []):
+        steps_by_expert.setdefault(s.get("expert", ""), []).append(s)
+
+    seen_count: dict[str, int] = {}
+    for t in prior_trace or []:
+        if t.get("status") == "ok":
+            expert = t.get("expert", "")
+            seen_count[expert] = seen_count.get(expert, 0) + 1
     path_pat = re.compile(r"\b[\w./\-]+\.(?:mp4|mov|wav|mp3|aac|srt|vtt|png|jpg|json)\b", re.I)
 
     out: list[ExecutionStep] = []
@@ -209,24 +303,111 @@ def _build_trace_from_messages(messages: list, plan: dict) -> list[ExecutionStep
         if not isinstance(m, ToolMessage):
             continue
         tool_name = getattr(m, "name", "?")
+        if tool_name not in _SPAWN_TOOL_NAMES:
+            # ask_user / 검색 / memory 툴 결과는 plan step 이 아님
+            continue
         expert = f"{tool_name}_expert"
         content = getattr(m, "content", "")
         if isinstance(content, list):
             content = " ".join(
                 (p.get("text", "") if isinstance(p, dict) else str(p)) for p in content
             )
-        paths = path_pat.findall(str(content))
-        plan_step = steps_by_expert.get(expert, {})
+        content = str(content)
+        paths = path_pat.findall(content)
+        idx = seen_count.get(expert, 0)
+        seen_count[expert] = idx + 1
+        expert_steps = steps_by_expert.get(expert, [])
+        plan_step = expert_steps[idx] if idx < len(expert_steps) else {}
         out.append({
             "step_id": plan_step.get("step_id", -1),
             "expert": expert,
             "action": plan_step.get("action", tool_name),
-            "status": "ok" if "error" not in str(content).lower() else "error",
-            "summary": str(content)[:200],
+            "status": _tool_result_status(content),
+            "summary": content[:200],
             "output_paths": list(dict.fromkeys(paths)),
             "duration_sec": 0.0,
         })
     return out
+
+
+# =============================================================
+# ask_user 툴 — supervisor 실행 중 사용자 되묻기 채널
+# =============================================================
+
+def _normalize_candidates(candidates: Optional[list]) -> list[dict]:
+    """LLM 이 넘긴 후보 리스트를 {start_ms, end_ms, label, score} 로 정규화."""
+    normalized: list[dict] = []
+    for c in candidates or []:
+        if not isinstance(c, dict):
+            continue
+        try:
+            start_ms = int(float(c.get("start_ms", c.get("start", 0)) or 0))
+            end_ms = int(float(c.get("end_ms", c.get("end", 0)) or 0))
+        except (TypeError, ValueError):
+            continue
+        # start/end 가 초 단위로 온 것 같으면 (둘 다 작으면) ms 로 승격
+        if "start_ms" not in c and "end_ms" not in c and end_ms <= 36000:
+            start_ms, end_ms = start_ms * 1000, end_ms * 1000
+        label = str(
+            c.get("label") or c.get("description") or c.get("text") or ""
+        )[:160]
+        entry: dict = {"start_ms": start_ms, "end_ms": end_ms, "label": label}
+        if c.get("score") is not None:
+            try:
+                entry["score"] = round(float(c["score"]), 3)
+            except (TypeError, ValueError):
+                pass
+        normalized.append(entry)
+    return normalized[:10]
+
+
+def _make_ask_user_tool(holder: dict):
+    """supervisor 전용 ask_user 툴 팩토리.
+
+    inner ReAct agent 는 checkpointer 가 없어 interrupt() 를 직접 못 부른다.
+    대신 질문을 holder 에 기록하고, supervisor 에게 즉시 실행을 끝내라고
+    지시한다. supervisor_node 가 holder 를 보고 clarify 게이트로 라우팅한다.
+    """
+    from langchain_core.tools import tool
+
+    @tool
+    def ask_user(
+        question: str,
+        candidates: Optional[list[dict]] = None,
+        options: Optional[list[str]] = None,
+        context: str = "",
+    ) -> str:
+        """실행을 멈추고 사용자에게 확인을 요청한다. 확신이 없을 때 추측 대신 사용.
+
+        사용 시점: (1) 장면 검색 신뢰도가 낮거나 후보가 여럿일 때 (2) 원본을 크게
+        삭제하는 파괴적 편집 전 (3) 취향 결정 (색/폰트/보이스) (4) 예상 밖 결과.
+
+        Args:
+            question: 사용자에게 보여줄 질문 한 문장 (한국어).
+            candidates: 확인 대상 구간 목록 [{start_ms, end_ms, label, score}].
+                search_video_segments 의 matches 를 그대로 넘겨도 된다.
+            options: 선택지 텍스트 목록 (구간이 아닌 선택일 때).
+            context: 왜 묻는지 한 줄 (예: "'가족' 검색 상위 스코어 0.42 로 낮음").
+
+        Returns:
+            안내 문자열. 이 툴을 부른 뒤에는 다른 툴을 부르지 말고
+            'AWAITING_USER' 한 단어로 최종 응답을 끝내야 한다.
+        """
+        try:
+            holder["question"] = {
+                "question": str(question or "").strip(),
+                "candidates": _normalize_candidates(candidates),
+                "options": [str(o)[:120] for o in (options or [])][:8],
+                "context": str(context or "")[:300],
+            }
+            return (
+                "질문이 사용자에게 전달 대기 중이다. 지금 즉시 다른 tool 호출 없이 "
+                "'AWAITING_USER' 한 단어로 최종 응답을 종료하라."
+            )
+        except Exception as e:
+            return f"ERROR: ask_user 실패 - {e}"
+
+    return ask_user
 
 
 def supervisor_node(state: AgentState) -> dict[str, Any]:
@@ -248,6 +429,13 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
     # 사용자 장기 기억 툴 추가. supervisor 가 대화에서 발견한 선호를 저장/삭제.
     spawn_tools = list(spawn_tools) + list(MEMORY_TOOLS)
 
+    # 실행 중 되묻기 채널 + 직접 장면 검색 (후보 데이터를 구조 그대로 확보).
+    # 검색은 sub-agent 평탄화를 거치면 타임스탬프가 파괴되므로 supervisor 가
+    # 직접 부른 뒤 ask_user 후보로 넘긴다.
+    question_holder: dict = {}
+    from agent.tools.edit import search_video_segments
+    spawn_tools = spawn_tools + [_make_ask_user_tool(question_holder), search_video_segments]
+
     sys_text = build_supervisor_system_prompt(
         video_context=video_context,
         session_memory=_format_execution_trace(trace),
@@ -265,42 +453,87 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
     )
 
     pending_steps = [s for s in plan.get("steps", []) if not _step_completed(s, trace)]
-    if not pending_steps:
+    clarify_answer = state.get("clarify_answer")
+    clarify_history = list(state.get("clarify_history") or [])
+
+    if not pending_steps and not clarify_answer:
         logger.info("supervisor: 모든 step 완료. critic 으로.")
         return {}
 
     next_brief = json.dumps(pending_steps, ensure_ascii=False, indent=2)
-    user_text = (
-        "# 아직 실행 안 된 step 들\n\n"
-        f"```json\n{next_brief}\n```\n\n"
-        "각 step 의 expert 를 *spawn tool* 로 부르고, 의존 관계에 따라 순서대로/병렬로 실행하라.\n"
-        "한 step 끝나면 결과 (특히 산출 파일 경로) 를 다음 step task 에 명시적으로 박아라.\n"
-        "모든 step 산출물이 나오면 마지막 영상 경로를 'FINAL_OUTPUT: <path>' 형식으로 보고하라."
-    )
+    user_parts = [
+        "# 아직 실행 안 된 step 들\n",
+        f"```json\n{next_brief}\n```\n",
+        "각 step 의 expert 를 *spawn tool* 로 부르고, 의존 관계에 따라 순서대로/병렬로 실행하라.",
+        "한 step 끝나면 결과 (특히 산출 파일 경로) 를 다음 step task 에 명시적으로 박아라.",
+        "장면 선택이 모호하면 search_video_segments 로 직접 후보를 뽑고, 확신이 없으면"
+        " ask_user 로 사용자 확인을 받아라 (추측으로 자르지 말 것).",
+        "모든 step 산출물이 나오면 마지막 영상 경로를 'FINAL_OUTPUT: <path>' 형식으로 보고하라.",
+    ]
+
+    if clarify_history:
+        qa_lines = ["\n# 이번 턴 사용자 Q&A (이미 진행된 확인)"]
+        for i, qa in enumerate(clarify_history, 1):
+            q = (qa.get("question") or {})
+            a = qa.get("answer") or {}
+            qa_lines.append(f"{i}. Q: {q.get('question', '')}")
+            cands = q.get("candidates") or []
+            if cands:
+                for ci, c in enumerate(cands):
+                    qa_lines.append(
+                        f"   후보[{ci}]: {c.get('start_ms')}ms~{c.get('end_ms')}ms {c.get('label','')}"
+                    )
+            qa_lines.append(f"   A: {json.dumps(a, ensure_ascii=False)}")
+        user_parts.append("\n".join(qa_lines))
+
+    if clarify_answer:
+        user_parts.append(
+            "\n# 방금 도착한 사용자 답변\n"
+            f"{json.dumps(clarify_answer, ensure_ascii=False)}\n"
+            "이 답변을 반영해 즉시 실행을 이어가라. selected 는 직전 질문의 후보 인덱스다. "
+            "답변이 승인/선택이 아니라 *다른 요청*이면 그 요청을 우선 반영하라."
+        )
+
+    user_text = "\n".join(user_parts)
 
     try:
         result_state = react_agent.invoke(
             {"messages": [HumanMessage(content=user_text)]},
             config={"recursion_limit": 40},
         )
+    except GraphInterrupt:
+        # 방어적 재전파 — interrupt 를 generic except 가 삼켜 critic verdict 로
+        # 둔갑시키면 그래프 일시정지가 영영 불가능해진다.
+        raise
     except Exception as e:
         logger.exception("supervisor invoke failed")
         # 429 · quota · rate limit 계열은 재시도해도 같은 결과 → 즉시 PASS 로
         # 종료해서 무한 RETRY 방지 + 사용자에게 원인 명시.
         err_text = f"{type(e).__name__}: {e}"
-        is_quota = any(k in err_text.lower() for k in ("resource_exhausted", "429", "quota"))
+        is_quota = any(
+            k in err_text.lower()
+            for k in ("resource_exhausted", "429", "quota", "credits are depleted")
+        )
+        user_msg = (
+            "Gemini API 쿼터/크레딧 소진으로 실행을 중단했어. "
+            ".env 의 GOOGLE_API_KEY_SUPERVISOR (또는 GOOGLE_API_KEY) 를 크레딧이 남은 "
+            "키로 교체하거나 결제를 충전한 뒤 다시 요청해줘."
+            if is_quota
+            else f"실행 중 오류가 발생했어: {err_text[:200]} — 다시 시도해줘."
+        )
+        # critic 이 verdict 를 덮어써도 사용자에겐 메시지가 relay 되도록
+        # messages 에도 명시적으로 남긴다 (조사에서 확인된 quota 침묵 문제 대응).
         return {
+            "messages": [AIMessage(content=user_msg, name="supervisor")],
             "critic_verdict": {
                 "verdict": "PASS" if is_quota else "RETRY",
                 "issues": [f"supervisor 오류: {err_text}"],
-                "message_to_user": (
-                    "Gemini API 쿼터 소진 (무료 티어 하루 20 요청). "
-                    ".env 에 GOOGLE_API_KEY_SUPERVISOR / _SCRIPT / _CRITIC / _SUB_AGENT / "
-                    "_SUMMARY 로 팀원 키를 분산하거나 유료 티어로 전환해줘."
-                    if is_quota
-                    else "Supervisor 실행 중 오류. 다시 시도 필요."
-                ),
-            }
+                "message_to_user": user_msg,
+                # quota 소진은 재시도해도 같은 결과 — critic 을 아예 건너뛰고
+                # 종료한다. critic 을 태우면 verdict 가 덮여 3회 재시도 후에도
+                # 이 메시지가 사용자에게 안 가고 침묵으로 끝난다.
+                "terminal": is_quota,
+            },
         }
 
     new_messages = result_state.get("messages", [])
@@ -312,7 +545,22 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
             c = " ".join((p.get("text", "") if isinstance(p, dict) else str(p)) for p in c)
         last_text = str(c)
 
-    new_trace = trace + _build_trace_from_messages(new_messages, plan)
+    new_trace = trace + _build_trace_from_messages(new_messages, plan, prior_trace=trace)
+
+    # ── ask_user 로 멈춘 경우: 부분 진행 상태를 커밋하고 clarify 게이트로 ──
+    # 완료된 step 은 trace 에 남아 재진입 시 스킵되므로 재실행 없이 이어진다.
+    if question_holder.get("question"):
+        logger.info(
+            "supervisor paused for user question: %s",
+            question_holder["question"].get("question", "")[:80],
+        )
+        return {
+            "execution_trace": new_trace,
+            "messages": new_messages,
+            "pending_question": question_holder["question"],
+            "clarify_answer": None,
+            "clarify_history": clarify_history,
+        }
     # final path 우선순위: (1) supervisor 텍스트의 FINAL_OUTPUT / .mp4
     # (2) 기존 state.final_output_path (3) execution trace 마지막 산출 경로.
     # 마지막 fallback 은 supervisor 가 최종 리포트 형식을 어길 때도 결과물이
@@ -338,7 +586,43 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         "execution_trace": new_trace,
         "final_output_path": final_output,
         "messages": new_messages,
+        # 소비된 clarify 답변 정리 (히스토리는 이번 턴 내 유지)
+        "clarify_answer": None,
+        "pending_question": None,
     }
+
+
+# =============================================================
+# respond_node — 편집이 필요 없는 대화 턴 (질문/확인/설명)
+# =============================================================
+
+def respond_node(state: AgentState) -> dict[str, Any]:
+    """script_node 가 mode="chat" plan 을 낸 경우: plan.reply 를 그대로
+    대화 응답으로 흘리고 파이프라인(게이트/실행/검증)을 건너뛴다.
+
+    '방금 어디 잘랐어?', '몇 초짜리야?' 같은 턴이 플랜 승인 카드를 띄우지
+    않게 하는 경량 경로.
+    """
+    plan = state.get("script_plan") or {}
+    reply = str(plan.get("reply") or "").strip()
+    if not reply:
+        reply = "요청을 이해했어요. 편집이 필요하면 구체적으로 말씀해 주세요."
+    return {"messages": [AIMessage(content=reply, name="supervisor")]}
+
+
+def route_after_supervisor(state: AgentState) -> str:
+    """supervisor 뒤 라우팅.
+
+    - pending_question 있으면 clarify (사용자 확인)
+    - terminal verdict (예: quota 소진) 면 critic 건너뛰고 종료
+    - 그 외 critic
+    """
+    if state.get("pending_question"):
+        return "clarify"
+    verdict = state.get("critic_verdict") or {}
+    if verdict.get("terminal"):
+        return "end"
+    return "critic"
 
 
 # =============================================================
@@ -360,7 +644,9 @@ def build_graph(checkpointer=None):
     g.add_node("analysis", analysis_node)
     g.add_node("script", script_node)
     g.add_node("interrupt_gate", interrupt_gate)
+    g.add_node("clarify", clarify_gate)
     g.add_node("supervisor", supervisor_node)
+    g.add_node("respond", respond_node)
     g.add_node("critic", critic_node)
     g.add_node("summary", summary_node)
 
@@ -370,7 +656,11 @@ def build_graph(checkpointer=None):
     g.add_conditional_edges(
         "script",
         should_interrupt_for_questions,
-        {"interrupt": "interrupt_gate", "supervisor": "supervisor"},
+        {
+            "interrupt": "interrupt_gate",
+            "supervisor": "supervisor",
+            "respond": "respond",
+        },
     )
 
     g.add_conditional_edges(
@@ -379,7 +669,17 @@ def build_graph(checkpointer=None):
         {"script": "script", "supervisor": "supervisor"},
     )
 
-    g.add_edge("supervisor", "critic")
+    # supervisor 뒤: 사용자 질문(ask_user)으로 멈췄으면 clarify 게이트 →
+    # 답변 받고 supervisor 재진입 (완료 step 은 trace 로 스킵). 아니면 critic.
+    g.add_conditional_edges(
+        "supervisor",
+        route_after_supervisor,
+        {"clarify": "clarify", "critic": "critic", "end": "summary"},
+    )
+    g.add_edge("clarify", "supervisor")
+
+    # 대화 전용 턴은 검증 없이 요약으로.
+    g.add_edge("respond", "summary")
 
     # critic 뒤: RETRY → supervisor 재실행, 그 외엔 summary (조건부) 후 종료.
     g.add_conditional_edges(

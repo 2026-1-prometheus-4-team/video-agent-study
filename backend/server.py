@@ -11,27 +11,41 @@ FastAPI 서버 - Supervisor Agent + 세션 기반 대화
 WebSocket 프로토콜:
   client → server:
     {"type": "chat", "message": "숏츠로 잘라줘"}     (legacy: {"message": "..."} 도 허용)
-    {"type": "resume", "approved": true}              (계획 승인)
+    {"type": "resume", "approved": true}              (script_approval 승인)
     {"type": "resume", "approved": false, "feedback": "BGM 빼줘"}  (계획 수정 요청)
+    {"type": "resume", "reply": "두번째꺼", "selected": [1]}       (clarify 답변)
+    {"type": "cancel"}                                (진행 중 턴 중지)
   server → client:
     {"type": "message",   "node": "...", "content": "..."}
     {"type": "tool_call", "node": "...", "tool_name": "...", "args": {...}}
-    {"type": "interrupt", "payload": {...script_approval...}}   ← resume 응답 대기
+    {"type": "interrupt", "payload": {...}}           ← resume 응답 대기. payload.type:
+        "script_approval": {plan, questions, instructions}
+        "clarify":         {question, candidates:[{start_ms,end_ms,label,score}],
+                            options:[...], instructions}
+    {"type": "phase",     "phase": "...", "state": "running|done", "label": "...", "detail": "..."}
+    {"type": "video_context", "video_context": {...}}
     {"type": "final",     "output_path": "...", "output_url": "/files/outputs/...",
                           "video_context": {...}, "critic": {...}}
-    {"type": "done"}
+    {"type": "info",      "content": "..."}           (cancel 접수 / 큐잉 안내 등)
+    {"type": "ping"}                                  (침묵 하트비트)
+    {"type": "done"}                                  (턴 종료 — 세션은 계속 살아있음)
     {"type": "error",     "detail": "..."}
 
   상태 규칙:
     - interrupt 상태는 그래프 체크포인트에 보존됨 — 접속이 끊겨도 재접속하면
       서버가 interrupt 를 다시 보내주고, resume 을 그대로 이어받는다.
-    - 한 세션은 한 번에 하나의 실행만 (동시 chat 은 error 응답).
-    - 새 결과물이 없는 turn 은 final 생략 (버전 중복 방지). done 은 항상 전송.
+    - interrupt 대기 중 chat 은 거부되지 않고 kind 에 맞는 resume 으로 해석된다
+      (script_approval: 승인 표현 → approved / 그 외 → feedback, clarify: reply).
+    - 턴 실행 중 chat 은 최대 3개까지 큐잉 후 완료되는 대로 자동 실행.
+    - 턴 실행 중 cancel 은 즉시 처리 (수신 루프가 실행과 분리돼 있음).
+    - 새 결과물이 없는 turn 은 final 생략 (버전 중복 방지).
+    - interrupt 로 멈춘 turn 은 done 없이 대기. 그 외엔 done 전송 (오류 포함).
 
 Swagger UI: http://localhost:8000/docs
 """
 
 import json
+import logging
 import re
 import threading
 import time
@@ -53,6 +67,8 @@ from agent import config as agent_config
 from agent.graph import build_graph
 from agent.state import VideoContext
 from db import SessionRepo, dispose_db, init_db
+
+logger = logging.getLogger("server")
 
 
 @asynccontextmanager
@@ -161,11 +177,18 @@ class Session:
         self.created_at = time.time()
         # 그래프 실행 직렬화 (WS+WS / WS+REST 동시 접근 시 checkpointer 경합 방지)
         self.run_lock = asyncio.Lock()
+        # run_lock 은 await 로만 잡히므로 "task 생성 ~ 락 획득" 사이에 다른
+        # 접속이 통과하는 창이 있다. busy 는 turn 시작 시 *동기적으로* 세워서
+        # 그 창을 막는다 (같은 thread_id 에 그래프 2개가 붙는 것 = 체크포인트 손상).
+        self.busy = False
         # 같은 결과를 turn 마다 반복 전송하지 않기 위한 dedupe
         self.last_final_sent = ""
         # 현재 turn 중지 요청 이벤트. `cancel` WS 메시지 도착 시 set.
         # 다음 chunk 경계에서 relay 루프가 즉시 종료. 진행 중 tool 은 자연 완료.
         self.turn_stop_event: Optional[threading.Event] = None
+        # 실행 중 도착해 대기 중인 사용자 메시지. 세션에 두어야 접속이 끊겨도
+        # 살아남고 재접속 후 이어서 실행된다.
+        self.queued_chats: list[str] = []
         # 세션 시작 시 DB 에서 로드된 장기 기억 / 이전 세션 요약. graph_input 에 주입.
         self.user_memories: list[dict] = []
         self.conversation_summary: Optional[str] = None
@@ -339,6 +362,13 @@ def _build_graph_input(session: Session, user_message: str) -> dict:
         "script_revision": 0,
         "spawn_depth": 0,
         "session_id": session.session_id,
+        # 세션 누적 방지: critic RETRY 카운트는 턴 단위 개념 — 리셋 안 하면
+        # 긴 세션에서 3회 누적 후 모든 턴이 즉시 강제 종료된다.
+        "critic_retries": 0,
+        # 이전 턴의 미소비 clarify 잔여물이 새 턴 라우팅을 오염시키지 않게.
+        "pending_question": None,
+        "clarify_answer": None,
+        "clarify_history": [],
     }
     if session.video_paths:
         graph_input["video_paths"] = session.video_paths
@@ -466,7 +496,10 @@ async def get_session(session_id: str):
         final_path = values.get("final_output_path", "")
         info["final_output_path"] = final_path
         info["final_output_url"] = _to_file_url(final_path)
-        video_context = values.get("video_context")
+        # 체크포인트의 video_context 는 analysis_node 가 쓴 *원본* 기준이고,
+        # 편집 후 재분석 결과는 session.video_context 에만 반영된다 (_send_final).
+        # 새로고침 복원 시 체크포인트 값을 쓰면 타임라인이 편집 전으로 되돌아간다.
+        video_context = session.video_context or values.get("video_context")
         if isinstance(video_context, dict) and not video_context.get("transcript"):
             sidecar = _load_transcript_sidecar(session)
             if sidecar:
@@ -511,15 +544,26 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다. POST /session 으로 먼저 생성하세요.")
 
     session = sessions[request.session_id]
-    if session.run_lock.locked():
+    if session.busy or session.run_lock.locked():
         raise HTTPException(status_code=409, detail="이미 실행 중인 작업이 있습니다.")
-
-    async with session.run_lock:
-        result = await asyncio.to_thread(
-            session.graph.invoke,
-            _build_graph_input(session, request.message),
-            config=session.config,
+    if session.pending_interrupt() is not None:
+        # 새 input 으로 그래프를 다시 돌리면 pending interrupt 가 조용히 버려지고
+        # plan 이 재생성된다 (langgraph 1.x). REST 는 resume 불가 → 명시 안내.
+        raise HTTPException(
+            status_code=409,
+            detail="승인 대기 중인 interrupt 가 있습니다. WebSocket(/ws/chat)으로 응답하세요.",
         )
+
+    session.busy = True
+    try:
+        async with session.run_lock:
+            result = await asyncio.to_thread(
+                session.graph.invoke,
+                _build_graph_input(session, request.message),
+                config=session.config,
+            )
+    finally:
+        session.busy = False
 
     steps = []
     answer = ""
@@ -633,7 +677,7 @@ PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
     ),
     "script": (
         "편집 계획 초안 준비 중",
-        "타겟 포맷 · 6단계 시나리오 · TTS/BGM 옵션 검토",
+        "타겟 포맷 · 편집 시나리오 · TTS/BGM 옵션 검토",
     ),
     "supervisor": (
         "전문가 실행 중",
@@ -736,9 +780,17 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
 
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue = asyncio.Queue()
-    stop = threading.Event()
-    # 이 turn 을 밖에서 cancel 하기 위해 session 에 노출.
+    # 정지 이벤트는 turn 시작 시점(_start_turn)에 이미 세션에 붙어 있다.
+    # 여기서 새로 만들면 "chat 전송 ~ relay 진입" 사이의 cancel 이 유실된다.
+    stop = session.turn_stop_event or threading.Event()
     session.turn_stop_event = stop
+    if stop.is_set():
+        # 시작 전에 이미 취소됨 — 그래프를 아예 돌리지 않는다.
+        session.turn_stop_event = None
+        await websocket.send_json({
+            "type": "info", "content": "시작 전에 중지돼서 이번 요청은 실행하지 않았어.",
+        })
+        return {"interrupted": False, "cancelled": True, "errored": False}
 
     # ── 진입 phase 결정 (실제 그래프 흐름 반영) ──
     # video_context 있으면 analysis skip → script 부터. resume 이면 supervisor.
@@ -752,7 +804,15 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
     except Exception:
         pass
     if isinstance(stream_input, Command):
-        initial_phase = "supervisor"
+        # resume 값에 따라 실제 다음 노드가 다르다 — 계획 거부(approved=false)면
+        # script 가 재생성되는데 "전문가 실행 중" 카드를 띄우면 오표시.
+        resume_val = getattr(stream_input, "resume", None)
+        rejected_plan = (
+            isinstance(resume_val, dict)
+            and resume_val.get("approved") is False
+            and resume_val.get("reply") is None
+        )
+        initial_phase = "script" if rejected_plan else "supervisor"
     elif has_video_context:
         initial_phase = "script"
     else:
@@ -800,6 +860,11 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
 
     await _start_phase(initial_phase)
 
+    # 그래프 스레드가 실제로 stream 을 빠져나왔는지 신호. cancel/끊김으로 relay 를
+    # 먼저 접더라도 이 이벤트가 서기 전엔 다음 turn 을 시작하면 안 된다 —
+    # 버려진 run 이 나중에 쓰는 체크포인트가 "최신"이 돼 새 turn 을 오염시킨다.
+    producer_done = threading.Event()
+
     def _producer():
         try:
             for chunk in session.graph.stream(
@@ -814,6 +879,7 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
             if not stop.is_set():
                 loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
         finally:
+            producer_done.set()
             if not stop.is_set():
                 loop.call_soon_threadsafe(queue.put_nowait, ("end", None))
 
@@ -821,6 +887,7 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
 
     interrupted = False
     cancelled = False
+    errored = False
     HEARTBEAT_SEC = 6.0
     try:
         while True:
@@ -862,6 +929,7 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                 break
 
             if kind == "error":
+                errored = True
                 await _close_any_running()
                 await websocket.send_json({"type": "error", "detail": item})
                 await SessionRepo.log_event(
@@ -891,8 +959,17 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                     if isinstance(jsonable_payload, dict)
                     else None
                 ) or []
+                kind = (
+                    jsonable_payload.get("type")
+                    if isinstance(jsonable_payload, dict)
+                    else None
+                ) or "script_approval"
                 await SessionRepo.log_interrupt(
-                    session.session_id, plan=plan_dict, questions=questions
+                    session.session_id,
+                    plan=plan_dict,
+                    questions=questions,
+                    kind=kind,
+                    payload=jsonable_payload if isinstance(jsonable_payload, dict) else None,
                 )
                 await SessionRepo.log_event(
                     session.session_id,
@@ -947,6 +1024,10 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                     verdict = (state.get("critic_verdict") or {}).get("verdict")
                     if verdict == "RETRY":
                         await _start_phase("supervisor")
+                elif node_name == "supervisor" and state.get("pending_question"):
+                    # supervisor 가 사용자 질문(clarify)으로 멈춘 경우 —
+                    # 다음은 critic 이 아니라 clarify interrupt 이벤트.
+                    pass
                 else:
                     nxt = NEXT_PHASE.get(node_name)
                     if nxt and nxt in PHASE_RUNNING_TEXT:
@@ -957,6 +1038,10 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
 
                 for msg in state["messages"]:
                     content = _extract_text(getattr(msg, "content", None))
+                    # ask_user 정지 신호는 내부 프로토콜 — 사용자에게 노출 X
+                    # (곧이어 clarify interrupt 카드가 뜬다)
+                    if content and content.strip() == "AWAITING_USER":
+                        continue
                     if content:
                         if len(content) > MAX_RELAY_CHARS:
                             content = content[:MAX_RELAY_CHARS] + "\n… (이하 생략)"
@@ -991,25 +1076,30 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
     except (WebSocketDisconnect, RuntimeError):
         # 클라이언트 끊김 — push 중단 신호 후 상위로 전파 (그래프 상태는 체크포인트에 보존)
         stop.set()
-        session.turn_stop_event = None
         raise
+    finally:
+        session.turn_stop_event = None
+        # 그래프 스레드가 stream 을 완전히 빠져나올 때까지 대기. cancel/끊김으로
+        # 여기 먼저 도달해도 마찬가지 — 락은 호출자(_run_turn)가 이 await 이후에
+        # 놓으므로, 버려진 run 과 다음 run 이 같은 thread_id 에서 겹치지 않는다.
+        # 진행 중이던 tool 이 끝나야 풀리므로 최대 수 분까지 걸릴 수 있다.
+        await asyncio.to_thread(producer_done.wait)
 
     # cancel 처리 마감. running phase 정리 + 사용자 안내.
     if cancelled:
         await _close_any_running()
         await websocket.send_json({
             "type": "info",
-            "content": "작업 중지 요청 수신 — 진행 중이던 도구 작업은 자연 완료 후 종료돼. 새 지시를 내려도 돼.",
+            "content": "작업 중지 요청 수신 — 진행 중이던 도구 작업은 자연 완료 후 종료됐어. 새 지시를 내려도 돼.",
         })
         await SessionRepo.log_event(
             session.session_id,
             kind="cancel",
             content="사용자 중지 요청",
         )
-        await SessionRepo.set_session_status(session.session_id, "completed")
+        await SessionRepo.set_session_status(session.session_id, "cancelled")
 
-    session.turn_stop_event = None
-    return interrupted
+    return {"interrupted": interrupted, "cancelled": cancelled, "errored": errored}
 
 
 def _load_transcript_sidecar(session: Session) -> list[dict]:
@@ -1037,12 +1127,31 @@ def _load_transcript_sidecar(session: Session) -> list[dict]:
             mtime = sidecar.stat().st_mtime
         except OSError:
             continue
-        if sidecar.stem in input_stems or mtime >= session.created_at:
+        # <stem>.cues.json 의 Path.stem 은 "<stem>.cues" 라 input_stems 매칭이
+        # 안 된다 -> .cues 접미를 벗겨서 비교.
+        base_stem = sidecar.stem
+        if base_stem.endswith(".cues"):
+            base_stem = base_stem[: -len(".cues")]
+        if base_stem in input_stems or mtime >= session.created_at:
             candidates.append((mtime, sidecar))
 
     for _, sidecar in sorted(candidates, reverse=True):
         try:
             data = json.loads(sidecar.read_text(encoding="utf-8"))
+            # 큐 문서(<stem>.cues.json)가 자막의 진실의 원천이다. 오타 수정/타이밍
+            # 변경은 여기에만 반영되므로, 전사 사이드카(segments)보다 우선한다.
+            # 최신 mtime 우선이라 편집 직후엔 큐 문서가 먼저 잡힌다.
+            cues = data.get("cues")
+            if isinstance(cues, list) and cues:
+                return [
+                    {
+                        "start": float(c.get("start", 0)),
+                        "end": float(c.get("end", 0)),
+                        "text": str(c.get("text", "")),
+                    }
+                    for c in cues
+                    if isinstance(c, dict)
+                ]
             segments = data.get("segments", [])
             if segments:
                 return [
@@ -1069,25 +1178,30 @@ def _reanalyze_output_sync(final_path: str) -> Optional[dict]:
         from agent import config as _cfg
         from agent.tools.video_analysis import analyze_video
 
-        # analyze_video 는 VIDEOS_DIR 기준 상대경로를 요구. final_path 가
-        # "videos/clips/xxx.mp4" 든 절대경로든 VIDEOS_DIR 상대로 정규화.
+        # 편집 툴 기본 출력은 outputs/ 라서 videos/ 로만 제한하면 표준 컷/머지
+        # 결과가 전부 재분석에서 빠진다 → 프로젝트 루트 하위(videos/, outputs/)
+        # 전체 허용. analyze_video 는 절대경로도 받도록 확장됨.
         p = Path(final_path.strip().strip("`'\"*").strip())
         if not p.is_absolute():
             candidate = (_cfg.PROJECT_ROOT / p).resolve()
         else:
-            candidate = p
+            candidate = p.resolve()
         try:
-            rel_to_videos = candidate.relative_to(_cfg.VIDEOS_DIR.resolve())
+            candidate.relative_to(_cfg.PROJECT_ROOT.resolve())
         except ValueError:
-            # VIDEOS_DIR 바깥 → 재분석 불가
-            logger.warning("reanalysis: %s is outside VIDEOS_DIR", candidate)
+            logger.warning("reanalysis: %s is outside PROJECT_ROOT", candidate)
             return None
         if not candidate.exists():
             logger.warning("reanalysis: file not found %s", candidate)
             return None
 
-        logger.info("reanalysis: %s (via analyze_video)", rel_to_videos)
-        raw = analyze_video.invoke({"video_path": str(rel_to_videos)})
+        try:
+            analyze_arg = str(candidate.relative_to(_cfg.VIDEOS_DIR.resolve()))
+        except ValueError:
+            analyze_arg = str(candidate)
+
+        logger.info("reanalysis: %s (via analyze_video)", analyze_arg)
+        raw = analyze_video.invoke({"video_path": analyze_arg})
         data = _json.loads(raw)
         if "error" in data:
             logger.warning("reanalysis: analyze_video 오류 - %s", data["error"])
@@ -1102,7 +1216,7 @@ def _reanalyze_output_sync(final_path: str) -> Optional[dict]:
             for seg in data.get("segments", [])
         ]
         return {
-            "file_path": str(rel_to_videos),
+            "file_path": analyze_arg,
             "duration": data.get("duration", 0.0),
             "scenes": scenes,
             "transcript": [],  # 아래 _send_final 에서 사이드카로 보강
@@ -1237,37 +1351,131 @@ async def _send_final(websocket: WebSocket, session: Session):
 async def _run_turn(websocket: WebSocket, session: Session, stream_input) -> None:
     """한 번의 그래프 실행 세그먼트. interrupt 로 멈추면 클라이언트의 다음
     메시지(resume)가 top-level 루프에서 이어받는다 — 접속이 끊겨도 interrupt
-    상태는 체크포인트에 남아 재접속 후 복원/승인 가능."""
-    async with session.run_lock:
-        interrupted = await _relay_stream(websocket, session, stream_input)
-    if interrupted:
-        return
-    await _send_final(websocket, session)
-    # rolling summary 가 이번 turn 에 갱신됐으면 DB persist (재접속 후 복원용).
+    상태는 체크포인트에 남아 재접속 후 복원/승인 가능.
+
+    이 함수 안에서 발생하는 예외는 (연결 끊김 제외) 전부 error 이벤트로
+    변환하고 done 까지 보낸다 — 어떤 턴 오류도 WS/세션을 죽이면 안 된다.
+    """
     try:
-        snapshot = session.graph.get_state(session.config)
-        values = snapshot.values or {}
-        new_summary = values.get("conversation_summary")
-        up_to = values.get("summarized_up_to") or 0
-        if new_summary and new_summary != session.conversation_summary:
-            await SessionRepo.update_summary(
-                session.session_id, new_summary, up_to
-            )
-            session.conversation_summary = new_summary
-            session.summarized_up_to = up_to
+        # 락은 _relay_stream (그래프 스레드 종료 대기 포함) + _send_final +
+        # summary persist 전체를 감싼다. _send_final 은 20~60초 재분석을
+        # 돌리는데, 그동안 락이 풀려 있으면 REST /chat 이나 두 번째 접속이
+        # 같은 thread_id 에 그래프를 하나 더 붙일 수 있다.
+        async with session.run_lock:
+            outcome = await _relay_stream(websocket, session, stream_input)
+            if outcome["interrupted"]:
+                return
+            # 중지/오류로 끝난 turn 은 결과물 확정 단계를 건너뛴다 —
+            # 중단된 실행의 부분 산출물을 최종본으로 승격시키면 안 된다.
+            if outcome["cancelled"] or outcome["errored"]:
+                await websocket.send_json({"type": "done"})
+                return
+            await _send_final(websocket, session)
+            # rolling summary 가 이번 turn 에 갱신됐으면 DB persist (재접속 후 복원용).
+            try:
+                snapshot = session.graph.get_state(session.config)
+                values = snapshot.values or {}
+                new_summary = values.get("conversation_summary")
+                up_to = values.get("summarized_up_to") or 0
+                if new_summary and new_summary != session.conversation_summary:
+                    await SessionRepo.update_summary(
+                        session.session_id, new_summary, up_to
+                    )
+                    session.conversation_summary = new_summary
+                    session.summarized_up_to = up_to
+                    await websocket.send_json({
+                        "type": "message",
+                        "node": "orchestrator",
+                        "content": f"[대화 요약 업데이트] {len(new_summary)}자",
+                    })
+            except Exception:
+                logger.exception("summary persist failed")
+    except (WebSocketDisconnect, RuntimeError):
+        raise
+    except Exception as exc:
+        logger.exception("turn failed")
+        try:
             await websocket.send_json({
-                "type": "message",
-                "node": "orchestrator",
-                "content": f"[대화 요약 업데이트] {len(new_summary)}자",
+                "type": "error",
+                "detail": f"턴 처리 중 오류: {type(exc).__name__}: {exc}",
             })
-    except Exception:
-        logger.exception("summary persist failed")
+            await SessionRepo.log_event(
+                session.session_id, kind="error", detail=str(exc)
+            )
+            await SessionRepo.set_session_status(session.session_id, "error")
+        except Exception:
+            raise WebSocketDisconnect() from exc
     await websocket.send_json({"type": "done"})
+
+
+# 자유 채팅이 interrupt 응답으로 들어왔을 때의 승인 표현 휴리스틱.
+# 확신 없는 문장은 전부 feedback 으로 — 오승인(잘못된 plan 실행)이 더 위험하다.
+# 승인 토큰만으로 이뤄진 문장만 통과 ("좋아 근데 자막은 노랗게" 는 feedback).
+# 주의: 정규식 alternation 은 왼쪽 우선 매치라 *긴 표현을 먼저* 둬야 한다.
+# ("진행" 이 앞에 있으면 "진행해주세요" 가 "진행" 만 먹고 나머지에서 실패)
+_ASSENT_TOKEN = (
+    r"(?:진행해주세요|진행해줘|진행하자|진행시켜|진행해|진행"
+    r"|승인할게|승인|해주세요|해줘|하자|해"
+    r"|시작해줘|시작해|시작"
+    r"|이대로|그대로|그렇게|그래요|그래+"
+    r"|좋아요|좋아+|좋지|맞습니다|맞아요|맞아+"
+    r"|오케이|오키|굿|콜|고고|가즈아|가자"
+    r"|응+|어+|네+|넵|예스|예|ㄱ+"
+    r"|okay|ok|yes|yep|yeah|go|lgtm|approved|approve|proceed|sure)"
+)
+_ASSENT_RE = re.compile(
+    # "네 그렇게 해줘", "응 진행해줘" 처럼 승인 토큰이 이어지는 형태까지 허용
+    rf"^{_ASSENT_TOKEN}(?:[\s,.!?~ㅋㅎ]+{_ASSENT_TOKEN})*[\s.!?~ㅋㅎ]*$",
+    re.I,
+)
+
+
+def _reply_to_resume(pending_payload: Optional[dict], message: str) -> dict:
+    """interrupt 대기 중 도착한 자유 채팅을 kind 에 맞는 resume 값으로 변환.
+
+    - clarify: 원문 그대로 reply 로 전달 (해석은 supervisor LLM 몫)
+    - script_approval: 명백한 승인 표현이면 approved, 그 외엔 feedback
+    """
+    kind = (pending_payload or {}).get("type") or "script_approval"
+    text = (message or "").strip()
+    if kind == "clarify":
+        return {"reply": text}
+    if _ASSENT_RE.match(text):
+        return {"approved": True}
+    return {"approved": False, "feedback": text}
+
+
+def _resume_from_payload(payload: dict) -> dict:
+    """{type:"resume"} WS 메시지 → Command(resume=...) 값.
+
+    지원 필드: approved(bool), feedback(str), reply(str), selected(list[int]).
+    clarify 카드 응답은 reply/selected 만 올 수도 있다.
+    """
+    resume: dict = {}
+    if "approved" in payload:
+        resume["approved"] = bool(payload.get("approved"))
+        if not resume["approved"]:
+            resume["feedback"] = payload.get("feedback", "") or ""
+    if payload.get("reply") is not None:
+        resume["reply"] = str(payload.get("reply"))
+    if isinstance(payload.get("selected"), list):
+        resume["selected"] = [
+            int(i) for i in payload["selected"] if isinstance(i, (int, float))
+        ]
+    if not resume:
+        resume = {"approved": True}
+    return resume
 
 
 @app.websocket("/ws/chat/{session_id}")
 async def chat_stream(websocket: WebSocket, session_id: str):
-    """세션 기반 WebSocket 스트리밍. 프로토콜은 파일 상단 docstring 참고."""
+    """세션 기반 WebSocket 스트리밍. 프로토콜은 파일 상단 docstring 참고.
+
+    수신 루프와 턴 실행을 분리 실행:
+    - 턴 실행 중에도 cancel 이 즉시 먹힌다 (같은 소켓에서).
+    - 턴 실행 중 chat 은 큐잉 후 완료되는 대로 자동 실행 (최대 3개).
+    - interrupt 대기 중 chat 은 거부하지 않고 kind 에 맞는 resume 으로 변환.
+    """
     await websocket.accept()
 
     if session_id not in sessions:
@@ -1281,10 +1489,96 @@ async def chat_stream(websocket: WebSocket, session_id: str):
     pending = session.pending_interrupt()
     if pending is not None:
         await websocket.send_json({"type": "interrupt", "payload": _jsonable(pending)})
+    elif session.queued_chats and not session.busy:
+        # 이전 접속에서 대기하다 끊긴 요청 — 재접속 시 이어서 알려준다.
+        await websocket.send_json({
+            "type": "info",
+            "content": f"대기 중인 요청 {len(session.queued_chats)}건이 있어. 곧 이어서 실행할게.",
+        })
+
+    turn_task: Optional[asyncio.Task] = None
+    recv_task: Optional[asyncio.Task] = None
+    MAX_QUEUED = 3
+
+    def _turn_running() -> bool:
+        return turn_task is not None and not turn_task.done()
+
+    def _start_turn(stream_input) -> None:
+        """turn 시작. busy / stop_event 를 *동기적으로* 세워서 락 획득 전 창을 막는다.
+
+        정지 이벤트를 여기서 만들어야 "요청 보내자마자 stop" 이 유실되지 않는다
+        (relay 진입 전엔 세션에 이벤트가 없어 cancel 이 '진행 중 없음' 이 됨).
+        """
+        nonlocal turn_task
+        session.busy = True
+        session.turn_stop_event = threading.Event()
+        turn_task = asyncio.create_task(_run_turn(websocket, session, stream_input))
+        turn_task.add_done_callback(lambda _t: setattr(session, "busy", False))
+
+    async def _start_resume(resume_value: dict) -> None:
+        # clarify 답변은 승인/거부가 아니다 — approved 를 임의로 True 로 적으면
+        # interrupts 테이블이 "전부 승인됨" 으로 오염된다 (컬럼은 nullable).
+        approved = resume_value.get("approved")
+        answer_text = resume_value.get("feedback") or resume_value.get("reply")
+        await SessionRepo.resolve_interrupt(
+            session_id,
+            approved=bool(approved) if approved is not None else None,
+            feedback=answer_text,
+        )
+        await SessionRepo.log_event(
+            session_id,
+            kind="resume",
+            ok=approved,
+            content=answer_text,
+            extra={"resume": _jsonable(resume_value)},
+        )
+        _start_turn(Command(resume=resume_value))
+
+    async def _drain_queue() -> None:
+        """대기 중인 요청이 있고 실행 가능하면 다음 하나를 시작.
+
+        interrupt 대기 중엔 보류 (resume 이 먼저), 다른 접속이 실행 중이어도 보류.
+        """
+        if _turn_running() or session.busy:
+            return
+        if not session.queued_chats or session.pending_interrupt() is not None:
+            return
+        next_msg = session.queued_chats.pop(0)
+        await websocket.send_json({
+            "type": "info",
+            "content": f"대기 중이던 요청 시작: {next_msg[:80]}",
+        })
+        _start_turn(_build_graph_input(session, next_msg))
 
     try:
+        # 이전 접속에서 끊기며 남은 대기 요청 이어받기
+        await _drain_queue()
         while True:
-            data = await websocket.receive_text()
+            if recv_task is None:
+                recv_task = asyncio.create_task(websocket.receive_text())
+            wait_set: set = {recv_task}
+            if turn_task is not None:
+                wait_set.add(turn_task)
+            await asyncio.wait(wait_set, return_when=asyncio.FIRST_COMPLETED)
+
+            # ── 1) 턴 종료 처리 ──
+            if turn_task is not None and turn_task.done():
+                exc = turn_task.exception()
+                turn_task = None
+                if exc is not None:
+                    if isinstance(exc, (WebSocketDisconnect, RuntimeError)):
+                        raise exc
+                    logger.error("turn task crashed", exc_info=exc)
+                # 대기 중이던 채팅 이어서 실행 (interrupt 로 멈춘 상태면 보류 —
+                # 다음 수신에서 resume 변환 경로를 탄다)
+                await _drain_queue()
+
+            # ── 2) 수신 메시지 처리 ──
+            if recv_task is None or not recv_task.done():
+                continue
+            data = recv_task.result()  # 끊기면 WebSocketDisconnect raise
+            recv_task = None
+
             try:
                 payload = json.loads(data)
                 if not isinstance(payload, dict):
@@ -1295,9 +1589,11 @@ async def chat_stream(websocket: WebSocket, session_id: str):
 
             msg_type = payload.get("type", "chat")
 
-            # 사용자 중지 요청 — run_lock 걸린 상태에서만 유효. stop_event 를 즉시
-            # set 해서 relay 루프가 다음 chunk 경계에서 종료. producer 도 그때 exit.
+            # 사용자 중지 요청 — 실행 중이면 stop_event set. 수신 루프가 턴과
+            # 분리돼 있어서 실행 도중에도 즉시 처리된다.
             if msg_type == "cancel":
+                # 대기 큐부터 비운다 (실행 중이 아니어도 큐는 남아 있을 수 있음).
+                session.queued_chats.clear()
                 if session.turn_stop_event is not None:
                     session.turn_stop_event.set()
                     await websocket.send_json({
@@ -1311,21 +1607,16 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                     })
                 continue
 
-            if session.run_lock.locked():
-                # 프론트가 optimistic pending 카드 띄운 상태로 갇히지 않게 명시적
-                # error + pending 종료 신호 발사.
-                await websocket.send_json({
-                    "type": "phase",
-                    "phase": "pending",
-                    "state": "done",
-                })
-                await websocket.send_json({
-                    "type": "error",
-                    "detail": "이전 작업이 아직 진행 중이에요. 완료되면 이어서 요청해줘.",
-                })
-                continue
-
             if msg_type == "resume":
+                # busy 는 동기 플래그 — 다른 접속의 turn 이 락을 잡기 전이어도 잡힌다.
+                # 이 가드가 없으면 두 탭이 같은 interrupt 에 각각 resume 을 보내
+                # 두 번째 값이 *다음* interrupt 를 잘못 소비한다.
+                if session.busy:
+                    await websocket.send_json({
+                        "type": "error",
+                        "detail": "이미 실행 중이에요. 완료 후 응답해줘.",
+                    })
+                    continue
                 # interrupt 는 체크포인트 기준으로 판단 — 재접속 후 resume 도 허용
                 if session.pending_interrupt() is None:
                     await websocket.send_json({
@@ -1333,26 +1624,7 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                         "detail": "대기 중인 승인 요청이 없습니다.",
                     })
                     continue
-                approved = bool(payload.get("approved", False))
-                feedback = payload.get("feedback", "") if not approved else None
-                if approved:
-                    stream_input = Command(resume={"approved": True})
-                else:
-                    stream_input = Command(resume={
-                        "approved": False,
-                        "feedback": feedback or "",
-                    })
-                # interrupt 결과 로그 (interrupts + messages 두 곳)
-                await SessionRepo.resolve_interrupt(
-                    session_id, approved=approved, feedback=feedback
-                )
-                await SessionRepo.log_event(
-                    session_id,
-                    kind="resume",
-                    ok=approved,
-                    content=feedback,
-                )
-                await _run_turn(websocket, session, stream_input)
+                await _start_resume(_resume_from_payload(payload))
                 continue
 
             # 일반 채팅
@@ -1360,22 +1632,73 @@ async def chat_stream(websocket: WebSocket, session_id: str):
             if not user_message:
                 await websocket.send_json({"type": "error", "detail": "message 가 비어 있습니다."})
                 continue
-            if session.pending_interrupt() is not None:
+
+            # 다른 접속(두 번째 WS/REST)이 잡은 실행 — 이 소켓의 턴이 아니면 거부
+            if session.busy and not _turn_running():
+                await websocket.send_json({
+                    "type": "phase", "phase": "pending", "state": "done",
+                })
                 await websocket.send_json({
                     "type": "error",
-                    "detail": "계획 승인 대기 중입니다. 승인하거나 수정 요청을 보내세요.",
+                    "detail": "다른 접속에서 작업이 진행 중이에요. 완료 후 다시 요청해줘.",
                 })
+                continue
+
+            if _turn_running():
+                if len(session.queued_chats) >= MAX_QUEUED:
+                    await websocket.send_json({
+                        "type": "error",
+                        "detail": f"대기 요청이 이미 {MAX_QUEUED}개 있어요. 진행 중 작업을 중지하거나 완료를 기다려줘.",
+                    })
+                    continue
+                # 큐 적재 시점에 DB 로그 — 접속이 끊겨도 사용자 발화가 사라지지 않게.
+                await SessionRepo.log_event(
+                    session_id, kind="user", content=user_message,
+                    extra={"queued": True},
+                )
+                session.queued_chats.append(user_message)
+                await websocket.send_json({
+                    "type": "info",
+                    "content": "현재 작업이 끝나면 이어서 실행할게. (중지하려면 stop)",
+                })
+                continue
+
+            pending_now = session.pending_interrupt()
+            if pending_now is not None:
+                # 자유 채팅을 interrupt 응답으로 해석 (승인 / 피드백 / clarify 답변)
+                await SessionRepo.log_event(
+                    session_id, kind="user", content=user_message
+                )
+                await _start_resume(_reply_to_resume(pending_now, user_message))
                 continue
 
             # 유저 메시지 DB 로그
             await SessionRepo.log_event(
                 session_id, kind="user", content=user_message
             )
+            _start_turn(_build_graph_input(session, user_message))
 
-            await _run_turn(websocket, session, _build_graph_input(session, user_message))
-
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         pass
+    finally:
+        # 연결 종료 — *이 접속이 소유한* turn 만 정지시킨다. 두 번째 탭을 닫았을 때
+        # 첫 탭의 실행이 취소되면 안 된다 (turn_stop_event 는 세션 전역 슬롯).
+        if _turn_running() and session.turn_stop_event is not None:
+            session.turn_stop_event.set()
+        if recv_task is not None:
+            if not recv_task.done():
+                recv_task.cancel()
+            elif not recv_task.cancelled():
+                recv_task.exception()  # 회수 (미조회 경고 방지)
+        if turn_task is not None:
+            if turn_task.done():
+                if not turn_task.cancelled():
+                    turn_task.exception()
+            else:
+                # WS 는 죽었지만 턴 태스크는 자연 종료됨 (락도 그때 풀림).
+                turn_task.add_done_callback(
+                    lambda t: t.exception() if not t.cancelled() else None
+                )
 
 
 # -------------------------------------------------------------------

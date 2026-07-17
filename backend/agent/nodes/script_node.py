@@ -170,6 +170,18 @@ def script_node(state: AgentState) -> dict[str, Any]:
     plan.setdefault("steps", [])
     plan.setdefault("questions", [])
     plan.setdefault("target_format", "general")
+    plan.setdefault("mode", "edit")
+    # chat 모드인데 reply 가 없으면 edit 모드로 강등 (오분류 방어)
+    if plan.get("mode") == "chat" and not str(plan.get("reply") or "").strip():
+        plan["mode"] = "edit"
+
+    # step_id 백필 — supervisor 의 완료 판정(_step_completed)이 step_id 기준이라
+    # LLM 이 빠뜨리면 그 step 은 영영 "미완료"로 남아 매 재진입마다 재실행된다.
+    steps = plan.get("steps")
+    if isinstance(steps, list):
+        for i, step in enumerate(steps, 1):
+            if isinstance(step, dict) and not isinstance(step.get("step_id"), int):
+                step["step_id"] = i
 
     duration = time.monotonic() - started
     logger.info(
@@ -193,13 +205,18 @@ def script_node(state: AgentState) -> dict[str, Any]:
 def should_interrupt_for_questions(state: AgentState) -> str:
     """script_node 이후 라우팅.
 
+    - plan.mode == "chat" 이면 respond (편집 파이프라인 전체 스킵 — 대화 응답)
     - plan.questions 가 비어있고 사용자 승인 정책이 꺼져있으면 supervisor 로 바로
     - 그 외엔 interrupt 게이트로 (사용자 승인 / 수정 요청)
 
     Returns:
-        "interrupt" | "supervisor"
+        "interrupt" | "supervisor" | "respond"
     """
     plan = state.get("script_plan") or {}
+
+    if plan.get("mode") == "chat":
+        return "respond"
+
     has_questions = bool(plan.get("questions"))
     gate_enabled = config.INTERRUPT_POLICY.gate_after_script
 
