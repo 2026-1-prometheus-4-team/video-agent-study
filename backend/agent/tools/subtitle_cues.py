@@ -46,8 +46,17 @@ _PROJECT_ROOT = os.path.dirname(
 )
 OUTPUTS_DIR = os.path.join(_PROJECT_ROOT, "outputs")
 
+# subtitle.py 의 SUBTITLE_FONT (파일명 기반) 와 같은 기본값을 쓴다 — 두 렌더
+# 경로(add_subtitle 번인 / 큐 문서 렌더)가 서로 다른 폰트를 쓰면 사용자가
+# 같은 영상에서 다른 자막 폰트를 보게 된다.
+def _default_font_family() -> str:
+    from agent.tools.subtitle import _DEFAULT_FONT_FILE, _font_family_from_file
+
+    return _font_family_from_file(_DEFAULT_FONT_FILE)
+
+
 DEFAULT_STYLE = {
-    "font": "NotoSansKR",
+    "font": _default_font_family(),
     "size": 24,
     "color": "#FFFFFF",
     "stroke_color": "#000000",
@@ -214,7 +223,7 @@ def style_defaults_from_legacy(style: dict) -> dict:
             return fallback
 
     return {
-        "font": style.get("font", "NotoSansKR"),
+        "font": style.get("font", _default_font_family()),
         "size": style.get("font_size", 24),
         "color": to_hex(style.get("color", "white"), "#FFFFFF"),
         "stroke_color": to_hex(style.get("stroke_color", "black"), "#000000"),

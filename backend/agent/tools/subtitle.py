@@ -14,7 +14,6 @@ import subprocess
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(__file__)
@@ -22,8 +21,25 @@ VIDEOS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "videos"))
 SUBTITLES_DIR = os.path.join(VIDEOS_DIR, "subtitles")
 FONTS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "assets", "fonts"))
 
+# 경로를 명시해야 한다 — 인자 없는 load_dotenv() 는 CWD 부터 위로 훑어서
+# backend/ 밖(리포 루트, pytest 등)에서 띄우면 조용히 무시되고 SUBTITLE_FONT 가
+# 기본값으로 돌아간다.
+load_dotenv(os.path.abspath(os.path.join(_HERE, "..", "..", ".env")))
+
 _DEFAULT_FONT_FILE = os.getenv("SUBTITLE_FONT", "NotoSansKR-Regular.ttf")
 _EMOJI_FONT_FILE = "NotoColorEmoji.ttf"
+
+
+def _font_family_from_file(font_file: str) -> str:
+    """폰트 파일명 -> libass FontName. NanumGothic-Regular.ttf -> NanumGothic.
+
+    force_style 의 FontName 은 *패밀리명* 이라 파일명을 그대로 넣으면 매칭 실패.
+    """
+    stem = os.path.splitext(os.path.basename(font_file))[0]
+    for suffix in ("-Regular", "-Bold", "-Medium", "-Light", "-SemiBold", "-ExtraBold"):
+        if stem.endswith(suffix):
+            return stem[: -len(suffix)]
+    return stem
 
 
 # ─── 내부 헬퍼 ────────────────────────────────────────────────────────────────
@@ -253,7 +269,9 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
 
         s = _merge_style(style)
         font_path = _resolve_font(_DEFAULT_FONT_FILE)
-        font_name = "NotoSansKR" if font_path else "Arial"
+        # SUBTITLE_FONT 로 다른 폰트를 지정해도 여기서 NotoSansKR 을 박으면
+        # libass 가 그 패밀리를 못 찾아 폰트 지정이 무력화된다 — 실제 파일에서 유도.
+        font_name = _font_family_from_file(_DEFAULT_FONT_FILE) if font_path else "Arial"
         if not font_path:
             logger.warning(f"{_DEFAULT_FONT_FILE} 없음 — 시스템 기본 폰트(Arial) 사용")
 

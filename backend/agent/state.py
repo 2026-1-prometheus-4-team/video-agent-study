@@ -16,10 +16,13 @@ from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
 
 
-class Scene(TypedDict):
+class Scene(TypedDict, total=False):
     start: float
     end: float
     description: str
+    video: str
+    """다중 영상 입력 시 이 장면이 어느 영상 것인지 (예: videos/a.mp4).
+    단일 영상이면 생략 — cut step 의 video_path 는 이 값을 그대로 써야 한다."""
 
 
 class Transcript(TypedDict):
@@ -28,11 +31,13 @@ class Transcript(TypedDict):
     text: str
 
 
-class VideoContext(TypedDict):
+class VideoContext(TypedDict, total=False):
     file_path: str
     duration: float
     scenes: list[Scene]
     transcript: list[Transcript]
+    videos: list[dict]
+    """다중 영상 입력 시 [{file_path, duration}, ...]. 단일 영상이면 생략."""
 
 
 class ExecutionStep(TypedDict, total=False):
