@@ -1,7 +1,13 @@
 # Tool Catalog (TOOLS.md)
 
-Supervisor 는 sub-agent 만 부른다. 직접 부르는 tool 은 없다.
-하지만 어떤 sub-agent 가 어떤 능력을 갖고 있는지 *상세히* 알아야
+Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개는 직접 부른다.
+
+| tool                    | 시그니처                                                        | 설명 |
+|-------------------------|------------------------------------------------------------------|------|
+| `search_video_segments` | `(video_path, query, queries?, max_results?, merge_gap_ms?) -> json` | 장면 후보 검색 (컷 안 함). 반환 stats.top_score / margin 으로 확신도 판단. status=no_match 면 near_misses 후보 포함. |
+| `ask_user`              | `(question, candidates?, options?, context) -> str`             | 실행 중 사용자 확인. candidates 는 search 결과 matches/near_misses 그대로 전달 가능. 호출 후엔 즉시 'AWAITING_USER' 로 응답 종료. |
+
+어떤 sub-agent 가 어떤 능력을 갖고 있는지 *상세히* 알아야
 올바른 위임이 가능하다. 이 문서는 그 카탈로그다.
 
 각 sub-agent 가 보유한 tool 은 sub_agents/<role>/TOOLS.md 로도 별도 정의됨.
@@ -16,8 +22,8 @@ Supervisor 는 sub-agent 만 부른다. 직접 부르는 tool 은 없다.
 |--------------------------|-------------------------------------------------------------------|---------------------------------------|
 | `cut_video`              | `(video_path, start_ms, end_ms, output_path?) -> path`            | 구간 cut. **타임스탬프는 ms 단위.** 병렬 호출 가능. |
 | `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 자동 reencode. |
-| `search_video_segments`  | `(video_path, query, max_results?) -> json`                       | 분석 JSON 에서 자연어로 장면 검색 (컷 안 함) |
-| `cut_by_description`     | `(video_path, query, merge?, padding_ms?, max_segments?) -> json` | 자연어 장면 검색 + 자동 컷 (+선택 병합) |
+| `search_video_segments`  | `(video_path, query, queries?, max_results?, merge_gap_ms?) -> json` | 분석 JSON 에서 자연어로 장면 검색 (컷 안 함). 인접 매칭 자동 병합, stats + near_misses 포함 |
+| `cut_by_description`     | `(video_path, query, merge?, padding_ms?, max_segments?) -> json` | 자연어 장면 검색 + 자동 컷 (+선택 병합). 중첩 구간은 union 후 컷 |
 
 호출 시 박을 정보: 입력/출력 경로, start_ms/end_ms (밀리초 int) 또는 자연어 query.
 
@@ -32,17 +38,20 @@ Supervisor 는 sub-agent 만 부른다. 직접 부르는 tool 은 없다.
 
 음성 / 오디오 / BGM / 효과음 / 나래이션 전반.
 
-| tool                 | 시그니처                                               | 설명                                   |
-|----------------------|--------------------------------------------------------|----------------------------------------|
-| `transcribe_video`   | `(video_path) -> [{start, end, text}]`                 | Whisper 자막/발화 추출 (timestamp)     |
-| `text_to_speech`     | `(text, voice_id, output_path) -> path`                | TTS / 나래이션 음성 합성               |
-| TODO: `add_bgm`      | `(video_path, bgm_path, volume, ducking) -> path`      | BGM 깔기 (ducking = 발화 구간 자동 감쇠) |
-| TODO: `add_sfx`      | `(video_path, sfx_path, at_time) -> path`              | 효과음 (woosh, ding, beat 등) 삽입     |
-| TODO: `mix_audio`    | `(video_path, audio_path, mode) -> path`               | 영상에 오디오 트랙 mix (replace / overlay) |
-| TODO: `denoise`      | `(audio_path) -> path`                                 | 노이즈 제거                            |
-| TODO: `normalize_loudness` | `(path, target_lufs) -> path`                    | 라우드니스 정규화 (-14 LUFS 등)        |
+| tool                 | 시그니처                                                              | 설명                                   |
+|----------------------|------------------------------------------------------------------------|----------------------------------------|
+| `transcribe_video`   | `(video_path) -> [{start, end, text}]`                                | Whisper 자막/발화 추출 (timestamp)     |
+| `text_to_speech`     | `(text, voice?, stability?, style?, speed?, output_path?) -> json`    | TTS / 나래이션 합성. 생성 이력은 narration.json manifest 에 자동 기록 |
+| `add_bgm`            | `(video_path, bgm_path, volume, ducking, narration_path?) -> path`    | BGM 깔기 (ducking = 발화 구간 자동 감쇠) |
+| `add_sfx`            | `(video_path, sfx_path, at_time) -> path`                             | 효과음 (woosh, ding, beat 등) 삽입     |
+| `mix_audio`          | `(video_path, audio_path, mode, output_path?, at_time_ms?) -> path`   | 오디오 mix. overlay + at_time_ms 로 특정 시점 배치 |
+| `denoise`            | `(audio_path) -> path`                                                 | 노이즈 제거                            |
+| `normalize_loudness` | `(path, target_lufs) -> path`                                          | 라우드니스 정규화 (-14 LUFS 등)        |
 
-TTS voice_id 는 assets/tts_voices.json 의 id 사용 (예: `male_ko_general`).
+TTS voice 는 assets/tts_voices.json 의 카탈로그 id (예: `male_ko_general`) 또는
+raw ElevenLabs voice id. 사용자 표현 매핑: "더 차분하게" -> stability 상향(0.7~0.9)
++ speed 하향(0.9), "더 밝게/에너지있게" -> stability 하향(0.3) + style 상향.
+특정 구간 나래이션 교체 = 해당 문장만 재합성 -> mix_audio(overlay, at_time_ms).
 나래이션 / TTS 는 같은 tool — 사용 맥락만 다르다.
 "비트", "효과음", "사운드" 같은 사용자 어휘는 모두 `add_sfx` 로 매핑.
 
@@ -51,15 +60,27 @@ TTS voice_id 는 assets/tts_voices.json 의 id 사용 (예: `male_ko_general`).
 
 자막 / 타이틀 / 캡션 / 오버레이 텍스트 전반.
 
-| tool                       | 시그니처                                              | 설명                              |
-|----------------------------|-------------------------------------------------------|-----------------------------------|
-| TODO: `add_subtitle`       | `(video_path, srt_path, style) -> path`               | SRT 자막 burn-in                  |
-| TODO: `add_auto_subtitle`  | `(video_path, style) -> path`                         | transcribe 결과 자동으로 자막화   |
-| TODO: `add_title`          | `(video_path, text, position, duration, anim) -> path`| 타이틀 오버레이 (애니메이션 포함) |
-| TODO: `add_caption`        | `(video_path, text, at_time, duration, style) -> path`| 한 줄 캡션 (강조 텍스트)          |
-| TODO: `add_emoji_overlay`  | `(video_path, emoji, at_time, position) -> path`      | 쇼츠/릴스용 이모지 강조           |
+**자막은 큐 문서(videos/subtitles/<stem>.cues.json)가 진실의 원천이다.**
+큐 문서 = {style_defaults, cues:[{id, start, end, text, style?}]}. 수정은 데이터
+수정 + render 1회 — 재전사 금지. 렌더는 항상 번인 전 source_video 기준
+(이중 번인 방지, 문서에 기록돼 있음).
 
-style = {font, size, color, stroke, bg, position}.
+| tool                       | 시그니처                                                        | 설명                              |
+|----------------------------|------------------------------------------------------------------|-----------------------------------|
+| `list_subtitle_cues`       | `(video_path) -> json`                                          | 큐 문서 조회 (없으면 사이드카에서 자동 승격) |
+| `update_subtitle_cues`     | `(video_path, updates:[{id?|index?|at_ms?, text?, start?, end?, style?, delete?}]) -> json` | 큐 배치 수정 (오타/타이밍/개별 스타일/삭제) |
+| `add_subtitle_cue`         | `(video_path, start, end, text, style?) -> json`                | 새 큐 삽입                        |
+| `set_subtitle_style`       | `(video_path, style, scope?) -> json`                           | 전역 스타일 (defaults) 또는 전체 큐 일괄 |
+| `render_subtitles`         | `(video_path, output_path?) -> path`                            | 큐 문서 -> ASS -> 번인 (per-cue 스타일 반영) |
+| `add_subtitle`             | `(video_path, srt_path, style) -> path`                         | (레거시) SRT 직접 burn-in         |
+| `add_auto_subtitle`        | `(video_path, style) -> path`                                   | STT -> 큐 문서 생성 -> 렌더 (최초 자막용) |
+| `add_title`                | `(video_path, text, position, duration, anim) -> path`          | 타이틀 오버레이 (애니메이션 포함) |
+| `add_caption`              | `(video_path, text, at_time, duration, style) -> path`          | 한 줄 캡션 (강조 텍스트)          |
+| `add_emoji_overlay`        | `(video_path, emoji, at_time, position) -> path`                | 쇼츠/릴스용 이모지 강조           |
+
+style = {font, size, color(임의 hex 가능), stroke_color, stroke_width, position, margin_v, bold, fade}.
+개별 큐 지정: "두번째 자막" -> index=1, "0:32 자막" -> at_ms=32000.
+폰트는 assets/fonts 보유분만 — 없는 폰트 요청 시 보유 목록과 함께 사용자 안내.
 SOUL.md 의 *포맷별 default 스타일* 따름 — 쇼츠는 큰 폰트·중앙, 유튜브는 중간·하단.
 
 

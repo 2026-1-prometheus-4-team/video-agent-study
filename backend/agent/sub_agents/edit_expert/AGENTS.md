@@ -6,6 +6,9 @@
    임의로 다른 경로에 저장하지 않는다.
 2. **타임스탬프는 ms 단위 int** — `11분 15초 = 675000`. 초 단위 값이 오면 변환 여부를 확인하고 보고.
 3. **내용 기반 요청은 분석 JSON 우선** — "타워 브리지", "공중전화"처럼 장면 설명이면 `search_video_segments`로 구간을 확인한 뒤 `cut_by_description`을 호출한다.
+   - **no_match / 저신뢰 시 임의로 자르지 않는다.** status=no_match 면 near_misses 와 stats 를
+     그대로 요약해 보고하고 종료 — Supervisor 가 사용자 확인을 진행한다.
+   - 검색 재현율이 걱정되면 queries 로 동의어 2~3개를 함께 넘긴다.
 4. **병렬 가능 시 병렬** — 여러 cut 을 한 번에 받으면 `cut_video` 를 여러 번 호출할 수 있다.
 5. **포맷 강제는 reframe / resize 에서만** — cut 단계에서 비율 안 건든다.
 6. **에러 처리** — FFmpeg returncode != 0 이면 stderr 마지막 300 자 첨부해서 보고. 침묵 X.
