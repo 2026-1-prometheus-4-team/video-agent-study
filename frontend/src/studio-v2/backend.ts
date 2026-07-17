@@ -10,11 +10,19 @@
  *
  * WS:
  *   /ws/chat/{session_id}
- *   client → { type:"chat", message } | { type:"resume", approved, feedback? }
- *   server → { type: message|tool_call|interrupt|final|done|error, ... }
+ *   client → { type:"chat", message }
+ *          | { type:"resume", approved?, feedback?, reply?, selected? }
+ *          | { type:"cancel" }
+ *   server → { type: message|tool_call|tool_result|interrupt|phase|video_context
+ *                    |final|info|ping|done|error, ... }
+ *   interrupt payload 는 두 종류:
+ *     script_approval: { plan, questions, instructions }
+ *     clarify:         { question, candidates:[{start_ms,end_ms,label,score}],
+ *                        options, context, instructions }
+ *   done = "턴 종료" (세션은 계속 살아있음).
  */
 
-import { useAgentStore } from "./state";
+import { useAgentStore, type ClarifyCandidate, type PlanStep } from "./state";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
@@ -79,14 +87,8 @@ type BackendEvent =
   | { type: "tool_result"; tool_call_id?: string; ok?: boolean; result?: unknown; detail?: string }
   | {
       type: "interrupt";
-      payload: {
-        plan?: Array<Record<string, unknown>>;
-        script_plan?: {
-          steps?: Array<Record<string, unknown>>;
-          questions?: string[];
-        };
-        questions?: string[];
-      };
+      // script_approval | clarify — 파싱은 applyInterruptPayload 에서 분기.
+      payload?: Record<string, unknown>;
     }
   | {
       type: "phase";
@@ -111,6 +113,8 @@ type BackendEvent =
       video_context?: Record<string, unknown>;
       critic?: { message_to_user?: string };
     }
+  | { type: "info"; content?: string }
+  | { type: "ping" }
   | { type: "done" }
   | { type: "error"; detail: string };
 
@@ -136,12 +140,230 @@ const asNode = (n?: string) =>
   (n && NODE_MAP[n]) ||
   ((n === "message" || !n) ? "orchestrator" : "orchestrator");
 
+// ---------- 공용 파서 (WS interrupt 이벤트 · GET /session pending_interrupt) ----------
+
+type WireVideoContext = {
+  file_path?: string;
+  duration?: number;
+  scenes?: Array<{ start: number; end: number; description?: string }>;
+  transcript?: Array<{ start: number; end: number; text?: string }>;
+};
+
+function mapVideoContext(vc: WireVideoContext) {
+  return {
+    file_path: vc.file_path ?? "",
+    duration: typeof vc.duration === "number" ? vc.duration : 0,
+    scenes: (vc.scenes ?? []).map((sc) => ({
+      start: sc.start,
+      end: sc.end,
+      description: sc.description ?? "",
+    })),
+    transcript: (vc.transcript ?? []).map((t) => ({
+      start: t.start,
+      end: t.end,
+      text: t.text ?? "",
+    })),
+  };
+}
+
+/**
+ * interrupt payload 를 종류(script_approval | clarify)에 따라 store 카드로 변환.
+ * pushInterrupt/pushClarify 가 내부에서 미해결 카드 dedupe 를 수행하므로
+ * WS 재접속 시 서버가 재전송한 pending interrupt 로 중복 카드가 생기지 않음.
+ */
+export function applyInterruptPayload(payloadRaw: unknown) {
+  const payload = (payloadRaw ?? {}) as Record<string, unknown>;
+  const store = useAgentStore.getState();
+
+  if (payload.type === "clarify") {
+    const candidatesRaw = Array.isArray(payload.candidates)
+      ? (payload.candidates as Array<Record<string, unknown>>)
+      : [];
+    const candidates: ClarifyCandidate[] = candidatesRaw.map((c) => ({
+      startMs: typeof c.start_ms === "number" ? c.start_ms : 0,
+      endMs: typeof c.end_ms === "number" ? c.end_ms : 0,
+      label: typeof c.label === "string" ? c.label : "",
+      score: typeof c.score === "number" ? c.score : undefined,
+    }));
+    const options = Array.isArray(payload.options)
+      ? (payload.options as unknown[]).filter(
+          (o): o is string => typeof o === "string"
+        )
+      : [];
+    store.pushClarify(
+      typeof payload.question === "string" ? payload.question : "",
+      candidates,
+      options,
+      typeof payload.context === "string" ? payload.context : ""
+    );
+    return;
+  }
+
+  // script_approval (기본). 예전 이름 script_plan 도 방어적으로 지원.
+  const planLike =
+    (payload.plan as Record<string, unknown> | undefined) ??
+    (payload.script_plan as Record<string, unknown> | undefined) ??
+    {};
+  const stepsRaw = Array.isArray(planLike.steps)
+    ? (planLike.steps as Array<Record<string, unknown>>)
+    : [];
+  const steps: PlanStep[] = stepsRaw.map((raw, idx) => ({
+    id: (raw.step_id as number) ?? idx + 1,
+    action: (raw.action as string) ?? "",
+    expert: asNode((raw.expert as string) ?? "orchestrator"),
+    rationale: (raw.rationale as string) ?? "",
+    estimatedSec: raw.estimated_sec as number | undefined,
+    parallelGroup: (raw.parallel_group as number | null | undefined) ?? null,
+    dependsOn: raw.depends_on as number[] | undefined,
+  }));
+  const questions = Array.isArray(planLike.questions)
+    ? (planLike.questions as string[])
+    : Array.isArray(payload.questions)
+      ? (payload.questions as string[])
+      : [];
+  store.pushInterrupt(steps, questions);
+}
+
 // ---------- Module-level socket singleton ----------
 
 let currentSocket: AgentSocket | null = null;
 
 export function getSocket(): AgentSocket | null {
   return currentSocket;
+}
+
+// ---------- 세션 영속 (localStorage) ----------
+
+const STUDIO_SESSION_KEY = "studio-v2-session";
+
+interface PersistedStudioSession {
+  sessionId: string;
+  serverVideoPath: string | null;
+  uploadedName: string | null;
+}
+
+/** 현재 store 의 세션 식별 정보를 localStorage 에 저장 (없으면 제거). */
+export function persistStudioSession() {
+  try {
+    const { sessionId, serverVideoPath, uploadedName } =
+      useAgentStore.getState();
+    if (sessionId) {
+      const data: PersistedStudioSession = {
+        sessionId,
+        serverVideoPath,
+        uploadedName,
+      };
+      localStorage.setItem(STUDIO_SESSION_KEY, JSON.stringify(data));
+    } else {
+      localStorage.removeItem(STUDIO_SESSION_KEY);
+    }
+  } catch {
+    // localStorage 불가 환경 (SSR/시크릿) 무시
+  }
+}
+
+export function clearStudioSession() {
+  try {
+    localStorage.removeItem(STUDIO_SESSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// StrictMode 이중 effect 로 인한 복원 중복 방지 래치
+let restoreStarted = false;
+
+/**
+ * 새로고침 후 세션 복원. StudioShell 마운트 시 1회 호출.
+ * localStorage → GET /session/{id} 검증 → videoContext/final/pending interrupt
+ * 복원 → WS 재연결. 404/실패 시 localStorage 클리어 후 새 상태로 시작.
+ */
+export async function restoreStudioSession(): Promise<void> {
+  if (restoreStarted) return;
+  restoreStarted = true;
+  if (typeof window === "undefined") return;
+
+  let saved: PersistedStudioSession | null = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(STUDIO_SESSION_KEY) ?? "null");
+  } catch {
+    saved = null;
+  }
+  if (!saved?.sessionId) return;
+  if (useAgentStore.getState().sessionId) return; // 이미 활성 세션
+
+  // let 변수는 closure 안에서 narrowing 이 풀리므로 const 로 고정.
+  const persisted = saved;
+
+  try {
+    const res = await fetch(`${API_BASE}/session/${persisted.sessionId}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      clearStudioSession();
+      return;
+    }
+    const data = (await res.json()) as {
+      video_context?: WireVideoContext | null;
+      final_output_path?: string;
+      final_output_url?: string | null;
+      pending_interrupt?: Record<string, unknown> | null;
+    };
+
+    // TOCTOU 재확인 — 위 await 들이 도는 동안(StudioShell 은 이 함수를 await 하지
+    // 않는다) 사용자가 첫 메시지를 보내 새 세션이 생겼을 수 있다. 그때 늦게 도착한
+    // 복원이 sessionId 를 덮어쓰면 진행 중인 턴이 고아가 되므로 복원 전체를 포기.
+    // localStorage 는 이미 새 세션 것이므로 건드리지 않는다.
+    if (useAgentStore.getState().sessionId || currentSocket) return;
+
+    const store = useAgentStore.getState();
+
+    // 세션 채널만 복원 — startSession 은 status 를 streaming 으로 밀어서 안 씀.
+    useAgentStore.setState((s) => {
+      s.sessionId = persisted.sessionId;
+      s.sessionStatus = "idle";
+    });
+
+    // 업로드 메타 복원. blob URL 은 재생성 불가 — 서버 정적 URL 로 유추.
+    const serverPath = persisted.serverVideoPath;
+    const videoMatch = serverPath?.match(/^(?:.*[/\\])?videos\/(.+)$/);
+    const sourceUrl = videoMatch
+      ? `${API_BASE}/files/videos/${videoMatch[1]}`
+      : null;
+    if (serverPath) {
+      store.setUpload(null, persisted.uploadedName ?? null, sourceUrl, serverPath);
+    }
+
+    const vc = data.video_context;
+    if (vc && typeof vc === "object") {
+      store.setVideoContext(mapVideoContext(vc));
+    }
+
+    store.pushInfo("이전 세션을 복원했어");
+
+    if (data.final_output_path) {
+      const mapped = vc ? mapVideoContext(vc) : null;
+      store.pushFinal(data.final_output_path, mapped?.duration ?? 0, {
+        outputUrl: data.final_output_url
+          ? `${API_BASE}${data.final_output_url}`
+          : undefined,
+        scenes: mapped?.scenes,
+        transcript: mapped?.transcript,
+      });
+    }
+
+    if (data.pending_interrupt) {
+      applyInterruptPayload(data.pending_interrupt);
+    }
+
+    // WS 재연결 — 서버가 pending interrupt 를 다시 보내도 dedupe 로 중복 카드 X.
+    const sock = new AgentSocket(persisted.sessionId);
+    sock.connect();
+    currentSocket = sock;
+    await sock.ready(6000).catch(() => undefined);
+  } catch {
+    clearStudioSession();
+  }
 }
 
 export async function ensureSessionAndConnect(
@@ -159,6 +381,7 @@ export async function ensureSessionAndConnect(
       videoPath ? [videoPath] : []
     );
     useAgentStore.getState().startSession(session_id);
+    persistStudioSession();
     const sock = new AgentSocket(session_id);
     sock.connect();
     currentSocket = sock;
@@ -200,6 +423,23 @@ export function tryResumeInterrupt(
   }
 }
 
+/**
+ * clarify interrupt 답변 전송.
+ * reply(자유 텍스트)와 selected(후보 인덱스 배열)는 둘 중 하나만 있어도 됨.
+ */
+export function tryResumeClarify(
+  reply: string,
+  selected: number[]
+): boolean {
+  if (!currentSocket) return false;
+  try {
+    currentSocket.resumeClarify(reply, selected);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 진행 중 turn 중지. Backend 가 다음 chunk 경계에서 종료. */
 export function tryCancel(): boolean {
   if (!currentSocket) return false;
@@ -215,6 +455,10 @@ export function tryCancel(): boolean {
 // analysis+script 가 60s+ 걸리는 케이스가 있어 넉넉하게 90s.
 const WATCHDOG_MS = 90_000;
 
+// 다른 탭이 먼저 응답해 interrupt 가 이미 해소된 뒤 resume 을 보냈을 때 서버가
+// 주는 error (backend/server.py). 이 경우 우리 쪽 pending 카드가 고아가 된다.
+const STALE_RESUME_DETAIL = "대기 중인 승인 요청이 없습니다";
+
 export class AgentSocket {
   private ws: WebSocket | null = null;
   private sessionId: string;
@@ -224,6 +468,9 @@ export class AgentSocket {
   private currentToolStack: string[] = []; // FIFO 로 tool_result 매핑
   private openWaiters: Array<() => void> = [];
   private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  // 이번 턴이 error 이벤트 또는 사용자 cancel 로 깨졌는지. 서버는 중단된 tool 의
+  // tool_result 를 보내지 않으므로, flush 시 이 값으로 성공/실패를 가른다.
+  private turnBroken = false;
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
@@ -234,6 +481,8 @@ export class AgentSocket {
     if (this.watchdogTimer) clearTimeout(this.watchdogTimer);
     this.watchdogTimer = setTimeout(() => {
       const st = useAgentStore.getState();
+      // streaming 일 때만 발동 — awaiting-interrupt (사용자 응답 대기) ·
+      // completed · idle 은 서버 침묵이 정상이므로 가짜 에러 금지.
       if (st.sessionStatus === "streaming") {
         st.pushError(
           "응답 없음",
@@ -241,6 +490,14 @@ export class AgentSocket {
         );
       }
     }, WATCHDOG_MS);
+  }
+
+  /** 턴이 끝났거나 사용자 응답 대기로 전환되면 watchdog 을 멈춘다. */
+  stopWatchdog() {
+    if (this.watchdogTimer) {
+      clearTimeout(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
   }
 
   /** open 상태가 될 때까지 대기 (5초 이내). */
@@ -323,6 +580,8 @@ export class AgentSocket {
             s.sessionStatus = "idle";
           });
           currentSocket = null;
+          // 죽은 세션은 복원 대상에서도 제외.
+          clearStudioSession();
         }
         return;
       }
@@ -357,6 +616,8 @@ export class AgentSocket {
 
   sendChat(message: string) {
     this.send({ type: "chat", message });
+    this.turnBroken = false;
+    this.bumpWatchdog();
   }
 
   resume(approved: boolean, feedback?: string) {
@@ -365,10 +626,40 @@ export class AgentSocket {
       approved,
       feedback: approved ? undefined : feedback,
     });
+    this.turnBroken = false;
+    this.bumpWatchdog();
+  }
+
+  /** clarify interrupt 답변: reply(텍스트)/selected(후보 인덱스) 조합. */
+  resumeClarify(reply: string, selected: number[]) {
+    const payload: Record<string, unknown> = { type: "resume" };
+    if (reply) payload.reply = reply;
+    if (selected.length > 0) payload.selected = selected;
+    this.send(payload);
+    this.turnBroken = false;
+    this.bumpWatchdog();
   }
 
   cancel() {
     this.send({ type: "cancel" });
+    // 중지된 턴의 남은 tool 카드는 성공이 아니다.
+    this.turnBroken = true;
+  }
+
+  /**
+   * 턴 종료 시 tool_result 를 못 받은 카드 마감. 서버는 중단/실패한 tool 의
+   * tool_result 를 보내지 않으므로, 이번 턴이 깨졌으면 실패로 닫는다.
+   */
+  private flushToolStack() {
+    const store = useAgentStore.getState();
+    while (this.currentToolStack.length) {
+      const id = this.currentToolStack.shift()!;
+      if (this.turnBroken) {
+        store.endTool(id, false, undefined, "턴이 중단돼 결과를 받지 못했어");
+      } else {
+        store.endTool(id, true);
+      }
+    }
   }
 
   private handleEvent(ev: BackendEvent) {
@@ -435,32 +726,9 @@ export class AgentSocket {
         break;
       }
       case "interrupt": {
-        const payload = (ev.payload || {}) as Record<string, unknown>;
-        // Backend 는 { type:"script_approval", plan:{steps,questions,...}, questions, instructions }
-        // 형태로 보낸다. 예전 이름 script_plan 도 방어적으로 지원.
-        const planLike =
-          (payload.plan as Record<string, unknown> | undefined) ??
-          (payload.script_plan as Record<string, unknown> | undefined) ??
-          {};
-        const stepsRaw = Array.isArray(planLike.steps)
-          ? (planLike.steps as Array<Record<string, unknown>>)
-          : [];
-        const steps = stepsRaw.map((raw, idx) => ({
-          id: (raw.step_id as number) ?? idx + 1,
-          action: (raw.action as string) ?? "",
-          expert: asNode((raw.expert as string) ?? "orchestrator"),
-          rationale: (raw.rationale as string) ?? "",
-          estimatedSec: raw.estimated_sec as number | undefined,
-          parallelGroup:
-            (raw.parallel_group as number | null | undefined) ?? null,
-          dependsOn: raw.depends_on as number[] | undefined,
-        }));
-        const questions = Array.isArray(planLike.questions)
-          ? (planLike.questions as string[])
-          : Array.isArray(payload.questions)
-            ? (payload.questions as string[])
-            : [];
-        store.pushInterrupt(steps, questions);
+        // 사용자 응답 대기 — 서버 침묵이 정상이므로 watchdog 정지.
+        this.stopWatchdog();
+        applyInterruptPayload(ev.payload);
         break;
       }
       case "final": {
@@ -502,24 +770,42 @@ export class AgentSocket {
             transcript,
           });
         }
-        // 남은 tool 카드 있으면 성공 처리
-        while (this.currentToolStack.length) {
-          const id = this.currentToolStack.shift()!;
-          store.endTool(id, true);
-        }
+        // 남은 tool 카드 마감 (이번 턴이 깨졌으면 실패로)
+        this.flushToolStack();
+        break;
+      }
+      case "info": {
+        // 큐잉 안내 / cancel 접수 ack 등 — 스트림에 그대로 노출.
+        const content = String(ev.content ?? "").trim();
+        if (content) store.pushInfo(content);
+        break;
+      }
+      case "ping": {
+        // 침묵 하트비트 — watchdog 리셋은 message listener 에서 이미 처리.
         break;
       }
       case "done": {
-        // 남은 tool 카드 정리
-        while (this.currentToolStack.length) {
-          const id = this.currentToolStack.shift()!;
-          store.endTool(id, true);
-        }
-        store.pushInfo("세션 종료");
+        // 턴 종료 (세션은 계속 살아있음). 남은 tool 카드 정리 후 completed 로.
+        this.flushToolStack();
+        this.stopWatchdog();
+        store.endTurn();
+        // 다음 턴 (큐잉된 chat 이 서버에서 자동 실행되는 경우 포함) 을 위해 리셋.
+        this.turnBroken = false;
         break;
       }
       case "error": {
+        // 이번 턴은 깨졌다 — 이후 flush 되는 tool 카드를 초록색으로 닫지 않게.
+        this.turnBroken = true;
         store.pushError("오류", ev.detail);
+        // 다른 탭이 먼저 응답해 interrupt 가 이미 해소된 상태에서 우리가 resume 을
+        // 보낸 경우. 낙관적으로 띄운 pending phase 카드가 영원히 도는 걸 막고,
+        // stale pendingInterrupt 를 클리어해 다음 입력이 chat 으로 나가게 한다.
+        if ((ev.detail ?? "").includes(STALE_RESUME_DETAIL)) {
+          store.endPhase("pending");
+          useAgentStore.setState((s) => {
+            s.pendingInterrupt = null;
+          });
+        }
         break;
       }
     }

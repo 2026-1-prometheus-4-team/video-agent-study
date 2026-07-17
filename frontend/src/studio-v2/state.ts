@@ -33,6 +33,14 @@ export type SessionStatus =
 export type TranscriptSeg = { start: number; end: number; text: string };
 export type SceneSeg = { start: number; end: number; description: string };
 
+/** clarify interrupt 의 구간 후보 (서버 candidates 항목). */
+export interface ClarifyCandidate {
+  startMs: number;
+  endMs: number;
+  label: string;
+  score?: number;
+}
+
 export type StreamItem =
   | { kind: "user"; id: string; text: string; createdAt: number; files?: string[] }
   | {
@@ -61,7 +69,14 @@ export type StreamItem =
       createdAt: number;
       plan: PlanStep[];
       questions: string[];
-      resolved?: "approved" | "revised";
+      resolved?: "approved" | "revised" | "answered";
+      // interrupt 종류. 미지정이면 script_approval (하위호환).
+      interruptKind?: "script_approval" | "clarify";
+      // clarify 전용 필드
+      question?: string;
+      candidates?: ClarifyCandidate[];
+      options?: string[];
+      context?: string;
     }
   | {
       kind: "final";
@@ -151,6 +166,9 @@ export interface AgentState {
   // lastFinal.duration / videoContext.duration 은 그래프 state 그대로라 편집으로
   // 실제 mp4 길이가 짧아지면 맞지 않음. Timeline 은 이 값을 우선 사용.
   stageVideoDuration: number;
+  // 외부(채팅 카드·타임스탬프 칩)에서 요청한 시킹. nonce 로 같은 t 재요청도 감지.
+  // Stage 가 이 값을 보고 playing 여부와 무관하게 video.currentTime 을 이동.
+  seekRequest: { t: number; nonce: number } | null;
 
   // ---- actions ----
   setConnection: (c: ConnectionStatus) => void;
@@ -167,7 +185,23 @@ export interface AgentState {
   ) => void;
   endTool: (id: string, ok: boolean, result?: unknown, errorMessage?: string) => void;
   pushInterrupt: (plan: PlanStep[], questions: string[]) => void;
+  /** clarify interrupt 카드 push. 미해결 카드가 있으면 갱신 (dedupe). */
+  pushClarify: (
+    question: string,
+    candidates: ClarifyCandidate[],
+    options: string[],
+    context: string
+  ) => void;
   resolveInterrupt: (approved: boolean, feedback?: string) => void;
+  /**
+   * 미해결 interrupt 를 resolved 로만 마킹 (유저 버블 push 없음).
+   * 전송 성공이 확인된 뒤에 호출 — 낙관적 마킹 금지.
+   */
+  markInterruptResolved: (
+    resolution: "approved" | "revised" | "answered"
+  ) => void;
+  /** done 이벤트 = 턴 종료. 세션은 계속 살아있음 (completed 로 전환). */
+  endTurn: () => void;
   pushFinal: (
     outputPath: string,
     duration: number,
@@ -203,12 +237,51 @@ export interface AgentState {
   ) => void;
   setStageViewMode: (m: "source" | "final") => void;
   setStageVideoDuration: (sec: number) => void;
+  /** 지정 시각(초)으로 시킹 요청. 재생 중에도 Stage 가 즉시 이동 (재생 유지). */
+  requestSeek: (t: number) => void;
 }
 
 // ---------- Store ----------
 
 let idCounter = 0;
 const nextId = () => `it-${Date.now().toString(36)}-${(++idCounter).toString(36)}`;
+
+/**
+ * 스트림에서 가장 최근 interrupt 카드가 미해결이면 반환.
+ * WS 재접속 시 서버가 pending interrupt 를 재전송하는데, 이때 중복 카드를
+ * 만들지 않고 기존 카드를 갱신하기 위한 dedupe 헬퍼.
+ */
+function lastUnresolvedInterrupt(
+  stream: StreamItem[]
+): Extract<StreamItem, { kind: "interrupt" }> | null {
+  for (let i = stream.length - 1; i >= 0; i--) {
+    const it = stream[i];
+    if (it.kind === "interrupt") return it.resolved ? null : it;
+  }
+  return null;
+}
+
+/**
+ * 서버가 턴을 정상 종료했다(done)는 건 그 턴의 interrupt 가 이미 소비됐다는 뜻 —
+ * 서버는 interrupt 로 멈춘 턴에 done 을 보내지 않는다 (backend/server.py _run_turn).
+ * Composer 가 script_approval 답변을 chat 으로 넘긴 경우 승인/수정 판정을 서버가
+ * 하므로 카드가 미해결로 남는데, 여기서 중립적으로("답변 전송됨") 마감한다.
+ * 승인 여부를 모르므로 "approved"/"revised" 로 단정하지 않는다.
+ */
+function settleStaleInterrupt(s: {
+  stream: StreamItem[];
+  pendingInterrupt: AgentState["pendingInterrupt"];
+}) {
+  const pending = s.pendingInterrupt;
+  if (!pending) return;
+  const found = s.stream.find(
+    (x) => x.kind === "interrupt" && x.id === pending.id
+  );
+  if (found && found.kind === "interrupt" && !found.resolved) {
+    found.resolved = "answered";
+  }
+  s.pendingInterrupt = null;
+}
 
 const initialNodeCount: Record<Node, number> = {
   orchestrator: 0,
@@ -240,6 +313,7 @@ export const useAgentStore = create<AgentState>()(
     selected: null,
     stageViewMode: "source",
     stageVideoDuration: 0,
+    seekRequest: null,
 
     setConnection: (c) =>
       set((s) => {
@@ -329,12 +403,59 @@ export const useAgentStore = create<AgentState>()(
 
     pushInterrupt: (plan, questions) =>
       set((s) => {
+        // 재접속/복원으로 같은 interrupt 가 다시 오면 기존 미해결 카드를 갱신.
+        const existing = lastUnresolvedInterrupt(s.stream);
+        if (existing) {
+          existing.interruptKind = "script_approval";
+          existing.plan = plan;
+          existing.questions = questions;
+          existing.question = undefined;
+          existing.candidates = undefined;
+          existing.options = undefined;
+          existing.context = undefined;
+          s.pendingInterrupt = existing;
+          s.sessionStatus = "awaiting-interrupt";
+          return;
+        }
         const item = {
           kind: "interrupt" as const,
           id: nextId(),
           createdAt: Date.now(),
+          interruptKind: "script_approval" as const,
           plan,
           questions,
+        };
+        s.stream.push(item);
+        s.pendingInterrupt = item;
+        s.sessionStatus = "awaiting-interrupt";
+      }),
+
+    pushClarify: (question, candidates, options, context) =>
+      set((s) => {
+        const existing = lastUnresolvedInterrupt(s.stream);
+        if (existing) {
+          existing.interruptKind = "clarify";
+          existing.plan = [];
+          existing.questions = [];
+          existing.question = question;
+          existing.candidates = candidates;
+          existing.options = options;
+          existing.context = context;
+          s.pendingInterrupt = existing;
+          s.sessionStatus = "awaiting-interrupt";
+          return;
+        }
+        const item = {
+          kind: "interrupt" as const,
+          id: nextId(),
+          createdAt: Date.now(),
+          interruptKind: "clarify" as const,
+          plan: [] as PlanStep[],
+          questions: [] as string[],
+          question,
+          candidates,
+          options,
+          context,
         };
         s.stream.push(item);
         s.pendingInterrupt = item;
@@ -361,6 +482,44 @@ export const useAgentStore = create<AgentState>()(
         }
         s.pendingInterrupt = null;
         s.sessionStatus = "streaming";
+      }),
+
+    markInterruptResolved: (resolution) =>
+      set((s) => {
+        if (s.pendingInterrupt) {
+          const found = s.stream.find(
+            (x) => x.kind === "interrupt" && x.id === s.pendingInterrupt!.id
+          );
+          if (found && found.kind === "interrupt") {
+            found.resolved = resolution;
+          }
+        }
+        s.pendingInterrupt = null;
+        s.sessionStatus = "streaming";
+      }),
+
+    endTurn: () =>
+      set((s) => {
+        // 남아있는 running phase 카드 마감 (final 없는 턴 대비).
+        for (const it of s.stream) {
+          if (it.kind === "phase" && it.state === "running") {
+            it.state = "done";
+            it.endedAt = Date.now();
+          }
+        }
+        if (s.pendingInterrupt) {
+          // 오류로 깨진 턴은 서버 체크포인트에 interrupt 가 그대로 남아있을 수
+          // 있다 (error 후에도 done 은 온다). 카드를 살려두고 응답 대기로 유지.
+          if (s.sessionStatus === "error") {
+            s.sessionStatus = "awaiting-interrupt";
+            return;
+          }
+          // 정상 종료 = 서버가 interrupt 를 이미 소비함. 미해결로 남은 카드 마감.
+          settleStaleInterrupt(s);
+        }
+        if (s.sessionStatus !== "error") {
+          s.sessionStatus = "completed";
+        }
       }),
 
     pushFinal: (outputPath, duration, opts) =>
@@ -513,6 +672,15 @@ export const useAgentStore = create<AgentState>()(
     setStageVideoDuration: (sec) =>
       set((s) => {
         s.stageVideoDuration = Number.isFinite(sec) && sec > 0 ? sec : 0;
+      }),
+
+    requestSeek: (t) =>
+      set((s) => {
+        if (!Number.isFinite(t)) return;
+        s.seekRequest = {
+          t: Math.max(0, t),
+          nonce: (s.seekRequest?.nonce ?? 0) + 1,
+        };
       }),
 
     clearStream: () =>

@@ -3,10 +3,9 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Check, MessageSquare, Sparkles } from "lucide-react";
+import { Check, HelpCircle, MessageSquare, Sparkles } from "lucide-react";
 import type { StreamItem } from "../state";
 import { useAgentStore } from "../state";
-import { playApprovedContinuation } from "../mock/mockStream";
 import { tryResumeInterrupt } from "../backend";
 import styles from "./rows.module.css";
 
@@ -30,19 +29,36 @@ export function InterruptCard({
 
   const approve = () => {
     if (resolved) return;
-    resolve(true);
-    // 백엔드 붙어있으면 real resume, 아니면 mock continuation
+    // 전송 성공 후에만 resolved 마킹 — 실패 시 카드 유지 + 재시도 가능.
     const sent = tryResumeInterrupt(true);
-    if (!sent) void playApprovedContinuation();
+    if (!sent) {
+      useAgentStore
+        .getState()
+        .pushError(
+          "승인 전송 실패",
+          "백엔드 연결 상태를 확인하고 카드에서 다시 시도해줘."
+        );
+      return;
+    }
+    resolve(true);
   };
 
   const submitFeedback = () => {
     if (!feedback.trim() || resolved) return;
     const fb = feedback.trim();
+    const sent = tryResumeInterrupt(false, fb);
+    if (!sent) {
+      useAgentStore
+        .getState()
+        .pushError(
+          "피드백 전송 실패",
+          "백엔드 연결 상태를 확인하고 카드에서 다시 시도해줘."
+        );
+      return;
+    }
     resolve(false, fb);
     setFeedback("");
     setShowFeedback(false);
-    tryResumeInterrupt(false, fb);
   };
 
   useHotkeys(
@@ -87,7 +103,10 @@ export function InterruptCard({
             ? "계획 승인됨"
             : resolved === "revised"
               ? "수정 요청됨"
-              : "계획 검토가 필요해"}
+              : resolved === "answered"
+                ? // composer 로 답한 경우 — 승인/수정 판정은 서버가 하므로 중립 표기.
+                  "답변 전송됨"
+                : "계획 검토가 필요해"}
         </div>
         {!resolved && (
           <div className={styles.interruptHint}>
@@ -124,6 +143,21 @@ export function InterruptCard({
           </div>
         ))}
       </div>
+
+      {item.questions.length > 0 && (
+        <div className={styles.interruptQuestions}>
+          <div className={styles.interruptQuestionsLabel}>
+            <HelpCircle size={11} />
+            <span>확인이 필요한 질문</span>
+          </div>
+          {item.questions.map((q, i) => (
+            <div key={i} className={styles.interruptQuestionItem}>
+              <span className={styles.interruptQuestionIdx}>Q{i + 1}</span>
+              <span>{q}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {!resolved && (
         <div className={styles.interruptFoot}>

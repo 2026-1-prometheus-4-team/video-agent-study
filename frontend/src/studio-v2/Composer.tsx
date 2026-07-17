@@ -8,7 +8,9 @@ import { toast } from "sonner";
 import { useAgentStore } from "./state";
 import {
   ensureSessionAndConnect,
+  persistStudioSession,
   tryCancel,
+  tryResumeClarify,
   trySendChat,
   uploadVideo,
 } from "./backend";
@@ -21,6 +23,7 @@ export function Composer() {
   const uploadedName = useAgentStore((s) => s.uploadedName);
   const connection = useAgentStore((s) => s.connection);
   const sessionStatus = useAgentStore((s) => s.sessionStatus);
+  const pendingInterrupt = useAgentStore((s) => s.pendingInterrupt);
   const isRunning = sessionStatus === "streaming";
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -72,6 +75,35 @@ export function Composer() {
       return;
     }
 
+    // interrupt 대기 중 composer 입력 라우팅.
+    const pending = store.pendingInterrupt;
+    if (pending) {
+      const isClarify = pending.interruptKind === "clarify";
+      // clarify 는 reply 를 원문 그대로 서버에 넘기면 되므로 resume 유지.
+      // script_approval 은 chat 으로 보낸다 — "좋아" / "이대로 진행해줘" 같은
+      // 승인 문구를 resume(approved:false) 로 보내면 서버의 kind-aware 승인
+      // 휴리스틱(_reply_to_resume)에 도달하지 못해 무조건 plan 이 재생성된다.
+      // 서버는 interrupt 대기 중 chat 을 거부하지 않고 kind 에 맞는 resume 으로
+      // 변환하므로, 승인/피드백 판정을 서버에 맡긴다.
+      const sent = isClarify ? tryResumeClarify(t, []) : trySendChat(t);
+      if (!sent) {
+        toast.error("전송 실패", {
+          description: "WebSocket 상태를 확인해줘",
+        });
+        return;
+      }
+      // 전송 성공 후에만 resolved 마킹. 유저 버블은 위에서 이미 push 됨.
+      // script_approval 은 서버 판정 결과(승인/수정)를 모르므로 낙관적 마킹 금지 —
+      // 후속 interrupt(재생성된 plan) / final / done 이벤트로 자연 정리된다.
+      if (isClarify) store.markInterruptResolved("answered");
+      store.startPhase(
+        "pending",
+        "에이전트 재개 중",
+        "응답을 반영해 파이프라인을 이어가는 중이야"
+      );
+      return;
+    }
+
     // 세션 없거나 소켓 없으면 만들고 붙임 (upload 된 서버 path 사용)
     const sock = await ensureSessionAndConnect(serverPath || undefined);
     if (!sock) {
@@ -120,6 +152,8 @@ export function Composer() {
       store.setUpload(30);
       const res = await uploadVideo(f);
       store.setUpload(100, undefined, undefined, res.path);
+      // 세션이 이미 있으면 새 영상 path 까지 함께 영속.
+      persistStudioSession();
       toast.success("업로드 완료", { description: res.path });
     } catch {
       store.setUpload(100);
@@ -172,9 +206,13 @@ export function Composer() {
           ref={inputRef}
           className={styles.input}
           placeholder={
-            uploadedName
-              ? "다음 지시를 입력해줘…"
-              : "영상을 먼저 업로드하거나, 어떤 편집을 원하는지 입력해줘"
+            pendingInterrupt
+              ? pendingInterrupt.interruptKind === "clarify"
+                ? "후보에 대해 답하거나 다른 요청을 입력해줘…"
+                : "이대로 진행할지 답하거나, 수정할 내용을 입력해줘…"
+              : uploadedName
+                ? "다음 지시를 입력해줘…"
+                : "영상을 먼저 업로드하거나, 어떤 편집을 원하는지 입력해줘"
           }
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -199,6 +237,7 @@ export function Composer() {
                   store.setUpload(30);
                   const res = await uploadVideo(f);
                   store.setUpload(100, undefined, undefined, res.path);
+                  persistStudioSession();
                   toast.success("업로드 완료", {
                     description: res.path,
                   });

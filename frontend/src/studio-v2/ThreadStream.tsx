@@ -7,6 +7,7 @@ import { UserBubble } from "./rows/UserBubble";
 import { AgentBubble } from "./rows/AgentBubble";
 import { ToolCallCard } from "./rows/ToolCallCard";
 import { InterruptCard } from "./rows/InterruptCard";
+import { ClarifyCard } from "./rows/ClarifyCard";
 import { FinalCard } from "./rows/FinalCard";
 import { InfoRow } from "./rows/InfoRow";
 import { ErrorRow } from "./rows/ErrorRow";
@@ -83,7 +84,11 @@ function renderRow(item: ReturnType<typeof useAgentStore.getState>["stream"][num
     case "tool":
       return <ToolCallCard item={item} />;
     case "interrupt":
-      return <InterruptCard item={item} />;
+      return item.interruptKind === "clarify" ? (
+        <ClarifyCard item={item} />
+      ) : (
+        <InterruptCard item={item} />
+      );
     case "final":
       return <FinalCard item={item} />;
     case "info":

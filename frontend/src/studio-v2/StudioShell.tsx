@@ -8,7 +8,7 @@ import { Stage } from "./Stage";
 import { Timeline } from "./Timeline";
 // PipelineHUD 는 phase 카드 rail 이랑 정보 중복이라 제거. 필요 시 재도입.
 import { StageToolbar } from "./StageToolbar";
-import { checkHealth } from "./backend";
+import { checkHealth, restoreStudioSession } from "./backend";
 import { useAgentStore } from "./state";
 import styles from "./studio-shell.module.css";
 
@@ -47,6 +47,12 @@ export function StudioShell() {
     };
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  // 새로고침 후 이전 세션 복원 (localStorage → GET /session 검증 → WS 재연결).
+  // restoreStudioSession 내부 래치로 StrictMode 이중 호출 방어.
+  useEffect(() => {
+    void restoreStudioSession();
   }, []);
 
   // 백엔드 health check (마운트 + 주기적)

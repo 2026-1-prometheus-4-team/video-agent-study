@@ -48,6 +48,29 @@ export function Stage() {
     }
   }, [playhead, playing]);
 
+  // 명시적 시킹 요청 (채팅 카드 칩·타임스탬프 링크) — playing 여부와 무관하게
+  // 이동 (재생은 유지). 소스 전환 직후엔 metadata 미로드 상태일 수 있으므로
+  // pendingSeekRef 에 담아 onLoadedMetadata 에서 적용.
+  const seekRequest = useAgentStore((s) => s.seekRequest);
+  const pendingSeekRef = useRef<number | null>(null);
+  const lastSeekNonceRef = useRef(seekRequest?.nonce ?? 0);
+  useEffect(() => {
+    if (!seekRequest || seekRequest.nonce === lastSeekNonceRef.current) return;
+    lastSeekNonceRef.current = seekRequest.nonce;
+    const v = videoRef.current;
+    const t = Math.max(0, seekRequest.t);
+    if (v && v.readyState >= 1) {
+      const dur = v.duration;
+      const clamped =
+        Number.isFinite(dur) && dur > 0 ? Math.min(t, dur) : t;
+      v.currentTime = clamped;
+      setCurrentTime(clamped);
+    } else {
+      pendingSeekRef.current = t;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekRequest]);
+
   // 백엔드 output_url 이 비어있어도 output_path 로 fallback 유추 (videos/, outputs/
   // 접두사 케이스). _to_file_url 매핑 실패 시 stage 가 원본 계속 재생하는 버그
   // 방어. API_BASE 는 backend.ts 와 동일한 규칙.
@@ -219,6 +242,17 @@ export function Stage() {
                   onLoadedMetadata={(e) => {
                     const v = e.currentTarget;
                     setVideoDuration(v.duration || 0);
+                    // 소스 전환 중 요청됐던 시킹을 metadata 로드 후 적용.
+                    if (pendingSeekRef.current != null) {
+                      const dur = v.duration;
+                      const t =
+                        Number.isFinite(dur) && dur > 0
+                          ? Math.min(pendingSeekRef.current, dur)
+                          : pendingSeekRef.current;
+                      pendingSeekRef.current = null;
+                      v.currentTime = t;
+                      setCurrentTime(t);
+                    }
                   }}
                   onTimeUpdate={(e) => {
                     setCurrentTime(e.currentTarget.currentTime);
