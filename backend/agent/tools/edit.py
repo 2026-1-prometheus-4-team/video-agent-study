@@ -913,9 +913,118 @@ def cut_by_description(
         return json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False)
 
 
+_ASPECT_RATIOS = {
+    "9:16": (9, 16),    # 쇼츠 / 릴스 / 틱톡 (세로)
+    "16:9": (16, 9),    # 유튜브 (가로)
+    "1:1": (1, 1),      # 인스타 피드 (정사각)
+    "4:5": (4, 5),      # 인스타 세로
+}
+
+
+@tool
+def resize_video(
+    video_path: str,
+    aspect_ratio: str = "9:16",
+    mode: str = "crop",
+    output_path: Optional[str] = None,
+) -> str:
+    """영상의 화면 비율(가로세로)을 변환한다. 쇼츠/릴스용 세로 변환 등.
+
+    cut_video 가 '시간'을 자른다면 이 도구는 '화면 영역'을 바꾼다.
+    쇼츠를 만들 때는 cut/merge 로 편집을 끝낸 뒤 마지막에 이 도구를 호출한다.
+
+    Args:
+        video_path: 원본 영상 경로. 절대경로, 프로젝트 루트 상대경로, 또는 videos/ 기준 파일명.
+        aspect_ratio: 목표 비율. "9:16"(쇼츠·세로) | "16:9"(유튜브) | "1:1" | "4:5".
+        mode: "crop" 은 화면 가장자리를 잘라 꽉 채움(권장, 여백 없음).
+              "pad" 는 원본 전체를 유지하고 남는 곳을 검은 여백으로 채움.
+        output_path: 저장 경로. 생략 시 outputs/resized_<id>.mp4.
+
+    Returns:
+        성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
+    """
+    try:
+        resolved = _resolve_video_path(video_path)
+        if not os.path.exists(resolved):
+            return f"ERROR: 파일을 찾을 수 없음: {resolved}"
+
+        if aspect_ratio not in _ASPECT_RATIOS:
+            return (
+                f"ERROR: 지원하지 않는 비율: {aspect_ratio}. "
+                f"사용 가능: {list(_ASPECT_RATIOS)}"
+            )
+        if mode not in ("crop", "pad"):
+            return f"ERROR: mode 는 crop 또는 pad 만 가능: {mode}"
+
+        aw, ah = _ASPECT_RATIOS[aspect_ratio]
+
+        # 출력 해상도: 원본 높이 기준으로 비율 맞추되 짝수로 (libx264 요구사항)
+        meta = _ffprobe_video_meta(resolved)
+        src_w = (meta or {}).get("width") or 1920
+        src_h = (meta or {}).get("height") or 1080
+
+        # 원본을 최대한 담는 크기 산출 후 짝수 보정
+        if aw / ah >= src_w / src_h:
+            out_w = src_w
+            out_h = int(round(src_w * ah / aw))
+        else:
+            out_h = src_h
+            out_w = int(round(src_h * aw / ah))
+        out_w -= out_w % 2
+        out_h -= out_h % 2
+
+        if mode == "crop":
+            # 중앙 기준으로 꽉 채우고 넘치는 부분 잘라냄
+            vf = (
+                f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
+                f"crop={out_w}:{out_h}"
+            )
+        else:
+            # 전체를 담고 남는 영역은 검은 여백
+            vf = (
+                f"scale={out_w}:{out_h}:force_original_aspect_ratio=decrease,"
+                f"pad={out_w}:{out_h}:(ow-iw)/2:(oh-ih)/2:black"
+            )
+
+        output_path = _resolve_output_path(output_path, "resized", resolved)
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", resolved,
+            "-vf", f"{vf},setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "copy",
+            output_path,
+        ]
+
+        logger.info(
+            "resize_video: %s -> %s (%s, %dx%d)",
+            os.path.basename(resolved), aspect_ratio, mode, out_w, out_h,
+        )
+        t0 = time.monotonic()
+        code, stderr = _run_ffmpeg(cmd)
+        elapsed = time.monotonic() - t0
+
+        if code != 0:
+            return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
+        if not os.path.exists(output_path):
+            return f"ERROR: 출력 파일 생성 실패: {output_path}"
+
+        logger.info("resize_video 완료 %.2fs -> %s", elapsed, output_path)
+        return output_path
+
+    except FileNotFoundError:
+        return "ERROR: ffmpeg 바이너리를 찾을 수 없습니다."
+    except Exception as e:
+        logger.exception("resize_video 예외")
+        return f"ERROR: {e}"
+
+
 TOOLS = [
     cut_video,
     merge_video,
     search_video_segments,
     cut_by_description,
+    resize_video,
 ]

@@ -251,7 +251,7 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 ```
 
 action 종류 (TOOLS.md 참조):
-- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(자연어 장면 검색+자동 컷)
+- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(자연어 장면 검색+자동 컷), resize_video(화면비 변환: 9:16 쇼츠 등)
 - **audio_expert**: transcribe_video, text_to_speech, add_bgm, add_sfx, mix_audio, denoise, normalize_loudness
 - **text_expert**: add_subtitle, add_auto_subtitle, add_title, add_caption, add_emoji_overlay
 - **effect_expert**: apply_remotion_effect, query_effect_catalog
