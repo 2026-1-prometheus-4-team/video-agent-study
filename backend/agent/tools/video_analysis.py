@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from typing import Optional
 
 import cv2
 import google.generativeai as genai
@@ -199,9 +200,44 @@ def _parse_gemini_response(text: str) -> dict:
 CHUNK_FRAMES = int(os.getenv("ANALYZE_CHUNK_FRAMES", "100"))
 
 
+# 영상 길이별 권장 샘플링 간격 (상한 초, 간격 초).
+# 짧은 영상은 촘촘하게, 긴 영상은 성기게 -> 프레임 수를 100~200 장 안팎으로 유지.
+# 프레임이 과하면 토큰 비용이 급증하고 Gemini 정렬 정확도도 떨어진다.
+_INTERVAL_TABLE = [
+    (60, 1.0),      # ~1분    -> 1초  (~60장)
+    (300, 3.0),     # 1~5분   -> 3초  (20~100장)
+    (900, 5.0),     # 5~15분  -> 5초  (60~180장)
+    (float("inf"), 10.0),  # 15분+ -> 10초
+]
+
+
+def _probe_duration_sec(video_path: str) -> float:
+    """프레임 추출 전에 영상 길이만 빠르게 조회 (없으면 0.0)."""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+        return total / fps if fps > 0 else 0.0
+    except Exception:
+        return 0.0
+
+
+def _auto_interval_sec(duration_sec: float) -> float:
+    """영상 길이에 맞는 샘플링 간격 선택."""
+    for limit, interval in _INTERVAL_TABLE:
+        if duration_sec <= limit:
+            return interval
+    return _INTERVAL_TABLE[-1][1]
+
+
 @tool
-def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bool = True) -> str:
-    """영상을 interval_sec 간격으로 프레임 샘플링하여 시각적 내용 분석 후 JSON 반환.
+def analyze_video(
+    video_path: str,
+    interval_sec: Optional[float] = None,
+    use_transcript: bool = True,
+) -> str:
+    """영상을 일정 간격으로 프레임 샘플링하여 시각적 내용 분석 후 JSON 반환.
 
     각 구간의 장면 설명, 주요 객체, 분위기, 장면 전환 여부를 포함한다.
     프레임이 많으면 청크(기본 100장)로 나눠 Gemini Vision을 여러 번 호출.
@@ -210,7 +246,9 @@ def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bo
     Args:
         video_path: 영상 파일명 (videos/ 기준 상대경로) 또는 절대경로.
             편집 결과물(outputs/...) 재분석 시 절대경로로 호출 가능.
-        interval_sec: 프레임 샘플링 간격(초). 기본값 3.0. 짧은 영상은 0.5 권장.
+        interval_sec: 프레임 샘플링 간격(초). 생략하면 영상 길이에 맞춰 자동 선택
+            (~1분:1초 / 1~5분:3초 / 5~15분:5초 / 15분+:10초).
+            더 촘촘한 분석이 필요할 때만 명시적으로 지정.
         use_transcript: 음성 대사를 분석에 포함할지. 기본 True.
             화면 자막이 충분하거나 빠른 분석이 필요하면 False.
     """
@@ -221,6 +259,13 @@ def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bo
             input_path = os.path.join(VIDEOS_DIR, video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"파일을 찾을 수 없음: {input_path}"}, ensure_ascii=False)
+
+        if interval_sec is None:
+            probed = _probe_duration_sec(input_path)
+            interval_sec = _auto_interval_sec(probed)
+            logger.info(
+                f"샘플링 간격 자동 선택: {interval_sec}s (영상 {probed:.0f}s)"
+            )
 
         logger.info(f"analyze_video 호출 - {video_path} (interval={interval_sec}s, transcript={use_transcript})")
 
