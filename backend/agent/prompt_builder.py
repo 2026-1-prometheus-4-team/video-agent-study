@@ -258,6 +258,9 @@ action 종류 (TOOLS.md 참조):
 - **research_expert**: web_search, youtube_trend
 
 원칙:
+- **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
+  미구현이라 실행이 실패한다.) 화면비 변환·속도 조절 등이 필요하면 step 대신
+  `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
 - step 수 제한 없음. 사용자 요청에 필요한 모든 작업 다 plan 에 박는다.
 - *사용자가 명시적으로 요청하지 않은* 자막 / BGM / 효과음 / transcribe step 은 추가하지 않는다.
 - 목표 길이가 있으면 (예: 1분) 그 길이에 맞게 video_context.scenes 에서 필요한 장면 *몇 개만 선별*한다.

@@ -156,16 +156,18 @@ output 파일은 다음 step (merge) 의 입력으로 쓰임.
 
 플랫폼 특성 상 같은 tool 도 *호출 순서가 포맷에 따라 다르다*.
 
+**주의 — 아래 순서도의 tool 중 위 카탈로그에 없는 것(resize / reframe / fade 등)은
+아직 미구현이다. plan 에 넣지 말 것.** 화면비 변환이 필요하면 원본 비율을 유지하고,
+사용자에게 questions 로 물어본다.
+
 ### shorts / 릴스
 ```
-transcribe (필요시) → cut (병렬) → merge → resize(9:16) → tts → subtitle → mux_audio
-                                              ↑
-                                   리프레임은 자막 전에 (자막 위치 계산 위해)
+transcribe (필요시) → cut (병렬) → merge → [resize(9:16) — 미구현] → tts → subtitle
 ```
 
 ### 유튜브 영상
 ```
-transcribe → cut (선별, 병렬) → merge → tts (선택) → subtitle(하단) → fade(intro/outro)
+transcribe → cut (선별, 병렬) → merge → tts (선택) → subtitle(하단) → [fade — 미구현]
 ```
 
 ### 일반 영상 (사용자 요청 그대로)
