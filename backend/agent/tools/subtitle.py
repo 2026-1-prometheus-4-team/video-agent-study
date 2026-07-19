@@ -317,6 +317,70 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
+def _transcript_from_origin(video_path: str) -> list[dict]:
+    """편집 결과물의 origin 정보로 원본 분석 transcript 를 재구성.
+
+    cut/merge 가 남긴 <파일>.origin.json 에는 각 구간이 어느 원본의
+    어느 시각이었는지(source/start_ms/end_ms) 와 결과물 내 위치(offset_ms)가 들어있다.
+    이를 이용해 원본 분석 JSON(videos/<원본>_analysis.json)의 transcript 를
+    잘라내고 시간축을 옮겨 붙인다.
+
+    origin 정보가 없거나 원본 분석에 대사가 없으면 빈 리스트 → 호출측이 재전사 fallback.
+    """
+    try:
+        from agent.tools.edit import _read_origin
+    except ImportError:
+        return []
+
+    clips = _read_origin(video_path)
+    if not clips:
+        return []
+
+    out: list[dict] = []
+    for clip in clips:
+        source = clip.get("source")
+        if not source:
+            continue
+
+        stem = os.path.splitext(os.path.basename(source))[0]
+        analysis_path = os.path.join(VIDEOS_DIR, f"{stem}_analysis.json")
+        if not os.path.exists(analysis_path):
+            continue
+
+        try:
+            with open(analysis_path, encoding="utf-8") as f:
+                segments = json.load(f).get("segments", [])
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        clip_start = clip.get("start_ms", 0)
+        clip_end = clip.get("end_ms", 0)
+        offset = clip.get("offset_ms", 0)
+
+        for seg in segments:
+            text = str(seg.get("transcript") or "").strip()
+            if not text:
+                continue
+            seg_start = seg.get("start_ms", 0)
+            seg_end = seg.get("end_ms", 0)
+            # 클립 구간과 겹치는 부분만
+            if seg_end <= clip_start or seg_start >= clip_end:
+                continue
+            # 원본 시각 -> 결과물 시각으로 이동 + 클립 경계로 자르기
+            new_start = max(seg_start, clip_start) - clip_start + offset
+            new_end = min(seg_end, clip_end) - clip_start + offset
+            if new_end <= new_start:
+                continue
+            out.append({
+                "start": round(new_start / 1000, 2),
+                "end": round(new_end / 1000, 2),
+                "text": text,
+            })
+
+    out.sort(key=lambda s: s["start"])
+    return out
+
+
 @tool
 def add_auto_subtitle(video_path: str, style: str = "") -> str:
     """영상을 자동 전사(Whisper)하고 자막 큐 문서 생성 후 burn-in — one-shot 처리.
@@ -345,16 +409,27 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
             except json.JSONDecodeError:
                 pass
 
-        # 1. Whisper 전사
-        logger.info(f"add_auto_subtitle: transcribe 시작 — {video_path}")
-        raw = transcribe_video.invoke({"video_path": str(input_path)})
-        result = json.loads(raw)
-        if "error" in result:
-            return json.dumps({"error": f"전사 실패: {result['error']}"}, ensure_ascii=False)
+        # 1. 자막 원천 확보
+        #    편집 결과물(cut/merge)이면 원본 분석 JSON 의 transcript 를 시간축
+        #    보정해 재사용한다. 잘린 조각을 재전사하면 문장이 깨지고, 이미 TTS 를
+        #    얹은 뒤라면 나레이션 음성까지 자막에 섞이기 때문.
+        transcript = _transcript_from_origin(input_path)
+        result: dict = {}
 
-        transcript = result.get("segments", [])
-        if not transcript:
-            return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
+        if transcript:
+            logger.info(
+                f"add_auto_subtitle: 원본 분석 transcript 재사용 — {len(transcript)}개 (재전사 생략)"
+            )
+        else:
+            logger.info(f"add_auto_subtitle: transcribe 시작 — {video_path}")
+            raw = transcribe_video.invoke({"video_path": str(input_path)})
+            result = json.loads(raw)
+            if "error" in result:
+                return json.dumps({"error": f"전사 실패: {result['error']}"}, ensure_ascii=False)
+
+            transcript = result.get("segments", [])
+            if not transcript:
+                return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
 
         # 2. SRT 생성 (font_size 기반 80% 줄바꿈)
         s_tmp = _merge_style(style)
@@ -370,7 +445,11 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
 
         json_abs = os.path.join(SUBTITLES_DIR, f"{name}.json")
         with open(json_abs, "w", encoding="utf-8") as f:
-            json.dump({"segments": transcript, "language": result.get("language"), "engine": result.get("engine")}, f, ensure_ascii=False, indent=2)
+            json.dump({
+                "segments": transcript,
+                "language": result.get("language"),
+                "engine": result.get("engine") or "origin-reuse",
+            }, f, ensure_ascii=False, indent=2)
         logger.info(f"SRT/JSON 저장: {srt_abs} ({len(transcript)}개 세그먼트)")
 
         # 3. 큐 문서 생성 (진실의 원천) — source_video 기록 필수

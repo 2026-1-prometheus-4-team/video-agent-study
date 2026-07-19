@@ -143,6 +143,49 @@ def _resolve_output_path(output_path: Optional[str], prefix: str, source_path: s
     return os.path.join(OUTPUTS_DIR, f"{prefix}_{uuid.uuid4().hex[:8]}{ext or '.mp4'}")
 
 
+# =============================================================
+# origin 사이드카 — 클립이 원본의 어느 구간인지 추적
+#
+# cut/merge 결과물 옆에 <파일>.origin.json 을 남긴다. 자막 생성 시
+# 재전사 대신 원본 분석 JSON 의 transcript 를 시간축 보정해 재사용하기 위함.
+# =============================================================
+
+def _origin_path(video_path: str) -> str:
+    return f"{video_path}.origin.json"
+
+
+def _write_origin(output_path: str, clips: list[dict]) -> None:
+    """clips: [{source, start_ms, end_ms, offset_ms}] — offset_ms 는 결과물 내 시작 위치."""
+    try:
+        with open(_origin_path(output_path), "w", encoding="utf-8") as f:
+            json.dump({"clips": clips}, f, ensure_ascii=False, indent=2)
+    except OSError:
+        logger.warning("origin 사이드카 저장 실패: %s", output_path, exc_info=True)
+
+
+def _read_origin(video_path: str) -> Optional[list[dict]]:
+    path = _origin_path(video_path)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("clips")
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _probe_duration_ms(path: str) -> int:
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", path],
+            capture_output=True, text=True, encoding="utf-8", errors="ignore",
+        )
+        return int(float(result.stdout.strip()) * 1000) if result.returncode == 0 else 0
+    except Exception:
+        return 0
+
+
 def _time_to_ms(value: Any, *, already_ms: bool = False) -> int:
     if value is None:
         return 0
@@ -590,6 +633,14 @@ def cut_video(
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
 
+        # 이 클립이 원본의 어느 구간인지 기록 (자막 재사용용)
+        _write_origin(output_path, [{
+            "source": resolved,
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "offset_ms": 0,
+        }])
+
         logger.info("cut_video 완료 %.2fs -> %s", elapsed, output_path)
         return output_path
 
@@ -711,6 +762,31 @@ def merge_video(
             return f"ERROR: FFmpeg concat 실패 (rc={code}): {stderr[-300:]}"
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
+
+        # 각 클립의 원본 구간을 누적 오프셋과 함께 이어붙여 기록
+        merged_clips: list[dict] = []
+        offset = 0
+        for clip in resolved_clips:
+            clip_ms = _probe_duration_ms(clip)
+            origin = _read_origin(clip)
+            if origin:
+                for seg in origin:
+                    merged_clips.append({
+                        "source": seg.get("source"),
+                        "start_ms": seg.get("start_ms", 0),
+                        "end_ms": seg.get("end_ms", 0),
+                        "offset_ms": offset + seg.get("offset_ms", 0),
+                    })
+            else:
+                # origin 없는 클립(외부 파일 등)은 자기 자신을 원본으로
+                merged_clips.append({
+                    "source": clip,
+                    "start_ms": 0,
+                    "end_ms": clip_ms,
+                    "offset_ms": offset,
+                })
+            offset += clip_ms
+        _write_origin(output_path, merged_clips)
 
         logger.info("merge_video 완료 %.2fs -> %s", elapsed, output_path)
         return output_path
@@ -1010,6 +1086,11 @@ def resize_video(
             return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
+
+        # 화면비만 바뀌고 시간축은 그대로 -> origin 승계
+        origin = _read_origin(resolved)
+        if origin:
+            _write_origin(output_path, origin)
 
         logger.info("resize_video 완료 %.2fs -> %s", elapsed, output_path)
         return output_path

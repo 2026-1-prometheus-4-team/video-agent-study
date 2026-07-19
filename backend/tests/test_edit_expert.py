@@ -165,8 +165,11 @@ class TestMergeVideo:
         assert not result.startswith("ERROR"), f"예상치 못한 오류: {result}"
         assert result.endswith(".mp4")
 
-        cmd = mock_run.call_args[0][0]
-        assert "ffmpeg" in cmd
+        # merge 이후 origin 기록용 ffprobe 도 호출되므로 전체 호출에서 ffmpeg 를 찾는다
+        cmd = next(
+            call[0][0] for call in mock_run.call_args_list
+            if call[0] and call[0][0] and call[0][0][0] == "ffmpeg"
+        )
         assert "-f" in cmd
         assert "concat" in cmd
         assert "-safe" in cmd
@@ -357,3 +360,100 @@ class TestResizeVideo:
         result = resize_video.invoke({"video_path": "nonexistent.mp4"})
         assert result.startswith("ERROR")
 
+
+
+# =============================================================
+# origin 추적 — 클립이 원본의 어느 구간인지 기록
+# =============================================================
+
+class TestOriginTracking:
+    """cut/merge 가 남기는 <파일>.origin.json 검증.
+
+    자막 생성 시 재전사 대신 원본 분석 transcript 를 시간축 보정해
+    재사용하기 위한 배관이다.
+    """
+
+    def test_cut_writes_origin(self, tmp_path):
+        from agent.tools.edit import _read_origin
+
+        fake_video = tmp_path / "src.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)):
+            _mock_ffmpeg_success(mock_run)
+            out = cut_video.invoke({
+                "video_path": str(fake_video),
+                "start_ms": 4000,
+                "end_ms": 9000,
+            })
+
+        origin = _read_origin(out)
+        assert origin is not None
+        assert len(origin) == 1
+        assert origin[0]["start_ms"] == 4000
+        assert origin[0]["end_ms"] == 9000
+        assert origin[0]["offset_ms"] == 0
+
+    def test_merge_accumulates_offsets(self, tmp_path):
+        """merge 는 각 클립의 원본 구간에 누적 오프셋을 붙여 기록."""
+        from agent.tools.edit import _read_origin, _write_origin
+
+        c1 = tmp_path / "c1.mp4"
+        c2 = tmp_path / "c2.mp4"
+        c1.write_bytes(b"f1")
+        c2.write_bytes(b"f2")
+        _write_origin(str(c1), [{"source": "/v/a.mp4", "start_ms": 0, "end_ms": 3000, "offset_ms": 0}])
+        _write_origin(str(c2), [{"source": "/v/b.mp4", "start_ms": 7000, "end_ms": 12000, "offset_ms": 0}])
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._probe_duration_ms", return_value=3000):
+            _mock_ffmpeg_success(mock_run)
+            out = merge_video.invoke({"clip_paths": [str(c1), str(c2)]})
+
+        origin = _read_origin(out)
+        assert len(origin) == 2
+        assert origin[0]["offset_ms"] == 0        # 첫 클립은 0 부터
+        assert origin[1]["offset_ms"] == 3000     # 둘째는 첫 클립 길이만큼 밀림
+        assert origin[1]["start_ms"] == 7000      # 원본 구간은 보존
+
+    def test_transcript_reconstructed_with_offset(self, tmp_path):
+        """origin + 분석 JSON -> 결과물 시간축에 맞는 자막 재구성."""
+        from agent.tools.edit import _write_origin
+        from agent.tools.subtitle import _transcript_from_origin
+
+        analysis = {
+            "segments": [
+                {"start_ms": 0, "end_ms": 1000, "transcript": "첫 대사"},
+                {"start_ms": 4000, "end_ms": 5000, "transcript": "둘째 대사"},
+                {"start_ms": 9000, "end_ms": 10000, "transcript": "클립 밖 대사"},
+            ]
+        }
+        (tmp_path / "src_analysis.json").write_text(
+            json.dumps(analysis, ensure_ascii=False), encoding="utf-8"
+        )
+
+        merged = tmp_path / "merged.mp4"
+        merged.write_bytes(b"fake")
+        _write_origin(str(merged), [
+            {"source": str(tmp_path / "src.mp4"), "start_ms": 0, "end_ms": 1000, "offset_ms": 0},
+            {"source": str(tmp_path / "src.mp4"), "start_ms": 4000, "end_ms": 5000, "offset_ms": 1000},
+        ])
+
+        with patch("agent.tools.subtitle.VIDEOS_DIR", str(tmp_path)):
+            tr = _transcript_from_origin(str(merged))
+
+        assert len(tr) == 2, "클립 구간 밖 대사는 제외돼야 함"
+        assert tr[0]["text"] == "첫 대사"
+        assert tr[0]["start"] == 0.0
+        assert tr[1]["text"] == "둘째 대사"
+        assert tr[1]["start"] == 1.0, "원본 4초 대사가 결과물 1초 위치로 이동"
+
+    def test_no_origin_returns_empty(self, tmp_path):
+        """origin 없으면 빈 리스트 -> 호출측이 재전사로 fallback."""
+        from agent.tools.subtitle import _transcript_from_origin
+
+        plain = tmp_path / "plain.mp4"
+        plain.write_bytes(b"fake")
+        assert _transcript_from_origin(str(plain)) == []
