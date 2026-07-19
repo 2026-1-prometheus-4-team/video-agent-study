@@ -300,8 +300,22 @@ action 종류 (TOOLS.md 참조):
 
 - 각 storyboard 항목의 `source` / `source_start_ms` / `source_end_ms` 를 그대로
   cut_video 의 파라미터로 쓴다. 임의의 값을 다시 만들지 마라.
-- 나레이션이 있으면 `text_to_speech` 의 text 는 **반드시 storyboard 의 narration
-  문구**를 쓴다. 사용자가 입력한 문장이나 원본 대사를 넣지 마라.
+- **나레이션은 하나로 합쳐서 한 번만 만든다.**
+  storyboard 의 narration 들을 순서대로 이어 붙여 *하나의 대본*으로 만들고,
+  `text_to_speech` 1회 + `mix_audio` 1회로 처리한다.
+  구간마다 TTS/mix 를 따로 만들면 step 이 수십 개로 불어나고, 앞 단계 출력 경로를
+  줄줄이 참조하다 하나만 어긋나도 전부 실패한다.
+  예) text: "이사 전날, 제 방은 전쟁터였습니다. 피규어부터 옷까지 할 일이 산더미였죠. ..."
+- `text_to_speech` 의 text 는 **반드시 storyboard 의 narration 문구**를 이어 붙인
+  것이어야 한다. 사용자가 입력한 문장이나 원본 대사를 넣지 마라.
+
+## step 은 최대한 적게, 경로 연결은 정확하게
+
+- 같은 도구를 15번 부르는 plan 이 나왔다면 묶을 방법을 다시 생각하라.
+  전체 step 은 20개 이내를 목표로 한다.
+- 앞 step 의 산출물을 다음 step 이 받을 때, **파일 경로를 정확히 이어라.**
+  오타 하나로 뒤 단계가 전부 무너진다. 여러 step 이 같은 입력 파일을 쓰면서
+  각자 다른 출력을 내면 누적되지 않고 마지막 하나만 남는다는 점도 주의.
 - 자막(add_auto_subtitle)은 원본 발화를 자동으로 처리하므로 storyboard 의
   on_screen_text 와는 별개다. 둘 다 필요하면 각각 step 을 만든다.
 
