@@ -5,7 +5,7 @@ import { Sparkles, Upload } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { useAgentStore } from "./state";
-import { uploadVideo } from "./backend";
+import { uploadVideos } from "./backend";
 import styles from "./emptystate.module.css";
 
 const PROMPTS = [
@@ -24,7 +24,7 @@ const PROMPTS = [
 ];
 
 export function EmptyState() {
-  const setUpload = useAgentStore((s) => s.setUpload);
+  const uploadedNames = useAgentStore((s) => s.uploadedNames);
 
   const fillComposer = (title: string) => {
     // 예시 프롬프트 = Composer 에 텍스트만 채워넣기.
@@ -60,10 +60,10 @@ export function EmptyState() {
         <div className={styles.heroIcon}>
           <Sparkles size={14} strokeWidth={2.2} />
         </div>
-        <div className={styles.heroTitle}>영상 하나로 시작해</div>
+        <div className={styles.heroTitle}>영상으로 시작해</div>
         <div className={styles.heroCaption}>
-          업로드한 영상을 분석하고, 자연어 한 줄로 컷 · 자막 · BGM 까지
-          에이전트가 처리해. 실행 전 계획을 먼저 보여줄게.
+          여러 영상을 올려도 돼. 각 영상을 분석하고, 자연어 한 줄로 컷 · 자막 ·
+          BGM 까지 에이전트가 처리해. 실행 전 계획을 먼저 보여줄게.
         </div>
 
         <label className={styles.uploadBtn}>
@@ -72,21 +72,19 @@ export function EmptyState() {
           <input
             type="file"
             accept="video/*"
+            multiple
             hidden
             onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const url = URL.createObjectURL(f);
-              setUpload(0, f.name, url, null);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length === 0) return;
               try {
-                setUpload(30);
-                const res = await uploadVideo(f);
-                setUpload(100, undefined, undefined, res.path);
-                toast.success("업로드 완료", {
-                  description: res.path,
-                });
+                const ok = await uploadVideos(files);
+                if (ok.length > 0) {
+                  toast.success(`영상 ${ok.length}개 업로드 완료`);
+                } else {
+                  throw new Error("no upload");
+                }
               } catch {
-                setUpload(100);
                 toast("업로드는 로컬만 성공 (백엔드 응답 없음)", {
                   description:
                     "지금은 로컬 프리뷰만 가능. 아래 예시 지시로 스트리밍 UX 는 확인 가능.",
@@ -96,7 +94,17 @@ export function EmptyState() {
           />
         </label>
 
-        <div className={styles.uploadHint}>또는 여기로 드래그</div>
+        {uploadedNames.length > 0 && (
+          <div className={styles.uploadedList}>
+            {uploadedNames.map((n, i) => (
+              <span key={`${n}-${i}`} className={styles.uploadedChip}>
+                {n}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className={styles.uploadHint}>또는 여기로 드래그 (여러 개 가능)</div>
       </motion.div>
 
       <div className={styles.promptsHeader}>이렇게 시작해봐</div>

@@ -64,6 +64,32 @@ export async function uploadVideo(file: File): Promise<UploadResult> {
   return (await res.json()) as UploadResult;
 }
 
+/**
+ * 여러 영상 파일을 순차 업로드하고 store 에 누적한다.
+ * 각 파일: 로컬 blob 프리뷰 즉시 → 서버 업로드 → addVideo.
+ * 반환: 성공한 서버 경로 목록.
+ */
+export async function uploadVideos(files: File[]): Promise<string[]> {
+  const store = useAgentStore.getState();
+  const ok: string[] = [];
+  const total = files.length;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const url = URL.createObjectURL(f);
+    store.setUpload(Math.round((i / total) * 100), undefined, undefined);
+    try {
+      const res = await uploadVideo(f);
+      store.addVideo(res.path, f.name, url);
+      ok.push(res.path);
+    } catch {
+      // 개별 실패는 건너뛴다 — 나머지는 계속 시도.
+    }
+  }
+  store.setUpload(100);
+  persistStudioSession();
+  return ok;
+}
+
 export async function createSession(
   videoPaths: string[] = []
 ): Promise<{ session_id: string }> {
@@ -240,18 +266,22 @@ interface PersistedStudioSession {
   sessionId: string;
   serverVideoPath: string | null;
   uploadedName: string | null;
+  serverVideoPaths?: string[];
+  uploadedNames?: string[];
 }
 
 /** 현재 store 의 세션 식별 정보를 localStorage 에 저장 (없으면 제거). */
 export function persistStudioSession() {
   try {
-    const { sessionId, serverVideoPath, uploadedName } =
+    const { sessionId, serverVideoPath, uploadedName, serverVideoPaths, uploadedNames } =
       useAgentStore.getState();
     if (sessionId) {
       const data: PersistedStudioSession = {
         sessionId,
         serverVideoPath,
         uploadedName,
+        serverVideoPaths,
+        uploadedNames,
       };
       localStorage.setItem(STUDIO_SESSION_KEY, JSON.stringify(data));
     } else {
@@ -325,14 +355,24 @@ export async function restoreStudioSession(): Promise<void> {
     });
 
     // 업로드 메타 복원. blob URL 은 재생성 불가 — 서버 정적 URL 로 유추.
-    const serverPath = persisted.serverVideoPath;
-    const videoMatch = serverPath?.match(/^(?:.*[/\\])?videos\/(.+)$/);
-    const sourceUrl = videoMatch
-      ? `${API_BASE}/files/videos/${videoMatch[1]}`
-      : null;
-    if (serverPath) {
-      store.setUpload(null, persisted.uploadedName ?? null, sourceUrl, serverPath);
-    }
+    // 멀티 영상: 저장된 전체 목록을 복원 (없으면 단수 필드로 폴백).
+    const paths =
+      persisted.serverVideoPaths && persisted.serverVideoPaths.length > 0
+        ? persisted.serverVideoPaths
+        : persisted.serverVideoPath
+          ? [persisted.serverVideoPath]
+          : [];
+    const names =
+      persisted.uploadedNames && persisted.uploadedNames.length > 0
+        ? persisted.uploadedNames
+        : persisted.uploadedName
+          ? [persisted.uploadedName]
+          : [];
+    paths.forEach((p, i) => {
+      const m = p.match(/^(?:.*[/\\])?videos\/(.+)$/);
+      const url = m ? `${API_BASE}/files/videos/${m[1]}` : undefined;
+      store.addVideo(p, names[i] ?? p.split("/").pop() ?? p, url ?? undefined);
+    });
 
     const vc = data.video_context;
     if (vc && typeof vc === "object") {
@@ -377,9 +417,12 @@ export async function ensureSessionAndConnect(
     }
 
     useAgentStore.getState().setConnection("connecting");
-    const { session_id } = await createSession(
-      videoPath ? [videoPath] : []
-    );
+    // 멀티 영상: 업로드된 전체 경로를 세션에 넘긴다 (analysis_node 가 병렬 분석).
+    // 인자 videoPath 는 하위호환 폴백.
+    const paths = useAgentStore.getState().serverVideoPaths;
+    const videoPaths =
+      paths.length > 0 ? paths : videoPath ? [videoPath] : [];
+    const { session_id } = await createSession(videoPaths);
     useAgentStore.getState().startSession(session_id);
     persistStudioSession();
     const sock = new AgentSocket(session_id);
