@@ -10,6 +10,7 @@ FFmpeg/ElevenLabs 없이 오프라인으로 동작:
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from contextlib import ExitStack
 from pathlib import Path
@@ -693,3 +694,267 @@ class TestMixAudioOffset:
         audio_filter = cmd[cmd.index("-filter_complex") + 1]
         assert "adelay" not in audio_filter
         assert audio_filter == "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[mix]"
+
+
+# =============================================================
+# STYLE_PRESETS (쇼츠 볼드 등 이름 프리셋)
+# =============================================================
+
+class TestStylePresets:
+    def test_shorts_bold_merges_bold_big_thick(self, cue_env):
+        """shorts_bold preset → bold + 기본보다 큰 size + 두꺼운 stroke 로 병합."""
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "preset": "shorts_bold",
+        }))
+        assert result["status"] == "success"
+        assert result["preset"] == "shorts_bold"
+        d = result["style_defaults"]
+        assert d["bold"] is True
+        assert d["size"] > subtitle_cues.DEFAULT_STYLE["size"]     # 기본 24 보다 큼
+        assert d["stroke_width"] >= 2.5                            # 굵은 외곽선
+        assert d["color"] == "#FFFFFF"
+        assert d["position"] == "top"
+        # BlackHanSans/BMJUA 없으면 NotoSansKR 로 폴백
+        assert d["font"] == "NotoSansKR"
+
+    def test_preset_base_then_style_override(self, cue_env):
+        """preset 을 베이스로 깔고 style JSON 으로 자유 오버라이드 (프롬프트 자유도)."""
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "preset": "shorts_bold",
+            "style": json.dumps({"color": "#FFE600", "position": "middle"}),
+        }))
+        d = result["style_defaults"]
+        assert d["bold"] is True          # preset 값 유지
+        assert d["size"] == 36            # preset 값 유지
+        assert d["color"] == "#FFE600"    # style 오버라이드 승리
+        assert d["position"] == "middle"  # style 오버라이드 승리
+
+    def test_caption_point_is_yellow_bold(self, cue_env):
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "preset": "caption_point",
+        }))
+        d = result["style_defaults"]
+        assert d["color"] == "#FFE600"
+        assert d["bold"] is True
+
+    def test_clean_preset_matches_default_style(self, cue_env):
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "preset": "clean",
+        }))
+        d = result["style_defaults"]
+        assert d["size"] == subtitle_cues.DEFAULT_STYLE["size"]
+        assert d["position"] == "bottom"
+        assert d["bold"] is False
+
+    def test_unknown_preset_errors_with_inventory(self, cue_env):
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "preset": "neon_glow",
+        }))
+        assert result["status"] == "error"
+        assert "neon_glow" in result["error"]
+        assert "shorts_bold" in result["error"]   # 보유 목록 노출
+
+    def test_no_style_no_preset_errors(self, cue_env):
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+        }))
+        assert result["status"] == "error"
+
+    def test_preset_scope_all_cues_stamps_each_cue(self, cue_env):
+        """preset 을 all_cues scope 로 주면 모든 큐의 per-cue 오버라이드로 박힘."""
+        _make_doc(cue_env)
+        result = json.loads(set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "preset": "shorts_bold",
+            "scope": "all_cues",
+        }))
+        assert result["applied_cues"] == 3
+        doc = json.loads((cue_env["subs"] / "sample.cues.json").read_text(encoding="utf-8"))
+        assert all(c["style"]["bold"] is True for c in doc["cues"])
+
+
+# =============================================================
+# 자막 효과 (per-cue effect) — ASS 애니메이션 태그
+# =============================================================
+
+class TestEffects:
+    def _effect_doc(self, cue_env, cues):
+        return {
+            "version": 1,
+            "video_stem": "sample",
+            "source_video": str(cue_env["video"]),
+            "style_defaults": {**subtitle_cues.DEFAULT_STYLE},
+            "cues": cues,
+        }
+
+    def test_pop_bounce_slide_fade_emit_tags(self, cue_env):
+        doc = self._effect_doc(cue_env, [
+            {"id": "c001", "start": 0.0, "end": 1.0, "text": "팝",
+             "style": {"effect": "pop"}},
+            {"id": "c002", "start": 1.0, "end": 2.0, "text": "바운스",
+             "style": {"effect": "bounce"}},
+            {"id": "c003", "start": 2.0, "end": 3.0, "text": "슬라이드",
+             "style": {"effect": "slide_up", "position": "top"}},
+            {"id": "c004", "start": 3.0, "end": 4.0, "text": "페이드",
+             "style": {"effect": "fade"}},
+        ])
+        lines = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                 if ln.startswith("Dialogue:")]
+        # pop: 60% → 100% 스케일
+        assert "\\fscx60\\fscy60" in lines[0]
+        assert "\\t(0,180,\\fscx100\\fscy100)" in lines[0]
+        # bounce: 50% → 110% → 100% 오버슈트
+        assert "\\fscx50\\fscy50" in lines[1]
+        assert "\\t(0,120,\\fscx110\\fscy110)" in lines[1]
+        assert "\\t(120,240,\\fscx100\\fscy100)" in lines[1]
+        # slide_up: \move 태그
+        assert "\\move(" in lines[2]
+        # fade: 150ms in/out
+        assert "\\fad(150,150)" in lines[3]
+
+    def test_typewriter_falls_back_to_fade(self, cue_env):
+        doc = self._effect_doc(cue_env, [
+            {"id": "c001", "start": 0.0, "end": 1.0, "text": "타자기",
+             "style": {"effect": "typewriter"}},
+        ])
+        line = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                if ln.startswith("Dialogue:")][0]
+        assert "\\fad(150,150)" in line
+
+    def test_unknown_effect_is_ignored_and_text_preserved(self, cue_env, caplog):
+        doc = self._effect_doc(cue_env, [
+            {"id": "c001", "start": 0.0, "end": 1.0, "text": "이상한효과",
+             "style": {"effect": "wobble"}},
+        ])
+        with caplog.at_level(logging.WARNING, logger="agent.tools.subtitle_cues"):
+            line = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                    if ln.startswith("Dialogue:")][0]
+        # 애니메이션 태그 없음
+        assert "\\t(" not in line and "\\move(" not in line and "\\fad" not in line
+        assert line.endswith("이상한효과")      # 텍스트는 그대로
+        assert any("wobble" in r.message for r in caplog.records)
+
+    def test_update_single_cue_effect_and_position_only_that_cue(self, cue_env):
+        """[프롬프트 자유도] 한 큐만 effect=pop + position=top → 그 큐만 반영."""
+        _make_doc(cue_env)
+        result = json.loads(update_subtitle_cues.invoke({
+            "video_path": str(cue_env["video"]),
+            "updates": [{"id": "c002", "style": {"effect": "pop", "position": "top"}}],
+        }))
+        assert result["updated"] == ["c002"]
+
+        doc = json.loads((cue_env["subs"] / "sample.cues.json").read_text(encoding="utf-8"))
+        lines = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                 if ln.startswith("Dialogue:")]
+        # 시간순 c001, c002, c003 → index 1 이 c002
+        assert "\\fscx60" in lines[1] and "\\an8" in lines[1]
+        assert "\\fscx" not in lines[0]   # 다른 큐엔 효과 없음
+        assert "\\fscx" not in lines[2]
+
+    def test_defaults_effect_propagates_to_cues_without_override(self, cue_env):
+        """set_subtitle_style(style={effect:pop}) → 오버라이드 없는 큐 전체에 pop."""
+        _make_doc(cue_env)
+        set_subtitle_style.invoke({
+            "video_path": str(cue_env["video"]),
+            "style": json.dumps({"effect": "pop"}),
+        })
+        doc = json.loads((cue_env["subs"] / "sample.cues.json").read_text(encoding="utf-8"))
+        lines = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                 if ln.startswith("Dialogue:")]
+        assert all("\\fscx60" in ln for ln in lines)
+
+    def test_cue_effect_none_overrides_default_effect(self, cue_env):
+        """defaults effect 가 있어도 큐가 effect:none 이면 그 큐엔 효과 없음."""
+        doc = self._effect_doc(cue_env, [
+            {"id": "c001", "start": 0.0, "end": 1.0, "text": "효과", "style": {}},
+            {"id": "c002", "start": 1.0, "end": 2.0, "text": "효과끔",
+             "style": {"effect": "none"}},
+        ])
+        doc["style_defaults"]["effect"] = "pop"
+        lines = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                 if ln.startswith("Dialogue:")]
+        assert "\\fscx60" in lines[0]        # 오버라이드 없음 → default pop
+        assert "\\fscx" not in lines[1]      # effect:none 존중
+
+    def test_effect_fade_does_not_double_with_fade_flag(self, cue_env):
+        """fade 불리언 + effect:fade → \\fad 중복 없이 하나로 통합."""
+        doc = self._effect_doc(cue_env, [
+            {"id": "c001", "start": 0.0, "end": 1.0, "text": "중복",
+             "style": {"fade": True, "effect": "fade"}},
+        ])
+        line = [ln for ln in subtitle_cues._build_ass(doc).splitlines()
+                if ln.startswith("Dialogue:")][0]
+        assert line.count("\\fad(") == 1
+        assert "\\fad(150,150)" in line       # effect 쪽 \fad 사용
+
+    def test_effect_settable_via_add_subtitle_cue(self, cue_env):
+        """add_subtitle_cue 로도 effect 지정 가능 (프롬프트 자유도)."""
+        _make_doc(cue_env)
+        result = json.loads(add_subtitle_cue.invoke({
+            "video_path": str(cue_env["video"]),
+            "start": 6.5,
+            "end": 8.0,
+            "text": "새 큐",
+            "style": json.dumps({"effect": "bounce"}),
+        }))
+        assert result["status"] == "success"
+        doc = json.loads((cue_env["subs"] / "sample.cues.json").read_text(encoding="utf-8"))
+        new_cue = [c for c in doc["cues"] if c["id"] == result["id"]][0]
+        assert new_cue["style"]["effect"] == "bounce"
+
+
+# =============================================================
+# 이모지 지원
+# =============================================================
+
+class TestEmoji:
+    def test_has_emoji_detection(self):
+        assert subtitle_cues._has_emoji("새벽 4시 🌙 이사")
+        assert subtitle_cues._has_emoji("결국 🔥")
+        assert not subtitle_cues._has_emoji("그냥 한글 텍스트")
+        assert not subtitle_cues._has_emoji("plain ascii 123")
+
+    def test_emoji_preserved_in_ass(self, cue_env):
+        doc = {
+            "version": 1,
+            "video_stem": "sample",
+            "source_video": str(cue_env["video"]),
+            "style_defaults": {**subtitle_cues.DEFAULT_STYLE},
+            "cues": [
+                {"id": "c001", "start": 0.0, "end": 2.0, "text": "새벽 4시 🌙 이사"},
+            ],
+        }
+        ass = subtitle_cues._build_ass(doc)
+        assert "새벽 4시 🌙 이사" in ass      # 텍스트 강제 변형 없이 그대로 보존
+
+    def test_emoji_without_font_warns_on_render(self, cue_env, caplog):
+        """이모지 큐 렌더 시 이모지 폰트 없으면 경고 (텍스트는 유지, 렌더는 성공)."""
+        _make_doc(cue_env, cues=[
+            {"start": 0.0, "end": 2.0, "text": "이사했어요 🌙"},
+        ])
+        with caplog.at_level(logging.WARNING, logger="agent.tools.subtitle_cues"), \
+             patch("agent.tools.subtitle_cues.subprocess.run") as mock_run:
+            mock_run.side_effect = _fake_subprocess_run
+            result = render_subtitles.invoke({"video_path": str(cue_env["video"])})
+
+        assert not result.startswith("ERROR"), result
+        assert any("이모지" in r.message for r in caplog.records)
+
+    def test_no_emoji_no_warning(self, cue_env, caplog):
+        _make_doc(cue_env)   # 기본 세그먼트엔 이모지 없음
+        with caplog.at_level(logging.WARNING, logger="agent.tools.subtitle_cues"), \
+             patch("agent.tools.subtitle_cues.subprocess.run") as mock_run:
+            mock_run.side_effect = _fake_subprocess_run
+            render_subtitles.invoke({"video_path": str(cue_env["video"])})
+        assert not any("이모지" in r.message for r in caplog.records)

@@ -105,6 +105,19 @@ def script_node(state: AgentState) -> dict[str, Any]:
         user_request,
     ]
 
+    # 트렌드 사전조사 결과 (research_prepass 산출). 있으면 컨셉/BGM/페이싱을
+    # 여기에 grounding — trend_elements / references 는 이걸로 채운다.
+    trend_brief = state.get("trend_brief")
+    if trend_brief:
+        user_parts.append("\n# 트렌드 사전조사 (이걸 기획에 반영)")
+        user_parts.append("```json")
+        user_parts.append(json.dumps(trend_brief, ensure_ascii=False, indent=2))
+        user_parts.append("```")
+        user_parts.append(
+            "위 트렌드를 concept/trend_elements/bgm_progression/pacing 에 반영하고, "
+            "references 는 여기 자료로 채워라."
+        )
+
     if state.get("video_paths"):
         user_parts.append("\n# 원본 영상")
         for p in state["video_paths"]:

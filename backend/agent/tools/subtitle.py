@@ -356,10 +356,17 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
         if not transcript:
             return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
 
+        from agent.tools import subtitle_cues  # 지연 임포트 (순환 방지)
+
         # 2. SRT 생성 (font_size 기반 80% 줄바꿈)
         s_tmp = _merge_style(style)
-        font_size = s_tmp.get("font_size", 24)
-        max_len = _calc_max_chars(font_size)
+        # 쇼츠는 자막 기본을 shorts_bold 프리셋(큰 볼드)으로 — 폰트 크기가 커지므로
+        # 줄바꿈 기준 글자 수도 프리셋 size 로 계산해야 한 줄이 화면을 넘지 않는다.
+        shorts_preset = None
+        if platform == "shorts":
+            shorts_preset = subtitle_cues.resolve_style_preset("shorts_bold")
+        font_size = (shorts_preset or {}).get("size") or s_tmp.get("font_size", 24)
+        max_len = _calc_max_chars(int(font_size))
 
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
         name, _ = os.path.splitext(video_path)
@@ -374,9 +381,12 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
         logger.info(f"SRT/JSON 저장: {srt_abs} ({len(transcript)}개 세그먼트)")
 
         # 3. 큐 문서 생성 (진실의 원천) — source_video 기록 필수
-        from agent.tools import subtitle_cues  # 지연 임포트 (순환 방지)
-
-        defaults = subtitle_cues.style_defaults_from_legacy(s_tmp)
+        #    쇼츠면 shorts_bold 프리셋을 베이스로 깔고, 사용자가 style JSON 에
+        #    명시한 키만 위에 유지 (예: {'platform':'shorts','color':'yellow'} → 노랑 유지).
+        if shorts_preset:
+            defaults = {**shorts_preset, **subtitle_cues.explicit_style_from_legacy(style)}
+        else:
+            defaults = subtitle_cues.style_defaults_from_legacy(s_tmp)
         _, cues_doc_path = subtitle_cues.create_cues_doc(
             stem=name,
             source_video=input_path,

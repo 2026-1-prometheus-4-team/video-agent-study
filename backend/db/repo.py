@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from .engine import get_session
 from .models import Artifact, Interrupt, Message, Session, UserMemory
@@ -206,6 +206,85 @@ class SessionRepo:
                 await db.commit()
         except Exception:
             logger.exception("db.update_summary failed (session_id=%s)", session_id)
+
+    # ────────────────────────────────────────────
+    # 세션 히스토리 (UI 사이드바 — 지난 대화 브라우징/재개)
+    # ────────────────────────────────────────────
+
+    @classmethod
+    async def list_sessions(
+        cls, user_id: str = "default_user", limit: int = 50
+    ) -> list[dict]:
+        """최근 세션 목록. 각 항목에 첫 사용자 발화(preview)를 붙여 반환.
+
+        UI 히스토리 사이드바가 쓴다. summary 가 있으면 title 로 우선.
+        """
+        try:
+            async with get_session() as db:
+                stmt = (
+                    select(Session)
+                    .where(Session.user_id == user_id)
+                    .order_by(Session.updated_at.desc())
+                    .limit(limit)
+                )
+                rows = (await db.execute(stmt)).scalars().all()
+                out: list[dict] = []
+                for s in rows:
+                    # 첫 사용자 발화 (제목 폴백)
+                    pv_stmt = (
+                        select(Message.content)
+                        .where(Message.session_id == s.id, Message.kind == "user")
+                        .order_by(Message.id.asc())
+                        .limit(1)
+                    )
+                    preview = (await db.execute(pv_stmt)).scalars().first()
+                    # 메시지 수 (빈 세션 걸러내기 용)
+                    cnt_stmt = (
+                        select(func.count(Message.id))
+                        .where(Message.session_id == s.id)
+                    )
+                    msg_count = (await db.execute(cnt_stmt)).scalar() or 0
+                    out.append({
+                        "session_id": s.id,
+                        "title": (s.summary or preview or "새 대화")[:80],
+                        "preview": (preview or "")[:120],
+                        "status": s.status,
+                        "video_paths": s.video_paths or [],
+                        "message_count": int(msg_count),
+                        "created_at": s.created_at.isoformat() if s.created_at else None,
+                        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+                    })
+                return out
+        except Exception:
+            logger.exception("db.list_sessions failed")
+            return []
+
+    @classmethod
+    async def get_messages(cls, session_id: str, limit: int = 500) -> list[dict]:
+        """세션의 전체 대화 로그 (시간순). UI 히스토리 재구성용."""
+        try:
+            async with get_session() as db:
+                stmt = (
+                    select(Message)
+                    .where(Message.session_id == session_id)
+                    .order_by(Message.id.asc())
+                    .limit(limit)
+                )
+                rows = (await db.execute(stmt)).scalars().all()
+                return [
+                    {
+                        "kind": m.kind,
+                        "node": m.node,
+                        "content": m.content,
+                        "tool_name": m.tool_name,
+                        "detail": m.detail,
+                        "created_at": m.created_at.isoformat() if m.created_at else None,
+                    }
+                    for m in rows
+                ]
+        except Exception:
+            logger.exception("db.get_messages failed (session_id=%s)", session_id)
+            return []
 
     # ────────────────────────────────────────────
     # User Memories (세션 간 이월)
