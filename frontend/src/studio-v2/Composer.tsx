@@ -8,19 +8,17 @@ import { toast } from "sonner";
 import { useAgentStore } from "./state";
 import {
   ensureSessionAndConnect,
-  persistStudioSession,
   tryCancel,
   tryResumeClarify,
   trySendChat,
-  uploadVideo,
+  uploadVideos,
 } from "./backend";
 import styles from "./composer.module.css";
 
 export function Composer() {
   const [text, setText] = useState("");
   const [dragging, setDragging] = useState(false);
-  const [attached, setAttached] = useState<File | null>(null);
-  const uploadedName = useAgentStore((s) => s.uploadedName);
+  const uploadedNames = useAgentStore((s) => s.uploadedNames);
   const connection = useAgentStore((s) => s.connection);
   const sessionStatus = useAgentStore((s) => s.sessionStatus);
   const pendingInterrupt = useAgentStore((s) => s.pendingInterrupt);
@@ -65,7 +63,10 @@ export function Composer() {
     const serverPath = store.serverVideoPath;
 
     // 유저 메시지는 항상 push (즉각 피드백)
-    store.appendUser(t, attached ? [attached.name] : undefined);
+    store.appendUser(
+      t,
+      store.uploadedNames.length > 0 ? store.uploadedNames : undefined
+    );
     setText("");
 
     if (!backendUp) {
@@ -126,7 +127,7 @@ export function Composer() {
       "에이전트 준비 중",
       "요청을 수신하고 파이프라인을 여는 중이야"
     );
-  }, [text, attached]);
+  }, [text]);
 
   useHotkeys(
     "meta+enter, ctrl+enter",
@@ -141,49 +142,32 @@ export function Composer() {
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
-    const f = e.dataTransfer.files?.[0];
-    if (!f) return;
-    setAttached(f);
-    const url = URL.createObjectURL(f);
-    const store = useAgentStore.getState();
-    store.setUpload(0, f.name, url, null);
+    const files = Array.from(e.dataTransfer.files ?? []).filter((f) =>
+      f.type.startsWith("video/")
+    );
+    if (files.length === 0) return;
     try {
-      // 진행률만 갱신 (url 은 넘기지 않음 → revoke 위험 X)
-      store.setUpload(30);
-      const res = await uploadVideo(f);
-      store.setUpload(100, undefined, undefined, res.path);
-      // 세션이 이미 있으면 새 영상 path 까지 함께 영속.
-      persistStudioSession();
-      toast.success("업로드 완료", { description: res.path });
+      const ok = await uploadVideos(files);
+      if (ok.length > 0) toast.success(`영상 ${ok.length}개 업로드 완료`);
+      else throw new Error("no upload");
     } catch {
-      store.setUpload(100);
       toast("로컬 프리뷰만 (백엔드 미응답)");
     }
   };
 
   return (
     <div className={styles.wrap}>
-      {uploadedName && !attached && (
+      {uploadedNames.length > 0 && (
         <div className={styles.uploadedRow}>
-          <div className={styles.uploadedName}>{uploadedName}</div>
+          {uploadedNames.map((n, i) => (
+            <div key={`${n}-${i}`} className={styles.uploadedName}>
+              {n}
+            </div>
+          ))}
           <button
             type="button"
-            onClick={() => useAgentStore.getState().setUpload(null, null, null)}
-            aria-label="첨부 취소"
-            className={styles.uploadedRemove}
-          >
-            <X size={11} />
-          </button>
-        </div>
-      )}
-
-      {attached && !uploadedName && (
-        <div className={styles.uploadedRow}>
-          <div className={styles.uploadedName}>{attached.name}</div>
-          <button
-            type="button"
-            onClick={() => setAttached(null)}
-            aria-label="첨부 취소"
+            onClick={() => useAgentStore.getState().clearVideos()}
+            aria-label="첨부 전체 취소"
             className={styles.uploadedRemove}
           >
             <X size={11} />
@@ -210,7 +194,7 @@ export function Composer() {
               ? pendingInterrupt.interruptKind === "clarify"
                 ? "후보에 대해 답하거나 다른 요청을 입력해줘…"
                 : "이대로 진행할지 답하거나, 수정할 내용을 입력해줘…"
-              : uploadedName
+              : uploadedNames.length > 0
                 ? "다음 지시를 입력해줘…"
                 : "영상을 먼저 업로드하거나, 어떤 편집을 원하는지 입력해줘"
           }
@@ -220,29 +204,22 @@ export function Composer() {
         />
 
         <div className={styles.tools}>
-          <label className={styles.iconBtn} title="첨부">
+          <label className={styles.iconBtn} title="영상 첨부 (여러 개 가능)">
             <Paperclip size={14} />
             <input
               type="file"
               accept="video/*"
+              multiple
               hidden
               onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                setAttached(f);
-                const url = URL.createObjectURL(f);
-                const store = useAgentStore.getState();
-                store.setUpload(0, f.name, url, null);
+                const files = Array.from(e.target.files ?? []);
+                if (files.length === 0) return;
                 try {
-                  store.setUpload(30);
-                  const res = await uploadVideo(f);
-                  store.setUpload(100, undefined, undefined, res.path);
-                  persistStudioSession();
-                  toast.success("업로드 완료", {
-                    description: res.path,
-                  });
+                  const ok = await uploadVideos(files);
+                  if (ok.length > 0)
+                    toast.success(`영상 ${ok.length}개 업로드 완료`);
+                  else throw new Error("no upload");
                 } catch {
-                  store.setUpload(100);
                   toast("로컬 프리뷰만 (백엔드 미응답)");
                 }
               }}

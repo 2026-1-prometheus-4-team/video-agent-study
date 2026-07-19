@@ -142,9 +142,12 @@ export interface AgentState {
   lastFinal: StreamItem & { kind: "final" } | null;
   // upload
   uploadPct: number | null;
-  uploadedName: string | null;
-  uploadedUrl: string | null;
-  serverVideoPath: string | null;
+  uploadedName: string | null; // 첫(대표) 영상 — 프리뷰/모션에디터가 참조
+  uploadedUrl: string | null; // 첫 영상 재생 URL
+  serverVideoPath: string | null; // 첫 영상 서버 경로
+  // 멀티 영상 — 세션 생성 시 전부 video_paths 로 전달. 단수 필드는 [0] 미러.
+  serverVideoPaths: string[];
+  uploadedNames: string[];
   // insights (video_context) — 실제 배열 포함
   videoContext: {
     file_path: string;
@@ -224,6 +227,10 @@ export interface AgentState {
     url?: string | null,
     serverPath?: string | null
   ) => void;
+  /** 업로드 완료된 영상 하나를 목록에 추가. 첫 영상은 대표(단수) 필드도 채운다. */
+  addVideo: (serverPath: string, name: string, url?: string | null) => void;
+  /** 업로드 영상 목록 초기화 (새 세션 시작 등). */
+  clearVideos: () => void;
   setVideoContext: (ctx: AgentState["videoContext"]) => void;
   clearStream: () => void;
 
@@ -306,6 +313,8 @@ export const useAgentStore = create<AgentState>()(
     uploadedName: null,
     uploadedUrl: null,
     serverVideoPath: null,
+    serverVideoPaths: [],
+    uploadedNames: [],
     videoContext: null,
     playhead: 0,
     playing: false,
@@ -627,6 +636,37 @@ export const useAgentStore = create<AgentState>()(
           s.uploadedUrl = url;
         }
         if (serverPath !== undefined) s.serverVideoPath = serverPath;
+      }),
+
+    addVideo: (serverPath, name, url) =>
+      set((s) => {
+        if (s.serverVideoPaths.includes(serverPath)) return; // 중복 방지
+        s.serverVideoPaths.push(serverPath);
+        s.uploadedNames.push(name);
+        s.uploadPct = 100;
+        // 첫 영상 = 대표. 프리뷰/모션에디터가 참조하는 단수 필드를 채운다.
+        if (s.serverVideoPaths.length === 1) {
+          s.serverVideoPath = serverPath;
+          s.uploadedName = name;
+          if (url && url !== s.uploadedUrl) s.uploadedUrl = url;
+        }
+      }),
+
+    clearVideos: () =>
+      set((s) => {
+        if (s.uploadedUrl && s.uploadedUrl.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(s.uploadedUrl);
+          } catch {
+            // ignore
+          }
+        }
+        s.serverVideoPaths = [];
+        s.uploadedNames = [];
+        s.serverVideoPath = null;
+        s.uploadedName = null;
+        s.uploadedUrl = null;
+        s.uploadPct = null;
       }),
 
     setVideoContext: (ctx) =>
