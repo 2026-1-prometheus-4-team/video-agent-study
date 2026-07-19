@@ -25,9 +25,43 @@ THREAD_ID = "demo-1"
 CONFIG = {"configurable": {"thread_id": THREAD_ID}, "recursion_limit": 60}
 
 
+def _fmt_ms(ms) -> str:
+    try:
+        s = int(ms) // 1000
+    except (TypeError, ValueError):
+        return "?"
+    return f"{s // 60:02d}:{s % 60:02d}"
+
+
 def print_plan(plan: dict) -> None:
     print("\n" + "=" * 60)
-    print("[생성된 편집 계획]")
+
+    brief = plan.get("creative_brief") or {}
+    if brief:
+        print("[기획안]")
+        if brief.get("concept"):
+            print(f"  컨셉 : {brief['concept']}")
+        if brief.get("hook"):
+            print(f"  훅   : {brief['hook']}")
+        if brief.get("bgm_flow"):
+            print(f"  BGM  : {brief['bgm_flow']}")
+
+        board = brief.get("storyboard") or []
+        if board:
+            print("\n[스토리보드]")
+            for sc in board:
+                src = str(sc.get("source", "")).split("/")[-1]
+                span = f"{_fmt_ms(sc.get('source_start_ms'))}~{_fmt_ms(sc.get('source_end_ms'))}"
+                print(f"  {sc.get('idx', '?')}. [{sc.get('role', '')}] {src} {span}")
+                if sc.get("visual"):
+                    print(f"      영상 : {sc['visual']}")
+                if sc.get("narration"):
+                    print(f"      나레 : {sc['narration']}")
+                if sc.get("on_screen_text"):
+                    print(f"      자막 : {sc['on_screen_text']}")
+        print()
+
+    print("[실행 계획]")
     print(f"  포맷: {plan.get('target_format')} / 비율: {plan.get('target_aspect_ratio')}")
     for s in plan.get("steps", []):
         params = json.dumps(s.get("params", {}), ensure_ascii=False)
