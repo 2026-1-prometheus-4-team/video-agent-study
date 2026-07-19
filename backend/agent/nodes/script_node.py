@@ -152,15 +152,11 @@ def script_node(state: AgentState) -> dict[str, Any]:
 
     user_text = "\n".join(user_parts)
 
-    # LLM 호출
-    llm = make_llm("script")
+    # LLM 호출 — 안정 prefix(sys_text)는 Gemini explicit cache 로 재사용해
+    # 매 턴 ~20k prompt 토큰 반복 비용을 줄인다 (실패 시 자동 inline 폴백).
+    from agent.llm import system_user_invoke
     try:
-        ai_msg = llm.invoke(
-            [
-                SystemMessage(content=sys_text),
-                HumanMessage(content=user_text),
-            ]
-        )
+        ai_msg = system_user_invoke("script", sys_text, user_text)
     except Exception as e:
         logger.exception("script LLM invoke failed")
         return {

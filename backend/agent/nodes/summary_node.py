@@ -112,8 +112,8 @@ def summary_node(state: AgentState) -> dict[str, Any]:
     )
 
     try:
-        llm = make_llm("summary")
-        result = llm.invoke([SystemMessage(content=sys_text), HumanMessage(content=user_text)])
+        from agent.llm import system_user_invoke
+        result = system_user_invoke("summary", sys_text, user_text)
         new_summary = (result.content or "").strip() if hasattr(result, "content") else ""
     except Exception:
         logger.exception("summary_node: LLM 실패 → 기존 summary 유지")

@@ -136,26 +136,23 @@ class TestRouting:
 
     def test_step_id_backfilled_when_llm_omits(self):
         """step_id 없으면 _step_completed 가 영영 미완료로 봐서 재실행 루프."""
-        # agent.nodes.__init__ 이 동명 함수를 re-export 해서 attribute 접근으로는
-        # 모듈이 아니라 함수가 잡힌다 -> import_module 로 모듈 자체를 가져온다.
         import importlib
         sn = importlib.import_module("agent.nodes.script_node")
+        # script_node 는 agent.llm.system_user_invoke 를 함수 내부에서 import 하므로
+        # 소스 모듈에서 patch 한다 (explicit cache 우회 + LLM 결과 주입).
+        import agent.llm as llm_mod
 
         plan = {"steps": [{"expert": "edit_expert"}, {"expert": "text_expert"}]}
 
         class _FakeMsg:
             content = json.dumps(plan, ensure_ascii=False)
 
-        class _FakeLLM:
-            def invoke(self, _messages):
-                return _FakeMsg()
-
-        orig = sn.make_llm
-        sn.make_llm = lambda *a, **k: _FakeLLM()
+        orig = llm_mod.system_user_invoke
+        llm_mod.system_user_invoke = lambda *a, **k: _FakeMsg()
         try:
             out = sn.script_node({"user_request": "자막 넣어줘"})
         finally:
-            sn.make_llm = orig
+            llm_mod.system_user_invoke = orig
 
         assert [s["step_id"] for s in out["script_plan"]["steps"]] == [1, 2]
 

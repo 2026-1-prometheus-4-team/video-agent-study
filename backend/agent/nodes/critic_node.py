@@ -104,12 +104,9 @@ def critic_node(state: AgentState) -> dict[str, Any]:
         "위 트레이스를 보고 PASS / RETRY 를 결정하라. JSON 만 출력.",
     ])
 
-    llm = make_llm("critic")
+    from agent.llm import system_user_invoke
     try:
-        ai_msg = llm.invoke([
-            SystemMessage(content=sys_text),
-            HumanMessage(content=user_text),
-        ])
+        ai_msg = system_user_invoke("critic", sys_text, user_text)
     except Exception as e:
         logger.exception("critic LLM failed")
         return {
