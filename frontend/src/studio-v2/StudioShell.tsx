@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Menu } from "lucide-react";
+import { HistorySidebar } from "./HistorySidebar";
 import { Sidebar } from "./Sidebar";
 import { Stage } from "./Stage";
 import { Timeline } from "./Timeline";
@@ -87,6 +88,8 @@ export function StudioShell() {
       data-collapsed={collapsed}
       data-mobile-open={mobileOpen}
     >
+      <HistorySidebar />
+
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}

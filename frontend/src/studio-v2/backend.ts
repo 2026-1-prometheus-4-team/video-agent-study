@@ -22,7 +22,12 @@
  *   done = "턴 종료" (세션은 계속 살아있음).
  */
 
-import { useAgentStore, type ClarifyCandidate, type PlanStep } from "./state";
+import {
+  useAgentStore,
+  type ClarifyCandidate,
+  type PlanStep,
+  type StreamItem,
+} from "./state";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
@@ -247,7 +252,48 @@ export function applyInterruptPayload(payloadRaw: unknown) {
     : Array.isArray(payload.questions)
       ? (payload.questions as string[])
       : [];
-  store.pushInterrupt(steps, questions);
+
+  // 한국어 마크다운 기획안 — 있으면 steps 리스트 대신 렌더 (없으면 폴백).
+  const planMarkdown =
+    typeof planLike.plan_markdown === "string" && planLike.plan_markdown.trim()
+      ? (planLike.plan_markdown as string)
+      : undefined;
+  // 컨셉 이름 — 카드 제목으로 크게 표시.
+  const conceptRaw = planLike.concept as Record<string, unknown> | undefined;
+  const conceptName =
+    conceptRaw && typeof conceptRaw.name === "string" && conceptRaw.name.trim()
+      ? (conceptRaw.name as string)
+      : undefined;
+
+  store.pushInterrupt(steps, questions, { planMarkdown, conceptName });
+}
+
+// ---------- 폰트 목록 (자막 폰트 드롭다운) ----------
+
+export interface FontInfo {
+  file: string; // "BlackHanSans-Regular.ttf"
+  family: string; // "BlackHanSans"
+}
+
+/**
+ * GET /fonts — 보유한 자막 폰트 목록.
+ * 백엔드 미구현/오프라인/파싱 실패 시 [] 반환 (호출부가 "폰트 없음" 안내).
+ */
+export async function fetchFonts(): Promise<FontInfo[]> {
+  try {
+    const res = await fetch(`${API_BASE}/fonts`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { fonts?: unknown };
+    if (!Array.isArray(data?.fonts)) return [];
+    return (data.fonts as Array<Record<string, unknown>>)
+      .filter(
+        (f): f is { file: string; family: string } =>
+          !!f && typeof f.file === "string" && typeof f.family === "string"
+      )
+      .map((f) => ({ file: f.file, family: f.family }));
+  } catch {
+    return [];
+  }
 }
 
 // ---------- Module-level socket singleton ----------
@@ -440,6 +486,284 @@ export async function ensureSessionAndConnect(
 export function closeSocket() {
   currentSocket?.disconnect();
   currentSocket = null;
+}
+
+// ---------- 지난 대화 히스토리 (좌측 사이드바) ----------
+
+/** GET /sessions 항목. 최근 updated_at 순, 메시지 있는 세션만. */
+export interface SessionSummary {
+  session_id: string;
+  title: string;
+  preview: string;
+  status: string;
+  video_paths: string[];
+  message_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** GET /session/{id}/history 의 message 한 줄 (DB append-only 로그). */
+export interface HistoryMessage {
+  kind: string;
+  node: string | null;
+  content: string | null;
+  tool_name: string | null;
+  detail: string | null;
+  created_at: string | null;
+}
+
+export interface SessionHistory {
+  session_id: string;
+  live: boolean;
+  messages: HistoryMessage[];
+  final_output_path?: string;
+  final_output_url?: string | null;
+  video_context?: WireVideoContext | null;
+  pending_interrupt?: Record<string, unknown> | null;
+}
+
+/** GET /sessions — 지난 대화 목록. 백엔드 없음/실패 시 [] (UI graceful). */
+export async function fetchSessions(): Promise<SessionSummary[]> {
+  try {
+    const res = await fetch(`${API_BASE}/sessions`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { sessions?: unknown };
+    if (!Array.isArray(data?.sessions)) return [];
+    return (data.sessions as SessionSummary[]).filter(
+      (s) => s && typeof s.session_id === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** GET /session/{id}/history — 전체 대화 로그. 실패 시 null. */
+export async function loadSessionHistory(
+  id: string
+): Promise<SessionHistory | null> {
+  try {
+    const res = await fetch(`${API_BASE}/session/${id}/history`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as SessionHistory;
+    if (!data || !Array.isArray(data.messages)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+// 히스토리 재구성용 로컬 id 시퀀스 (state.nextId 와 겹치지 않게 접두사 분리).
+let histIdSeq = 0;
+const histId = (p: string) =>
+  `hist-${p}-${Date.now().toString(36)}-${(++histIdSeq).toString(36)}`;
+
+/** ISO 문자열 → epoch ms. tz 없는 문자열은 UTC 로 간주. 파싱 실패 시 now. */
+function toEpoch(iso: string | null | undefined): number {
+  if (!iso) return Date.now();
+  const s = /[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`;
+  const t = new Date(s).getTime();
+  return Number.isNaN(t) ? Date.now() : t;
+}
+
+/**
+ * 서버 파일 경로 → 프론트 접근용 /files/* URL (백엔드 _to_file_url 미러).
+ * outputs/videos/audio/bgm 하위만 매핑. 매핑 불가 시 undefined.
+ */
+function deriveFileUrl(pathStr: string | null | undefined): string | undefined {
+  if (!pathStr) return undefined;
+  const m = pathStr.match(/(?:^|[/\\])(outputs|videos|audio|bgm)[/\\](.+)$/);
+  if (!m) return undefined;
+  return `${API_BASE}/files/${m[1]}/${m[2].replace(/\\/g, "/")}`;
+}
+
+/**
+ * 히스토리 messages → studio-v2 StreamItem[] 재구성.
+ *
+ * 과거 기록은 읽기 위주 — tool/phase 카드는 완료 상태로 굳혀 렌더한다.
+ * get_messages 는 args/extra 를 돌려주지 않으므로 도구 인자·interrupt payload 는
+ * 복원 불가. interrupt 는 얇은 info 마커로만 표시하고, live 세션의 실제 미해결
+ * interrupt 는 loadSession 이 pending_interrupt 로 따로 얹는다.
+ */
+export function buildHistoryStream(hist: SessionHistory): StreamItem[] {
+  const out: StreamItem[] = [];
+  const messages = hist.messages;
+
+  // pending interrupt 가 있으면 messages 의 '마지막' interrupt 행은 실제 카드로
+  // 따로 렌더될 것 → 중복 마커를 피하려고 인덱스를 기억해 스킵.
+  let lastInterruptIdx = -1;
+  if (hist.pending_interrupt) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].kind === "interrupt") {
+        lastInterruptIdx = i;
+        break;
+      }
+    }
+  }
+
+  // 연속된 같은 phase(running→done) 두 행을 하나로 collapse 하기 위한 참조.
+  let lastPhase: (StreamItem & { kind: "phase" }) | null = null;
+
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const at = toEpoch(m.created_at);
+    const content = (m.content ?? "").trim();
+
+    // phase 이외의 행이 끼면 collapse 체인 종료.
+    if (m.kind !== "phase") lastPhase = null;
+
+    switch (m.kind) {
+      case "user":
+        out.push({ kind: "user", id: histId("u"), text: content, createdAt: at });
+        break;
+
+      case "agent_message":
+        if (!content) break;
+        out.push({
+          kind: "agent",
+          id: histId("a"),
+          text: content,
+          createdAt: at,
+          streaming: false,
+          node: asNode(m.node ?? undefined),
+        });
+        break;
+
+      case "tool_call":
+        // 인자/결과는 히스토리에 없음 — 완료 카드로만 표시.
+        out.push({
+          kind: "tool",
+          id: histId("t"),
+          node: asNode(m.node ?? undefined),
+          tool: m.tool_name ?? content ?? "tool",
+          args: {},
+          state: "success",
+          startedAt: at,
+          endedAt: at,
+        });
+        break;
+
+      case "phase": {
+        const phaseName = (m.node ?? "phase").trim() || "phase";
+        if (lastPhase && lastPhase.phase === phaseName) {
+          // running→done 쌍 collapse: done 행의 label/detail 로 갱신.
+          if (content) lastPhase.label = content;
+          if (m.detail) lastPhase.detail = m.detail;
+          lastPhase.endedAt = at;
+          break;
+        }
+        const it: StreamItem & { kind: "phase" } = {
+          kind: "phase",
+          id: histId("p"),
+          phase: phaseName,
+          label: content || phaseName,
+          detail: m.detail ?? "",
+          state: "done",
+          startedAt: at,
+          endedAt: at,
+        };
+        out.push(it);
+        lastPhase = it;
+        break;
+      }
+
+      case "final":
+        out.push({
+          kind: "final",
+          id: histId("f"),
+          createdAt: at,
+          outputPath: content,
+          outputUrl: deriveFileUrl(content),
+          duration: 0,
+        });
+        break;
+
+      case "interrupt":
+        if (i === lastInterruptIdx) break; // live pending 으로 따로 렌더
+        out.push({
+          kind: "info",
+          id: histId("i"),
+          createdAt: at,
+          text: content || "AI가 계획 확인을 요청했어",
+        });
+        break;
+
+      case "error":
+        out.push({
+          kind: "error",
+          id: histId("e"),
+          createdAt: at,
+          title: "오류",
+          detail: m.detail ?? content ?? undefined,
+        });
+        break;
+
+      case "info":
+      case "cancel":
+        if (content) {
+          out.push({ kind: "info", id: histId("n"), createdAt: at, text: content });
+        }
+        break;
+
+      // video_context / resume / 기타 내부 kind 는 스킵.
+      default:
+        break;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * 지난 대화 하나를 열어 스트림을 재구성하고 WS 를 재연결해 이어서 대화 가능하게.
+ * 현재 세션이면 no-op (진행 중 턴 방해 방지). live=false 여도 재연결을 시도하며,
+ * 서버에 세션이 없으면 4004 → backend 기존 처리(sessionId 초기화 + 안내).
+ */
+export async function loadSession(summary: SessionSummary): Promise<void> {
+  const store = useAgentStore.getState();
+  if (store.sessionId === summary.session_id) return;
+
+  // 1. 현재 소켓 닫고 스트림/영상 초기화.
+  closeSocket();
+  store.clearVideos();
+  store.clearStream();
+
+  // 2. 히스토리 fetch → 스트림 재구성.
+  const hist = await loadSessionHistory(summary.session_id);
+  store.hydrateStream(hist ? buildHistoryStream(hist) : []);
+
+  // 3. 세션 ID 세팅.
+  store.setSessionId(summary.session_id);
+
+  // 4. 영상 목록 복원 (summary.video_paths). blob 은 못 살리니 정적 URL 유추.
+  const paths = Array.isArray(summary.video_paths) ? summary.video_paths : [];
+  paths.forEach((p) => {
+    store.addVideo(p, p.split(/[/\\]/).pop() ?? p, deriveFileUrl(p));
+  });
+
+  // 5. live 세션이면 video_context / pending interrupt 복원.
+  const vc = hist?.video_context;
+  if (vc && typeof vc === "object") store.setVideoContext(mapVideoContext(vc));
+  if (hist?.pending_interrupt) applyInterruptPayload(hist.pending_interrupt);
+
+  // 6. persist + WS 재연결.
+  persistStudioSession();
+  const sock = new AgentSocket(summary.session_id);
+  sock.connect();
+  currentSocket = sock;
+  await sock.ready(6000).catch(() => undefined);
+}
+
+/** '새 대화' — 소켓 닫고 스트림/영상/세션 초기화해 EmptyState 로 되돌림. */
+export function startNewSession(): void {
+  closeSocket();
+  const store = useAgentStore.getState();
+  store.clearStream();
+  store.clearVideos();
+  store.setSessionId(null);
+  store.setStageViewMode("source");
+  clearStudioSession();
 }
 
 /** Composer 가 호출: backend 있으면 real WS, 없으면 caller 가 mock fallback. */
