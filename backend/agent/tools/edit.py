@@ -143,6 +143,84 @@ def _resolve_output_path(output_path: Optional[str], prefix: str, source_path: s
     return os.path.join(OUTPUTS_DIR, f"{prefix}_{uuid.uuid4().hex[:8]}{ext or '.mp4'}")
 
 
+# =============================================================
+# origin 사이드카 — 클립이 원본의 어느 구간인지 추적
+#
+# cut/merge 결과물 옆에 <파일>.origin.json 을 남긴다. 자막 생성 시
+# 재전사 대신 원본 분석 JSON 의 transcript 를 시간축 보정해 재사용하기 위함.
+# =============================================================
+
+def _origin_path(video_path: str) -> str:
+    return f"{video_path}.origin.json"
+
+
+def _write_origin(output_path: str, clips: list[dict]) -> None:
+    """clips: [{source, start_ms, end_ms, offset_ms}] — offset_ms 는 결과물 내 시작 위치."""
+    try:
+        with open(_origin_path(output_path), "w", encoding="utf-8") as f:
+            json.dump({"clips": clips}, f, ensure_ascii=False, indent=2)
+    except OSError:
+        logger.warning("origin 사이드카 저장 실패: %s", output_path, exc_info=True)
+
+
+def _read_origin(video_path: str) -> Optional[list[dict]]:
+    path = _origin_path(video_path)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("clips")
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _probe_duration_ms(path: str) -> int:
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", path],
+            capture_output=True, text=True, encoding="utf-8", errors="ignore",
+        )
+        return int(float(result.stdout.strip()) * 1000) if result.returncode == 0 else 0
+    except Exception:
+        return 0
+
+
+# 발화 경계 스냅 시 한쪽으로 늘릴 수 있는 최대 시간.
+# 이보다 긴 발화 한가운데를 자르는 경우는 의도적 컷으로 보고 그대로 둔다.
+_SNAP_MAX_EXTEND_MS = 4000
+
+
+def _snap_to_speech(source: str, start_ms: int, end_ms: int) -> tuple[int, int]:
+    """컷 지점이 발화 도중이면 그 발화의 시작/끝까지 구간을 넓힌다.
+
+    "집이 너무 더러워서" 하는 도중에 잘리면 말이 뚝 끊겨 어색하므로,
+    Whisper 원본 전사(videos/subtitles/<원본>.json)를 보고 경계를 맞춘다.
+    전사가 없으면 원래 값 그대로 반환.
+    """
+    try:
+        from agent.tools.subtitle import _source_speech
+        speech = _source_speech(source)
+    except Exception:
+        return start_ms, end_ms
+
+    if not speech:
+        return start_ms, end_ms
+
+    new_start, new_end = start_ms, end_ms
+
+    for seg in speech:
+        s, e = seg["start_ms"], seg["end_ms"]
+        # 시작점이 발화 한가운데 -> 발화 시작으로 당김
+        if s < start_ms < e and (start_ms - s) <= _SNAP_MAX_EXTEND_MS:
+            new_start = min(new_start, s)
+        # 끝점이 발화 한가운데 -> 발화 끝까지 밀어줌
+        if s < end_ms < e and (e - end_ms) <= _SNAP_MAX_EXTEND_MS:
+            new_end = max(new_end, e)
+
+    return max(0, new_start), new_end
+
+
 def _time_to_ms(value: Any, *, already_ms: bool = False) -> int:
     if value is None:
         return 0
@@ -540,6 +618,7 @@ def cut_video(
     start_ms: int,
     end_ms: int,
     output_path: Optional[str] = None,
+    snap_to_speech: bool = True,
 ) -> str:
     """영상 파일에서 지정 구간(start_ms ~ end_ms)을 잘라내 새 파일로 저장.
 
@@ -548,6 +627,9 @@ def cut_video(
         start_ms: 시작 시각(ms). 예: 11분 15초 = 675000.
         end_ms: 종료 시각(ms). start_ms보다 커야 함.
         output_path: 저장 경로. 생략 시 outputs/cut_<id>.mp4.
+        snap_to_speech: 컷 지점이 말하는 도중이면 그 발화의 시작/끝까지 자동으로
+            구간을 넓혀 말이 잘리지 않게 한다. 기본 True.
+            정확한 프레임 단위 컷이 필요하면 False.
 
     Returns:
         성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
@@ -561,6 +643,15 @@ def cut_video(
         end_ms = int(round(float(end_ms)))
         if start_ms < 0 or end_ms <= start_ms:
             return f"ERROR: 잘못된 타임스탬프: start_ms={start_ms}, end_ms={end_ms}"
+
+        if snap_to_speech:
+            snapped = _snap_to_speech(resolved, start_ms, end_ms)
+            if snapped != (start_ms, end_ms):
+                logger.info(
+                    "발화 경계 스냅: %dms~%dms -> %dms~%dms",
+                    start_ms, end_ms, snapped[0], snapped[1],
+                )
+                start_ms, end_ms = snapped
 
         output_path = _resolve_output_path(output_path, "cut", resolved)
 
@@ -589,6 +680,14 @@ def cut_video(
             return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
+
+        # 이 클립이 원본의 어느 구간인지 기록 (자막 재사용용)
+        _write_origin(output_path, [{
+            "source": resolved,
+            "start_ms": start_ms,
+            "end_ms": end_ms,
+            "offset_ms": 0,
+        }])
 
         logger.info("cut_video 완료 %.2fs -> %s", elapsed, output_path)
         return output_path
@@ -711,6 +810,31 @@ def merge_video(
             return f"ERROR: FFmpeg concat 실패 (rc={code}): {stderr[-300:]}"
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
+
+        # 각 클립의 원본 구간을 누적 오프셋과 함께 이어붙여 기록
+        merged_clips: list[dict] = []
+        offset = 0
+        for clip in resolved_clips:
+            clip_ms = _probe_duration_ms(clip)
+            origin = _read_origin(clip)
+            if origin:
+                for seg in origin:
+                    merged_clips.append({
+                        "source": seg.get("source"),
+                        "start_ms": seg.get("start_ms", 0),
+                        "end_ms": seg.get("end_ms", 0),
+                        "offset_ms": offset + seg.get("offset_ms", 0),
+                    })
+            else:
+                # origin 없는 클립(외부 파일 등)은 자기 자신을 원본으로
+                merged_clips.append({
+                    "source": clip,
+                    "start_ms": 0,
+                    "end_ms": clip_ms,
+                    "offset_ms": offset,
+                })
+            offset += clip_ms
+        _write_origin(output_path, merged_clips)
 
         logger.info("merge_video 완료 %.2fs -> %s", elapsed, output_path)
         return output_path
@@ -1010,6 +1134,11 @@ def resize_video(
             return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
+
+        # 화면비만 바뀌고 시간축은 그대로 -> origin 승계
+        origin = _read_origin(resolved)
+        if origin:
+            _write_origin(output_path, origin)
 
         logger.info("resize_video 완료 %.2fs -> %s", elapsed, output_path)
         return output_path

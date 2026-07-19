@@ -56,6 +56,20 @@ def _load_transcript(video_path: str) -> list[dict]:
         if data.get("status") == "success":
             segs = data.get("segments", [])
             logger.info(f"transcribe_video 완료 - {len(segs)}개 세그먼트")
+            # 원본 발화 경계를 보존해 저장.
+            # 분석 JSON 의 transcript 는 Gemini 가 프레임 구간에 맞춰 재가공한 것이라
+            # 실제 발화 시작/끝과 다르다. 자막 싱크와 cut 경계 스냅에는 이 원본이 필요.
+            try:
+                os.makedirs(SUBTITLES_DIR, exist_ok=True)
+                with open(cached, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "segments": segs,
+                        "language": data.get("language"),
+                        "engine": data.get("engine"),
+                    }, f, ensure_ascii=False, indent=2)
+                logger.info(f"원본 전사 저장: {cached}")
+            except OSError:
+                logger.warning("전사 저장 실패 (계속 진행)", exc_info=True)
             return segs
         logger.warning(f"transcribe 실패: {data.get('error')}")
     except Exception as e:
@@ -189,10 +203,65 @@ start_ms / end_ms 는 반드시 위에 적힌 타임스탬프 값만 사용할 �
 }}"""
 
 
+def _salvage_segments(json_str: str) -> dict:
+    """깨진 JSON 에서 온전한 segment 객체만 건져낸다.
+
+    LLM 이 긴 JSON 을 생성하다 문법을 깨거나 중간에 잘리는 경우가 있다.
+    그 청크 전체를 버리면 해당 구간 분석이 통째로 사라지므로,
+    파싱 가능한 segment 만이라도 살린다.
+    """
+    segments = []
+    # "segments": [ 안쪽부터 스캔해야 최상위 객체가 아닌 개별 segment 를 잡는다.
+    m = re.search(r'"segments"\s*:\s*\[', json_str)
+    scan_from = m.end() if m else 0
+
+    # 중괄호 균형을 세어 segment 객체 단위로 잘라낸다 (문자열 안의 중괄호는 무시).
+    depth = 0
+    start = None
+    in_str = False
+    escaped = False
+    for i, ch in enumerate(json_str[scan_from:], start=scan_from):
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    try:
+                        obj = json.loads(json_str[start:i + 1])
+                        if "start_ms" in obj and "end_ms" in obj:
+                            segments.append(obj)
+                    except json.JSONDecodeError:
+                        pass
+                    start = None
+    return {"segments": segments, "summary": ""}
+
+
 def _parse_gemini_response(text: str) -> dict:
     match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
     json_str = match.group(1) if match else text.strip()
-    return json.loads(json_str)
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        salvaged = _salvage_segments(json_str)
+        if salvaged["segments"]:
+            logger.warning(
+                "JSON 파싱 실패(%s) -> segment %d개 복구", e, len(salvaged["segments"])
+            )
+            return salvaged
+        raise
 
 
 # 청크당 최대 프레임 수. 이미지가 너무 많으면 Gemini가 이미지-타임스탬프
@@ -310,14 +379,22 @@ def analyze_video(
             logger.info(
                 f"청크 {chunk_no}/{n_chunks} 분석 중 ({timestamps_ms[0]}ms ~ {chunk_end_ms}ms, {len(chunk)}장)"
             )
-            try:
-                response = model.generate_content(parts)
-                parsed = _parse_gemini_response(response.text)
-                all_segments.extend(parsed.get("segments", []))
-                if parsed.get("summary"):
-                    chunk_summaries.append(parsed["summary"])
-            except Exception as e:
-                logger.warning(f"청크 {chunk_no} 분석 실패, 건너뜀: {e}")
+            # LLM 이 JSON 문법을 깨뜨리는 경우가 있어 재시도 (복구도 실패했을 때 대비)
+            for attempt in range(1, 4):
+                try:
+                    response = model.generate_content(parts)
+                    parsed = _parse_gemini_response(response.text)
+                    all_segments.extend(parsed.get("segments", []))
+                    if parsed.get("summary"):
+                        chunk_summaries.append(parsed["summary"])
+                    break
+                except Exception as e:
+                    if attempt < 3:
+                        logger.warning(
+                            f"청크 {chunk_no} 분석 실패 ({attempt}/3), 재시도: {e}"
+                        )
+                    else:
+                        logger.warning(f"청크 {chunk_no} 분석 최종 실패, 건너뜀: {e}")
 
         if not all_segments:
             return json.dumps({"error": "모든 청크 분석 실패"}, ensure_ascii=False)
