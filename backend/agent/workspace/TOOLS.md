@@ -126,8 +126,8 @@ SOUL.md 의 *포맷별 default 스타일* 따름 — 쇼츠는 큰 폰트·중�
 
 | tool                      | 위치                            | 설명                              |
 |---------------------------|---------------------------------|-----------------------------------|
-| `analyze_video`           | tools/video_understanding_eun   | Gemini multimodal 영상 분석       |
-| `analyze_video_scenes`    | tools/video_analysis            | OpenCV + Gemini Vision 프레임 분석 |
+| `analyze_video`           | tools/video_analysis            | **파이프라인 기본.** OpenCV 프레임 샘플링 + 음성 대사 → Gemini Vision 종합 분석. 샘플링 간격은 영상 길이에 맞춰 자동 (~1분:1초 / 1~5분:3초 / 5~15분:5초 / 15분+:10초) |
+| `analyze_video_scenes`    | tools/video_understanding_eun   | 영상 파일 통째 업로드 방식 (오디오 포함). 토큰 3~4배 → 현재 파이프라인 미사용 |
 | `get_video_info`          | tools/scene                     | ffprobe 메타데이터                |
 
 생성된 결과는 `video_context.scenes` / `transcript` 로 들어가 stable prefix 의 일부가 됨.
