@@ -56,6 +56,20 @@ def _load_transcript(video_path: str) -> list[dict]:
         if data.get("status") == "success":
             segs = data.get("segments", [])
             logger.info(f"transcribe_video 완료 - {len(segs)}개 세그먼트")
+            # 원본 발화 경계를 보존해 저장.
+            # 분석 JSON 의 transcript 는 Gemini 가 프레임 구간에 맞춰 재가공한 것이라
+            # 실제 발화 시작/끝과 다르다. 자막 싱크와 cut 경계 스냅에는 이 원본이 필요.
+            try:
+                os.makedirs(SUBTITLES_DIR, exist_ok=True)
+                with open(cached, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "segments": segs,
+                        "language": data.get("language"),
+                        "engine": data.get("engine"),
+                    }, f, ensure_ascii=False, indent=2)
+                logger.info(f"원본 전사 저장: {cached}")
+            except OSError:
+                logger.warning("전사 저장 실패 (계속 진행)", exc_info=True)
             return segs
         logger.warning(f"transcribe 실패: {data.get('error')}")
     except Exception as e:

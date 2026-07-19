@@ -317,15 +317,62 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
+def _source_speech(source: str) -> list[dict]:
+    """원본 영상의 발화 목록을 [{start_ms, end_ms, text}] 로 반환.
+
+    우선순위:
+    1) videos/subtitles/<원본>.json — Whisper 원본 전사.
+       실제 발화 경계와 정확한 문장이 그대로 남아 있어 자막의 1순위.
+    2) videos/<원본>_analysis.json 의 transcript — Gemini 가 프레임 구간에 맞춰
+       재가공한 것이라 경계가 뭉개져 있다. Whisper 결과가 없을 때만 fallback.
+    """
+    stem = os.path.splitext(os.path.basename(source))[0]
+
+    whisper_path = os.path.join(SUBTITLES_DIR, f"{stem}.json")
+    if os.path.exists(whisper_path):
+        try:
+            with open(whisper_path, encoding="utf-8") as f:
+                segs = json.load(f).get("segments", [])
+            return [
+                {
+                    "start_ms": int(float(s.get("start", 0)) * 1000),
+                    "end_ms": int(float(s.get("end", 0)) * 1000),
+                    "text": str(s.get("text", "")).strip(),
+                }
+                for s in segs
+                if str(s.get("text", "")).strip()
+            ]
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    analysis_path = os.path.join(VIDEOS_DIR, f"{stem}_analysis.json")
+    if os.path.exists(analysis_path):
+        try:
+            with open(analysis_path, encoding="utf-8") as f:
+                segs = json.load(f).get("segments", [])
+            return [
+                {
+                    "start_ms": s.get("start_ms", 0),
+                    "end_ms": s.get("end_ms", 0),
+                    "text": str(s.get("transcript") or "").strip(),
+                }
+                for s in segs
+                if str(s.get("transcript") or "").strip()
+            ]
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return []
+
+
 def _transcript_from_origin(video_path: str) -> list[dict]:
-    """편집 결과물의 origin 정보로 원본 분석 transcript 를 재구성.
+    """편집 결과물의 origin 정보로 원본 대사를 재구성.
 
     cut/merge 가 남긴 <파일>.origin.json 에는 각 구간이 어느 원본의
     어느 시각이었는지(source/start_ms/end_ms) 와 결과물 내 위치(offset_ms)가 들어있다.
-    이를 이용해 원본 분석 JSON(videos/<원본>_analysis.json)의 transcript 를
-    잘라내고 시간축을 옮겨 붙인다.
+    이를 이용해 원본 발화(_source_speech)를 잘라내고 시간축을 옮겨 붙인다.
 
-    origin 정보가 없거나 원본 분석에 대사가 없으면 빈 리스트 → 호출측이 재전사 fallback.
+    origin 정보가 없거나 원본에 대사가 없으면 빈 리스트 → 호출측이 재전사 fallback.
     """
     try:
         from agent.tools.edit import _read_origin
@@ -342,27 +389,17 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
         if not source:
             continue
 
-        stem = os.path.splitext(os.path.basename(source))[0]
-        analysis_path = os.path.join(VIDEOS_DIR, f"{stem}_analysis.json")
-        if not os.path.exists(analysis_path):
-            continue
-
-        try:
-            with open(analysis_path, encoding="utf-8") as f:
-                segments = json.load(f).get("segments", [])
-        except (OSError, json.JSONDecodeError):
+        speech = _source_speech(source)
+        if not speech:
             continue
 
         clip_start = clip.get("start_ms", 0)
         clip_end = clip.get("end_ms", 0)
         offset = clip.get("offset_ms", 0)
 
-        for seg in segments:
-            text = str(seg.get("transcript") or "").strip()
-            if not text:
-                continue
-            seg_start = seg.get("start_ms", 0)
-            seg_end = seg.get("end_ms", 0)
+        for seg in speech:
+            seg_start = seg["start_ms"]
+            seg_end = seg["end_ms"]
             # 클립 구간과 겹치는 부분만
             if seg_end <= clip_start or seg_start >= clip_end:
                 continue
@@ -374,7 +411,7 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
             out.append({
                 "start": round(new_start / 1000, 2),
                 "end": round(new_end / 1000, 2),
-                "text": text,
+                "text": seg["text"],
             })
 
     out.sort(key=lambda s: s["start"])

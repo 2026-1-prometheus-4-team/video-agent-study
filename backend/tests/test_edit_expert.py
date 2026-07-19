@@ -457,3 +457,84 @@ class TestOriginTracking:
         plain = tmp_path / "plain.mp4"
         plain.write_bytes(b"fake")
         assert _transcript_from_origin(str(plain)) == []
+
+
+# =============================================================
+# 발화 경계 스냅 — 말이 중간에 끊기지 않게
+# =============================================================
+
+class TestSpeechSnap:
+    """cut 지점이 발화 도중이면 그 발화 경계까지 넓힌다.
+
+    자막 원천은 Whisper 원본(videos/subtitles/<원본>.json)을 1순위로 쓴다.
+    분석 JSON 의 transcript 는 프레임 구간에 뭉개져 있어 경계가 부정확하기 때문.
+    """
+
+    @pytest.fixture
+    def speech_dirs(self, tmp_path):
+        videos = tmp_path / "videos"
+        subs = videos / "subtitles"
+        subs.mkdir(parents=True)
+        (subs / "src.json").write_text(json.dumps({
+            "segments": [
+                {"start": 1.25, "end": 4.14, "text": "첫 문장입니다"},
+                {"start": 5.43, "end": 8.76, "text": "둘째 문장입니다"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+        (videos / "src.mp4").write_bytes(b"fake")
+        return videos
+
+    def test_whisper_json_preferred_over_analysis(self, speech_dirs):
+        """Whisper 원본이 있으면 분석 JSON 대신 그걸 쓴다."""
+        from agent.tools.subtitle import _source_speech
+
+        # 경계가 다른 분석 JSON 도 같이 둔다
+        (speech_dirs / "src_analysis.json").write_text(json.dumps({
+            "segments": [{"start_ms": 0, "end_ms": 1000, "transcript": "뭉개진 경계"}]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        with patch("agent.tools.subtitle.VIDEOS_DIR", str(speech_dirs)), \
+             patch("agent.tools.subtitle.SUBTITLES_DIR", str(speech_dirs / "subtitles")):
+            speech = _source_speech(str(speech_dirs / "src.mp4"))
+
+        assert len(speech) == 2
+        assert speech[0]["start_ms"] == 1250, "Whisper 의 실제 발화 시작"
+        assert speech[0]["text"] == "첫 문장입니다"
+
+    def test_snap_extends_to_speech_boundary(self, speech_dirs):
+        """발화 한가운데를 자르면 발화 시작/끝으로 넓힌다."""
+        from agent.tools.edit import _snap_to_speech
+
+        with patch("agent.tools.subtitle.VIDEOS_DIR", str(speech_dirs)), \
+             patch("agent.tools.subtitle.SUBTITLES_DIR", str(speech_dirs / "subtitles")):
+            # 5430~8760ms 발화의 한가운데(7000)에서 시작하는 컷
+            start, end = _snap_to_speech(str(speech_dirs / "src.mp4"), 7000, 10000)
+
+        assert start == 5430, "발화 시작으로 당겨져야 함"
+
+    def test_snap_leaves_silence_untouched(self, speech_dirs):
+        """발화가 없는 구간은 그대로 둔다."""
+        from agent.tools.edit import _snap_to_speech
+
+        with patch("agent.tools.subtitle.VIDEOS_DIR", str(speech_dirs)), \
+             patch("agent.tools.subtitle.SUBTITLES_DIR", str(speech_dirs / "subtitles")):
+            result = _snap_to_speech(str(speech_dirs / "src.mp4"), 20000, 23000)
+
+        assert result == (20000, 23000)
+
+    def test_snap_respects_max_extend(self, speech_dirs):
+        """아주 긴 발화 한가운데는 의도적 컷으로 보고 넓히지 않는다."""
+        from agent.tools.edit import _snap_to_speech
+
+        subs = speech_dirs / "subtitles"
+        (subs / "long.json").write_text(json.dumps({
+            "segments": [{"start": 0.0, "end": 60.0, "text": "아주 긴 발화"}]
+        }, ensure_ascii=False), encoding="utf-8")
+        (speech_dirs / "long.mp4").write_bytes(b"fake")
+
+        with patch("agent.tools.subtitle.VIDEOS_DIR", str(speech_dirs)), \
+             patch("agent.tools.subtitle.SUBTITLES_DIR", str(subs)):
+            # 발화 시작에서 30초나 떨어진 지점 -> _SNAP_MAX_EXTEND_MS 초과라 그대로
+            result = _snap_to_speech(str(speech_dirs / "long.mp4"), 30000, 35000)
+
+        assert result == (30000, 35000)

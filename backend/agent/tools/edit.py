@@ -186,6 +186,41 @@ def _probe_duration_ms(path: str) -> int:
         return 0
 
 
+# 발화 경계 스냅 시 한쪽으로 늘릴 수 있는 최대 시간.
+# 이보다 긴 발화 한가운데를 자르는 경우는 의도적 컷으로 보고 그대로 둔다.
+_SNAP_MAX_EXTEND_MS = 4000
+
+
+def _snap_to_speech(source: str, start_ms: int, end_ms: int) -> tuple[int, int]:
+    """컷 지점이 발화 도중이면 그 발화의 시작/끝까지 구간을 넓힌다.
+
+    "집이 너무 더러워서" 하는 도중에 잘리면 말이 뚝 끊겨 어색하므로,
+    Whisper 원본 전사(videos/subtitles/<원본>.json)를 보고 경계를 맞춘다.
+    전사가 없으면 원래 값 그대로 반환.
+    """
+    try:
+        from agent.tools.subtitle import _source_speech
+        speech = _source_speech(source)
+    except Exception:
+        return start_ms, end_ms
+
+    if not speech:
+        return start_ms, end_ms
+
+    new_start, new_end = start_ms, end_ms
+
+    for seg in speech:
+        s, e = seg["start_ms"], seg["end_ms"]
+        # 시작점이 발화 한가운데 -> 발화 시작으로 당김
+        if s < start_ms < e and (start_ms - s) <= _SNAP_MAX_EXTEND_MS:
+            new_start = min(new_start, s)
+        # 끝점이 발화 한가운데 -> 발화 끝까지 밀어줌
+        if s < end_ms < e and (e - end_ms) <= _SNAP_MAX_EXTEND_MS:
+            new_end = max(new_end, e)
+
+    return max(0, new_start), new_end
+
+
 def _time_to_ms(value: Any, *, already_ms: bool = False) -> int:
     if value is None:
         return 0
@@ -583,6 +618,7 @@ def cut_video(
     start_ms: int,
     end_ms: int,
     output_path: Optional[str] = None,
+    snap_to_speech: bool = True,
 ) -> str:
     """영상 파일에서 지정 구간(start_ms ~ end_ms)을 잘라내 새 파일로 저장.
 
@@ -591,6 +627,9 @@ def cut_video(
         start_ms: 시작 시각(ms). 예: 11분 15초 = 675000.
         end_ms: 종료 시각(ms). start_ms보다 커야 함.
         output_path: 저장 경로. 생략 시 outputs/cut_<id>.mp4.
+        snap_to_speech: 컷 지점이 말하는 도중이면 그 발화의 시작/끝까지 자동으로
+            구간을 넓혀 말이 잘리지 않게 한다. 기본 True.
+            정확한 프레임 단위 컷이 필요하면 False.
 
     Returns:
         성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
@@ -604,6 +643,15 @@ def cut_video(
         end_ms = int(round(float(end_ms)))
         if start_ms < 0 or end_ms <= start_ms:
             return f"ERROR: 잘못된 타임스탬프: start_ms={start_ms}, end_ms={end_ms}"
+
+        if snap_to_speech:
+            snapped = _snap_to_speech(resolved, start_ms, end_ms)
+            if snapped != (start_ms, end_ms):
+                logger.info(
+                    "발화 경계 스냅: %dms~%dms -> %dms~%dms",
+                    start_ms, end_ms, snapped[0], snapped[1],
+                )
+                start_ms, end_ms = snapped
 
         output_path = _resolve_output_path(output_path, "cut", resolved)
 
