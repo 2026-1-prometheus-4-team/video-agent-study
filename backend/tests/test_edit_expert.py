@@ -13,7 +13,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent.tools.edit import cut_by_description, cut_video, merge_video, search_video_segments
+from agent.tools.edit import (
+    cut_by_description,
+    cut_video,
+    merge_video,
+    resize_video,
+    search_video_segments,
+)
 
 
 def _mock_ffmpeg_success(mock_run):
@@ -275,4 +281,79 @@ class TestAnalysisDrivenEdit:
         assert payload["status"] == "success"
         assert len(payload["clips"]) == 2
         assert payload["merged_output"] == str(tmp_path / "steak.mp4")
+
+
+# =============================================================
+# resize_video — 화면비 변환
+# =============================================================
+
+class TestResizeVideo:
+    def test_crop_mode_builds_crop_filter(self, tmp_path):
+        """crop 모드는 increase + crop 필터로 꽉 채운다."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_video_meta",
+                   return_value={"width": 1920, "height": 1080, "codec_name": "h264", "fps": "30/1"}):
+            _mock_ffmpeg_success(mock_run)
+            result = resize_video.invoke({
+                "video_path": str(fake_video),
+                "aspect_ratio": "9:16",
+                "mode": "crop",
+            })
+
+        assert not result.startswith("ERROR"), result
+        vf = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-vf") + 1]
+        assert "force_original_aspect_ratio=increase" in vf
+        assert "crop=" in vf
+        # 1080 높이 기준 9:16 -> 1080*9/16 = 607.5 -> 반올림 608 (짝수)
+        assert "608:1080" in vf
+
+    def test_pad_mode_builds_pad_filter(self, tmp_path):
+        """pad 모드는 decrease + pad 필터로 여백을 채운다."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_video_meta",
+                   return_value={"width": 1920, "height": 1080, "codec_name": "h264", "fps": "30/1"}):
+            _mock_ffmpeg_success(mock_run)
+            result = resize_video.invoke({
+                "video_path": str(fake_video),
+                "aspect_ratio": "9:16",
+                "mode": "pad",
+            })
+
+        assert not result.startswith("ERROR"), result
+        vf = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-vf") + 1]
+        assert "force_original_aspect_ratio=decrease" in vf
+        assert "pad=" in vf
+
+    def test_invalid_aspect_ratio(self, tmp_path):
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        result = resize_video.invoke({
+            "video_path": str(fake_video),
+            "aspect_ratio": "3:7",
+        })
+        assert result.startswith("ERROR")
+        assert "지원하지 않는 비율" in result
+
+    def test_invalid_mode(self, tmp_path):
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        result = resize_video.invoke({
+            "video_path": str(fake_video),
+            "mode": "stretch",
+        })
+        assert result.startswith("ERROR")
+
+    def test_file_not_found(self):
+        result = resize_video.invoke({"video_path": "nonexistent.mp4"})
+        assert result.startswith("ERROR")
 
