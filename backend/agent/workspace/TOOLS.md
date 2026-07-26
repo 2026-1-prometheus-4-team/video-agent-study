@@ -24,6 +24,7 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
 | `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 자동 reencode. |
 | `search_video_segments`  | `(video_path, query, queries?, max_results?, merge_gap_ms?) -> json` | 분석 JSON 에서 자연어로 장면 검색 (컷 안 함). 인접 매칭 자동 병합, stats + near_misses 포함 |
 | `cut_by_description`     | `(video_path, query, merge?, padding_ms?, max_segments?) -> json` | 자연어 장면 검색 + 자동 컷 (+선택 병합). 중첩 구간은 union 후 컷 |
+| `resize_video`           | `(video_path, aspect_ratio?, mode?, output_path?) -> path`        | 화면비 변환. aspect_ratio: 9:16(쇼츠)/16:9/1:1/4:5, mode: crop(꽉채움)/pad(여백). **편집 마지막 단계에 호출** |
 
 호출 시 박을 정보: 입력/출력 경로, start_ms/end_ms (밀리초 int) 또는 자연어 query.
 
@@ -125,8 +126,8 @@ SOUL.md 의 *포맷별 default 스타일* 따름 — 쇼츠는 큰 폰트·중�
 
 | tool                      | 위치                            | 설명                              |
 |---------------------------|---------------------------------|-----------------------------------|
-| `analyze_video`           | tools/video_understanding_eun   | Gemini multimodal 영상 분석       |
-| `analyze_video_scenes`    | tools/video_analysis            | OpenCV + Gemini Vision 프레임 분석 |
+| `analyze_video`           | tools/video_analysis            | **파이프라인 기본.** OpenCV 프레임 샘플링 + 음성 대사 → Gemini Vision 종합 분석. 샘플링 간격은 영상 길이에 맞춰 자동 (~1분:1초 / 1~5분:3초 / 5~15분:5초 / 15분+:10초) |
+| `analyze_video_scenes`    | tools/video_understanding_eun   | 영상 파일 통째 업로드 방식 (오디오 포함). 토큰 3~4배 → 현재 파이프라인 미사용 |
 | `get_video_info`          | tools/scene                     | ffprobe 메타데이터                |
 
 생성된 결과는 `video_context.scenes` / `transcript` 로 들어가 stable prefix 의 일부가 됨.
@@ -156,16 +157,19 @@ output 파일은 다음 step (merge) 의 입력으로 쓰임.
 
 플랫폼 특성 상 같은 tool 도 *호출 순서가 포맷에 따라 다르다*.
 
+**주의 — 아래 순서도의 tool 중 위 카탈로그에 없는 것(reframe / fade / change_speed 등)은
+아직 미구현이다. plan 에 넣지 말 것.**
+
 ### shorts / 릴스
 ```
-transcribe (필요시) → cut (병렬) → merge → resize(9:16) → tts → subtitle → mux_audio
-                                              ↑
-                                   리프레임은 자막 전에 (자막 위치 계산 위해)
+transcribe (필요시) → cut (병렬) → merge → resize_video(9:16, crop) → subtitle
+                                                  ↑
+                                     화면비 변환은 자막 전에 (자막 위치 계산 위해)
 ```
 
 ### 유튜브 영상
 ```
-transcribe → cut (선별, 병렬) → merge → tts (선택) → subtitle(하단) → fade(intro/outro)
+transcribe → cut (선별, 병렬) → merge → tts (선택) → subtitle(하단)
 ```
 
 ### 일반 영상 (사용자 요청 그대로)

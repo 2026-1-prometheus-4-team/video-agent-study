@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from typing import Optional
 
 import cv2
 import google.generativeai as genai
@@ -55,6 +56,20 @@ def _load_transcript(video_path: str) -> list[dict]:
         if data.get("status") == "success":
             segs = data.get("segments", [])
             logger.info(f"transcribe_video 완료 - {len(segs)}개 세그먼트")
+            # 원본 발화 경계를 보존해 저장.
+            # 분석 JSON 의 transcript 는 Gemini 가 프레임 구간에 맞춰 재가공한 것이라
+            # 실제 발화 시작/끝과 다르다. 자막 싱크와 cut 경계 스냅에는 이 원본이 필요.
+            try:
+                os.makedirs(SUBTITLES_DIR, exist_ok=True)
+                with open(cached, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "segments": segs,
+                        "language": data.get("language"),
+                        "engine": data.get("engine"),
+                    }, f, ensure_ascii=False, indent=2)
+                logger.info(f"원본 전사 저장: {cached}")
+            except OSError:
+                logger.warning("전사 저장 실패 (계속 진행)", exc_info=True)
             return segs
         logger.warning(f"transcribe 실패: {data.get('error')}")
     except Exception as e:
@@ -188,10 +203,65 @@ start_ms / end_ms 는 반드시 위에 적힌 타임스탬프 값만 사용할 �
 }}"""
 
 
+def _salvage_segments(json_str: str) -> dict:
+    """깨진 JSON 에서 온전한 segment 객체만 건져낸다.
+
+    LLM 이 긴 JSON 을 생성하다 문법을 깨거나 중간에 잘리는 경우가 있다.
+    그 청크 전체를 버리면 해당 구간 분석이 통째로 사라지므로,
+    파싱 가능한 segment 만이라도 살린다.
+    """
+    segments = []
+    # "segments": [ 안쪽부터 스캔해야 최상위 객체가 아닌 개별 segment 를 잡는다.
+    m = re.search(r'"segments"\s*:\s*\[', json_str)
+    scan_from = m.end() if m else 0
+
+    # 중괄호 균형을 세어 segment 객체 단위로 잘라낸다 (문자열 안의 중괄호는 무시).
+    depth = 0
+    start = None
+    in_str = False
+    escaped = False
+    for i, ch in enumerate(json_str[scan_from:], start=scan_from):
+        if in_str:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    try:
+                        obj = json.loads(json_str[start:i + 1])
+                        if "start_ms" in obj and "end_ms" in obj:
+                            segments.append(obj)
+                    except json.JSONDecodeError:
+                        pass
+                    start = None
+    return {"segments": segments, "summary": ""}
+
+
 def _parse_gemini_response(text: str) -> dict:
     match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
     json_str = match.group(1) if match else text.strip()
-    return json.loads(json_str)
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        salvaged = _salvage_segments(json_str)
+        if salvaged["segments"]:
+            logger.warning(
+                "JSON 파싱 실패(%s) -> segment %d개 복구", e, len(salvaged["segments"])
+            )
+            return salvaged
+        raise
 
 
 # 청크당 최대 프레임 수. 이미지가 너무 많으면 Gemini가 이미지-타임스탬프
@@ -199,9 +269,44 @@ def _parse_gemini_response(text: str) -> dict:
 CHUNK_FRAMES = int(os.getenv("ANALYZE_CHUNK_FRAMES", "100"))
 
 
+# 영상 길이별 권장 샘플링 간격 (상한 초, 간격 초).
+# 짧은 영상은 촘촘하게, 긴 영상은 성기게 -> 프레임 수를 100~200 장 안팎으로 유지.
+# 프레임이 과하면 토큰 비용이 급증하고 Gemini 정렬 정확도도 떨어진다.
+_INTERVAL_TABLE = [
+    (60, 1.0),      # ~1분    -> 1초  (~60장)
+    (300, 3.0),     # 1~5분   -> 3초  (20~100장)
+    (900, 5.0),     # 5~15분  -> 5초  (60~180장)
+    (float("inf"), 10.0),  # 15분+ -> 10초
+]
+
+
+def _probe_duration_sec(video_path: str) -> float:
+    """프레임 추출 전에 영상 길이만 빠르게 조회 (없으면 0.0)."""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+        return total / fps if fps > 0 else 0.0
+    except Exception:
+        return 0.0
+
+
+def _auto_interval_sec(duration_sec: float) -> float:
+    """영상 길이에 맞는 샘플링 간격 선택."""
+    for limit, interval in _INTERVAL_TABLE:
+        if duration_sec <= limit:
+            return interval
+    return _INTERVAL_TABLE[-1][1]
+
+
 @tool
-def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bool = True) -> str:
-    """영상을 interval_sec 간격으로 프레임 샘플링하여 시각적 내용 분석 후 JSON 반환.
+def analyze_video(
+    video_path: str,
+    interval_sec: Optional[float] = None,
+    use_transcript: bool = True,
+) -> str:
+    """영상을 일정 간격으로 프레임 샘플링하여 시각적 내용 분석 후 JSON 반환.
 
     각 구간의 장면 설명, 주요 객체, 분위기, 장면 전환 여부를 포함한다.
     프레임이 많으면 청크(기본 100장)로 나눠 Gemini Vision을 여러 번 호출.
@@ -210,7 +315,9 @@ def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bo
     Args:
         video_path: 영상 파일명 (videos/ 기준 상대경로) 또는 절대경로.
             편집 결과물(outputs/...) 재분석 시 절대경로로 호출 가능.
-        interval_sec: 프레임 샘플링 간격(초). 기본값 3.0. 짧은 영상은 0.5 권장.
+        interval_sec: 프레임 샘플링 간격(초). 생략하면 영상 길이에 맞춰 자동 선택
+            (~1분:1초 / 1~5분:3초 / 5~15분:5초 / 15분+:10초).
+            더 촘촘한 분석이 필요할 때만 명시적으로 지정.
         use_transcript: 음성 대사를 분석에 포함할지. 기본 True.
             화면 자막이 충분하거나 빠른 분석이 필요하면 False.
     """
@@ -221,6 +328,13 @@ def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bo
             input_path = os.path.join(VIDEOS_DIR, video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"파일을 찾을 수 없음: {input_path}"}, ensure_ascii=False)
+
+        if interval_sec is None:
+            probed = _probe_duration_sec(input_path)
+            interval_sec = _auto_interval_sec(probed)
+            logger.info(
+                f"샘플링 간격 자동 선택: {interval_sec}s (영상 {probed:.0f}s)"
+            )
 
         logger.info(f"analyze_video 호출 - {video_path} (interval={interval_sec}s, transcript={use_transcript})")
 
@@ -265,14 +379,22 @@ def analyze_video(video_path: str, interval_sec: float = 3.0, use_transcript: bo
             logger.info(
                 f"청크 {chunk_no}/{n_chunks} 분석 중 ({timestamps_ms[0]}ms ~ {chunk_end_ms}ms, {len(chunk)}장)"
             )
-            try:
-                response = model.generate_content(parts)
-                parsed = _parse_gemini_response(response.text)
-                all_segments.extend(parsed.get("segments", []))
-                if parsed.get("summary"):
-                    chunk_summaries.append(parsed["summary"])
-            except Exception as e:
-                logger.warning(f"청크 {chunk_no} 분석 실패, 건너뜀: {e}")
+            # LLM 이 JSON 문법을 깨뜨리는 경우가 있어 재시도 (복구도 실패했을 때 대비)
+            for attempt in range(1, 4):
+                try:
+                    response = model.generate_content(parts)
+                    parsed = _parse_gemini_response(response.text)
+                    all_segments.extend(parsed.get("segments", []))
+                    if parsed.get("summary"):
+                        chunk_summaries.append(parsed["summary"])
+                    break
+                except Exception as e:
+                    if attempt < 3:
+                        logger.warning(
+                            f"청크 {chunk_no} 분석 실패 ({attempt}/3), 재시도: {e}"
+                        )
+                    else:
+                        logger.warning(f"청크 {chunk_no} 분석 최종 실패, 건너뜀: {e}")
 
         if not all_segments:
             return json.dumps({"error": "모든 청크 분석 실패"}, ensure_ascii=False)
