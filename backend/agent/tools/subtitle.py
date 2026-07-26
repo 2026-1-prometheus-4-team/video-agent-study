@@ -29,6 +29,29 @@ load_dotenv(os.path.abspath(os.path.join(_HERE, "..", "..", ".env")))
 _DEFAULT_FONT_FILE = os.getenv("SUBTITLE_FONT", "NotoSansKR-Regular.ttf")
 _EMOJI_FONT_FILE = "NotoColorEmoji.ttf"
 
+# 반응형 자막 비율 상수 (PlayResY=288 기준 ASS 캔버스 / drawtext 는 실제 픽셀)
+_FONT_SIZE_PCT = 0.05          # 화면 높이의 5%
+_MARGIN_LANDSCAPE_PCT = 0.08   # 가로형 하단 마진 (8%)
+_MARGIN_PORTRAIT_PCT = 0.15    # 세로형 하단 마진 (15%)
+
+
+def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
+    """ffprobe 로 영상 너비×높이 반환. 실패 시 (0, 0)."""
+    import subprocess as _sp
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=p=0",
+        video_path,
+    ]
+    result = _sp.run(cmd, capture_output=True, text=True)
+    try:
+        w, h = result.stdout.strip().split(",")
+        return int(w), int(h)
+    except (ValueError, IndexError):
+        return 0, 0
+
 
 def _font_family_from_file(font_file: str) -> str:
     """폰트 파일명 -> libass FontName. NanumGothic-Regular.ttf -> NanumGothic.
@@ -268,6 +291,19 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
             return json.dumps({"error": f"SRT 파일 없음: {srt_abs}"}, ensure_ascii=False)
 
         s = _merge_style(style)
+
+        # 영상 해상도 감지 → force_style 값 반응형 조정 (기본값인 경우에만)
+        vw, vh = _get_video_size_ffprobe(input_path)
+        if vh > 0:
+            is_portrait = vh > vw
+            default_s = _default_style(s.get("platform", "youtube"))
+            if s.get("font_size") == default_s["font_size"]:
+                # PlayResY=288 캔버스 기준 — libass 가 actual_h/288 배율로 스케일
+                s["font_size"] = max(8, round(288 * _FONT_SIZE_PCT))
+            if s.get("margin_v") == default_s["margin_v"]:
+                pct = _MARGIN_PORTRAIT_PCT if is_portrait else _MARGIN_LANDSCAPE_PCT
+                s["margin_v"] = max(4, round(288 * pct))
+
         font_path = _resolve_font(_DEFAULT_FONT_FILE)
         # SUBTITLE_FONT 로 다른 폰트를 지정해도 여기서 NotoSansKR 을 박으면
         # libass 가 그 패밀리를 못 찾아 폰트 지정이 무력화된다 — 실제 파일에서 유도.
@@ -557,6 +593,12 @@ def add_title(
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         s = _merge_style(style, tool_defaults={"font_size": 48, "position": position})
+
+        # drawtext 는 실제 픽셀값 — 영상 높이에 비례해 폰트 크기 조정
+        vw, vh = _get_video_size_ffprobe(input_path)
+        if vh > 0 and s.get("font_size") == 48:
+            s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 1.5배
+
         font_size = s["font_size"]
         color = s["color"]
         stroke_color = s["stroke_color"]
@@ -647,6 +689,12 @@ def add_caption(
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         s = _merge_style(style, tool_defaults={"font_size": 32, "color": "yellow", "position": "center"})
+
+        # drawtext 는 실제 픽셀값 — 영상 높이에 비례해 폰트 크기 조정
+        vw, vh = _get_video_size_ffprobe(input_path)
+        if vh > 0 and s.get("font_size") == 32:
+            s["font_size"] = max(12, round(vh * _FONT_SIZE_PCT))
+
         font_size = s["font_size"]
         color = s["color"]
         stroke_color = s["stroke_color"]

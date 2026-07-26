@@ -1135,6 +1135,20 @@ def resize_video(
         if not os.path.exists(output_path):
             return f"ERROR: 출력 파일 생성 실패: {output_path}"
 
+        # pad 모드: 콘텐츠 영역을 수학적으로 계산해 사이드카 저장
+        # subtitle_cues 가 cropdetect 대신 이 값을 읽어 자막을 콘텐츠 안에 배치
+        if mode == "pad":
+            import json as _json
+            scale = min(out_w / src_w, out_h / src_h)
+            content_w = round(src_w * scale)
+            content_h = round(src_h * scale)
+            content_x = (out_w - content_w) // 2
+            content_y = (out_h - content_h) // 2
+            pad_info = {"x": content_x, "y": content_y, "w": content_w, "h": content_h}
+            with open(output_path + ".pad.json", "w", encoding="utf-8") as _f:
+                _json.dump(pad_info, _f)
+            logger.info("pad 사이드카 저장: %s", pad_info)
+
         # 화면비만 바뀌고 시간축은 그대로 -> origin 승계
         origin = _read_origin(resolved)
         if origin:
