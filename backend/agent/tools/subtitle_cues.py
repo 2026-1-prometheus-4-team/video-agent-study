@@ -46,6 +46,87 @@ _PROJECT_ROOT = os.path.dirname(
 )
 OUTPUTS_DIR = os.path.join(_PROJECT_ROOT, "outputs")
 
+# 반응형 자막 비율 상수 — PlayResY=288 기준 ASS 캔버스에서 비율로 표현.
+# libass 가 actual_height/PlayResY 배율로 스케일링하므로
+# canvas_val = PlayResY * PCT 로 설정하면 실제 영상에서 항상 화면 높이의 PCT% 로 렌더됨.
+_FONT_SIZE_PCT = 0.05          # 화면 높이 대비 폰트 비율 (5%)
+_MARGIN_LANDSCAPE_PCT = 0.08   # 가로형: 하단 마진 비율 (8%)
+_MARGIN_PORTRAIT_PCT = 0.15    # 세로형: 하단 마진 비율 (15%, shorts UI 위)
+
+
+def _get_video_size(video_path: str) -> tuple[int, int]:
+    """ffprobe 로 영상 너비×높이 반환. 실패 시 (0, 0)."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=p=0",
+        video_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        w, h = result.stdout.strip().split(",")
+        return int(w), int(h)
+    except (ValueError, IndexError):
+        return 0, 0
+
+
+def _detect_content_area(video_path: str) -> tuple[int, int, int, int]:
+    """pad 사이드카(.pad.json) 우선 읽기 → 없으면 (0, 0, 0, 0) 반환.
+
+    resize_video pad 모드가 수학적으로 정확한 콘텐츠 영역을 사이드카에 저장.
+    h264 압축 아티팩트로 cropdetect 가 검은 여백을 잘못 감지하는 문제를 피하기 위해
+    cropdetect 방식을 제거하고 사이드카 방식으로 대체.
+
+    Returns: (x_offset, y_offset, content_w, content_h)
+    """
+    sidecar = video_path + ".pad.json"
+    if os.path.exists(sidecar):
+        try:
+            with open(sidecar, encoding="utf-8") as f:
+                d = json.load(f)
+            return int(d["x"]), int(d["y"]), int(d["w"]), int(d["h"])
+        except (KeyError, ValueError, json.JSONDecodeError):
+            pass
+    return 0, 0, 0, 0
+
+
+def _apply_responsive_style(
+    defaults: dict,
+    video_w: int,
+    video_h: int,
+    content_area: tuple[int, int, int, int] | None = None,
+) -> dict:
+    """실제 영상 크기 + 콘텐츠 영역 기반으로 font_size, margin_v 를 자동 조정.
+
+    pad 모드 영상(검은 여백 포함)의 경우 content_area 로 실제 콘텐츠 경계를 받아
+    자막이 콘텐츠 영역 안에 위치하도록 margin_v 재계산.
+    기본값인 경우에만 덮어씀 — 사용자가 명시 설정한 값은 유지.
+    """
+    if video_h <= 0:
+        return defaults
+
+    result = dict(defaults)
+    is_portrait = video_h > video_w
+
+    if result.get("size") == DEFAULT_STYLE["size"]:
+        result["size"] = max(8, round(PLAY_RES_Y * _FONT_SIZE_PCT))
+
+    if result.get("margin_v") == DEFAULT_STYLE["margin_v"]:
+        cx, cy, cw, ch = content_area if content_area else (0, 0, 0, 0)
+        pad_bottom = video_h - (cy + ch) if ch > 0 else 0
+
+        if pad_bottom > video_h * 0.05:
+            # 검은 여백 5% 이상 → 콘텐츠 하단 기준으로 5% 안쪽에 자막 배치
+            margin_v_px = pad_bottom + ch * 0.05
+            result["margin_v"] = max(4, round(margin_v_px * PLAY_RES_Y / video_h))
+        else:
+            pct = _MARGIN_PORTRAIT_PCT if is_portrait else _MARGIN_LANDSCAPE_PCT
+            result["margin_v"] = max(4, round(PLAY_RES_Y * pct))
+
+    return result
+
+
 # subtitle.py 의 SUBTITLE_FONT (파일명 기반) 와 같은 기본값을 쓴다 — 두 렌더
 # 경로(add_subtitle 번인 / 큐 문서 렌더)가 서로 다른 폰트를 쓰면 사용자가
 # 같은 영상에서 다른 자막 폰트를 보게 된다.
@@ -407,12 +488,20 @@ def _cue_override_tags(style: dict) -> str:
     return "{" + "".join(tags) + "}" if tags else ""
 
 
-def _build_ass(doc: dict) -> str:
+def _build_ass(
+    doc: dict,
+    video_size: tuple[int, int] | None = None,
+    content_area: tuple[int, int, int, int] | None = None,
+) -> str:
     """큐 문서 → ASS 파일 내용. Default 스타일 = style_defaults, 큐별 인라인 태그.
 
-    PlayRes 는 실제 해상도가 아니라 고정 384x288 (PLAY_RES_X/Y 주석 참고).
+    video_size 가 주어지면 영상 방향(portrait/landscape)을 감지해 font_size,
+    margin_v 를 비율 기반으로 자동 조정. content_area 가 주어지면 pad 모드 검은
+    여백을 피해 자막이 콘텐츠 영역 안에 위치하도록 margin_v 를 재계산.
     """
     defaults = {**DEFAULT_STYLE, **(doc.get("style_defaults") or {})}
+    if video_size:
+        defaults = _apply_responsive_style(defaults, video_size[0], video_size[1], content_area)
     family = _resolve_font_family(str(defaults["font"])) or str(defaults["font"])
     primary = _color_to_ass(defaults["color"], alpha="00")
     outline = _color_to_ass(defaults["stroke_color"], alpha="00")
@@ -775,8 +864,22 @@ def render_subtitles(video_path: str, output_path: str = "") -> str:
             if not _resolve_font_family(font):
                 return _font_error(font)
 
+        # 영상 실제 해상도 + 콘텐츠 영역 감지 → 반응형 font_size / margin_v 계산
+        video_size = _get_video_size(source)
+        content_area = None
+        if video_size[0] > 0:
+            orientation = "portrait" if video_size[1] > video_size[0] else "landscape"
+            content_area = _detect_content_area(source)
+            cx, cy, cw, ch = content_area
+            has_pad = ch > 0 and (video_size[1] - (cy + ch)) > video_size[1] * 0.05
+            logger.info(
+                "render_subtitles: %dx%d (%s)%s",
+                video_size[0], video_size[1], orientation,
+                f" pad_bottom={video_size[1]-(cy+ch)}px" if has_pad else "",
+            )
+
         # ASS 생성 (고정 PlayRes — libass 가 프레임 높이에 맞춰 확대)
-        ass_content = _build_ass(doc)
+        ass_content = _build_ass(doc, video_size=video_size, content_area=content_area)
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
         ass_path = os.path.join(SUBTITLES_DIR, f"{stem}.ass")
         with open(ass_path, "w", encoding="utf-8") as f:
