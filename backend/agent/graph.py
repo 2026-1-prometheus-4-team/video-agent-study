@@ -70,16 +70,77 @@ def _analyze_one_video(path: str) -> tuple[str, dict]:
     import json as _json
     from pathlib import Path
     from agent import config
-    from agent.tools.video_analysis import analyze_video
+    from agent.tools.video_analysis import analyze_video, detect_orientation
 
     filename = Path(path).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
     try:
         cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
         if cached_json.exists():
             logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
-            return filename, _json.loads(cached_json.read_text(encoding="utf-8"))
-        raw = analyze_video.invoke({"video_path": filename})
-        return filename, _json.loads(raw)
+            data = _json.loads(cached_json.read_text(encoding="utf-8"))
+        else:
+            raw = analyze_video.invoke({"video_path": filename})
+            data = _json.loads(raw)
+
+        if "error" in data:
+            return filename, data
+
+        # 기존 분석 캐시에도 방향 판정을 한 번만 보강한다. confidence가 낮거나
+        # 판정에 실패하면 cut_video가 기존 FFmpeg 메타데이터 동작을 유지한다.
+        orientation_cache = data.get("orientation")
+        if (
+            not isinstance(orientation_cache, dict)
+            or orientation_cache.get("detector_version") != 2
+        ):
+            source = config.VIDEOS_DIR / filename
+            orientation = detect_orientation(str(source))
+            if orientation.get("clockwise_degrees") is not None:
+                data["orientation"] = orientation
+                try:
+                    cached_json.write_text(
+                        _json.dumps(data, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                except OSError:
+                    logger.warning(
+                        "analysis_node: orientation 캐시 저장 실패 - %s",
+                        cached_json,
+                        exc_info=True,
+                    )
+
+        # 시각 분석 JSON과 원본 Whisper 캐시는 수명이 다르다. analysis가 이미
+        # 있어도 전사 캐시가 빠져 있으면 별도로 생성하거나 기존 캐시를 재사용한다.
+        transcript = data.get("transcript")
+        if not isinstance(transcript, list) or not transcript:
+            try:
+                from agent.tools.transcribe import transcribe_video
+
+                source = config.VIDEOS_DIR / filename
+                transcript_raw = transcribe_video.invoke({"video_path": str(source)})
+                transcript_data = _json.loads(transcript_raw)
+                if transcript_data.get("status") == "success":
+                    transcript = transcript_data.get("segments", [])
+            except Exception:
+                logger.warning(
+                    "analysis_node: %s 원본 전사 확보 실패, 분석 transcript fallback",
+                    filename,
+                    exc_info=True,
+                )
+
+        # 외부 전사 실패 시에도 기존 분석 JSON의 대사 요약은 planning에 전달한다.
+        if not isinstance(transcript, list) or not transcript:
+            transcript = [
+                {
+                    "start": float(seg.get("start_ms", 0)) / 1000,
+                    "end": float(seg.get("end_ms", 0)) / 1000,
+                    "text": str(seg.get("transcript") or "").strip(),
+                }
+                for seg in data.get("segments", [])
+                if str(seg.get("transcript") or "").strip()
+            ]
+
+        data["_source_transcript"] = transcript
+        return filename, data
     except Exception as e:
         logger.exception("analysis_node: %s 분석 실패", filename)
         return filename, {"error": str(e)}
@@ -111,6 +172,7 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         results = [_analyze_one_video(video_paths[0])]
 
     scenes: list = []
+    transcript: list = []
     videos_meta: list[dict] = []
     total_duration = 0.0
 
@@ -126,10 +188,29 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
                 "start": seg["start_ms"] / 1000,
                 "end": seg["end_ms"] / 1000,
                 "description": seg.get("description", ""),
+                "transcript": seg.get("transcript", ""),
+                "objects": seg.get("objects", []),
+                "people_count": seg.get("people_count", 0),
+                "people": seg.get("people", []),
+                "actions": seg.get("actions", []),
+                "scene_change": bool(seg.get("scene_change", False)),
+                "mood": seg.get("mood", "neutral"),
             }
             if multi:
                 scene["video"] = f"videos/{filename}"  # 어느 영상의 장면인지
             scenes.append(scene)
+
+        for item in data.get("_source_transcript", []):
+            if not isinstance(item, dict) or not str(item.get("text", "")).strip():
+                continue
+            transcript_item = {
+                "start": float(item.get("start", 0)),
+                "end": float(item.get("end", 0)),
+                "text": str(item.get("text", "")).strip(),
+            }
+            if multi:
+                transcript_item["video"] = f"videos/{filename}"
+            transcript.append(transcript_item)
 
     if not videos_meta:
         first = video_paths[0]
@@ -140,7 +221,7 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         "file_path": videos_meta[0]["file_path"],
         "duration": total_duration,
         "scenes": scenes,
-        "transcript": [],  # transcript 는 audio_expert 가 채움
+        "transcript": transcript,
     }
     if multi:
         ctx["videos"] = videos_meta  # 다중 영상 목록 (script 가 참조)

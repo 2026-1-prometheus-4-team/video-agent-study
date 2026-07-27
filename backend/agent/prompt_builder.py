@@ -270,7 +270,7 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 ```
 
 action 종류 (TOOLS.md 참조):
-- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(자연어 장면 검색+자동 컷), resize_video(화면비 변환: 9:16 쇼츠 등)
+- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(필요 장면 추출), remove_video_segments(명시 구간 제거), remove_by_description(불필요 장면 검색+제거), resize_video(화면비 변환: 9:16 쇼츠 등)
 - **audio_expert**: transcribe_video, text_to_speech, add_bgm, add_sfx, mix_audio, denoise, normalize_loudness
 - **text_expert**: add_subtitle, add_auto_subtitle, add_title, add_caption, add_emoji_overlay
 - **effect_expert**: apply_remotion_effect, query_effect_catalog
@@ -316,14 +316,20 @@ action 종류 (TOOLS.md 참조):
 - 앞 step 의 산출물을 다음 step 이 받을 때, **파일 경로를 정확히 이어라.**
   오타 하나로 뒤 단계가 전부 무너진다. 여러 step 이 같은 입력 파일을 쓰면서
   각자 다른 출력을 내면 누적되지 않고 마지막 하나만 남는다는 점도 주의.
+- 가로/세로 클립이 섞였고 최종 화면비가 명확하면 각 클립을 먼저 같은 화면비로
+  맞춘 뒤 merge_video 하라. 병합 뒤에는 이미 생긴 letterbox를 복구할 수 없다.
 - 자막(add_auto_subtitle)은 원본 발화를 자동으로 처리하므로 storyboard 의
   on_screen_text 와는 별개다. 둘 다 필요하면 각각 step 을 만든다.
 
 - **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
-  미구현이라 실행이 실패한다.) 화면비 변환·속도 조절 등이 필요하면 step 대신
+  미구현이라 실행이 실패한다.) 화면비 변환은 `resize_video` 로 처리하고,
+  subject-aware 리프레임·속도 조절처럼 아직 없는 기능만 step 대신
   `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
-- step 수 제한 없음. 사용자 요청에 필요한 모든 작업 다 plan 에 박는다.
-- *사용자가 명시적으로 요청하지 않은* 자막 / BGM / 효과음 / transcribe step 은 추가하지 않는다.
+- 사용자 요청에 필요한 작업은 빠뜨리지 않되, 같은 expert의 연속 작업은 가능한 한 묶는다.
+- *사용자가 명시적으로 요청하지 않은* TTS/나레이션 / 자막 / BGM / 효과음 /
+  transcribe step 은 추가하지 않는다. creative_brief 에 narration/bgm_flow 를 썼다는
+  이유만으로 실행 step 을 만들지 마라.
+- 자동 자막 폰트는 설치된 `NotoSansKR` 을 사용한다.
 - 목표 길이가 있으면 (예: 1분) 그 길이에 맞게 video_context.scenes 에서 필요한 장면 *몇 개만 선별*한다.
   전체 장면을 모두 cut 하는 plan 은 금지 (결과가 원본 길이 그대로 나옴).
 - **cut 타임스탬프는 반드시 video_context.scenes 항목의 start/end 경계를 그대로 사용한다.**
@@ -339,6 +345,12 @@ action 종류 (TOOLS.md 참조):
   장면이 목표 길이 대비 너무 길면 그 장면의 start 부터 시작하는 앞부분을 쓴다 (중간 발췌 금지).
 - 내용 기반 장면 요청 ("입국 장면", "골 장면" 등) 은 scenes 의 description 을 보고 *가장 잘 맞는 장면*을
   고르되, 확신이 없으면 edit_expert 의 cut_by_description(query=...) 을 사용 (시맨틱 검색으로 정확 매칭).
+- **컷 편집에는 서로 반대인 두 모드가 있다. 절대 혼동하지 마라.**
+  - keep/extract: "가족 장면만", "필요한 부분만", "하이라이트만"은
+    `cut_by_description`으로 매칭 장면을 결과에 *남긴다*.
+  - remove/exclude: "지루한 부분 빼줘", "침묵 삭제", "반복 장면 없애줘"는
+    `remove_by_description` 또는 `remove_video_segments`로 매칭 장면을 결과에서 *제외한다*.
+    이 요청에 `cut_by_description`만 호출하면 불필요 장면만 남는 반대 결과가 되므로 금지한다.
 - **주관/추상 선별 요청 ("지루한 부분 빼줘", "가족 장면만", "하이라이트만") 은 plan 에서
   타임스탬프를 확정하지 마라.** 이런 요청은 supervisor 가 실행 중에 search_video_segments 로
   후보를 뽑고 ask_user 로 사용자 확인 후 자를 수 있다 — step 의 params 에는 확정 구간 대신
@@ -348,8 +360,10 @@ action 종류 (TOOLS.md 참조):
   삭제 규모를 명시하고 확인받는다 (예: "3분 중 2분 10초가 제거됩니다. 진행할까요?").
 - **원본 vs 편집본**: 직전 편집본이 있어도 사용자 표현에 "원본에서/처음부터/원래 영상" 이
   있거나 편집본에서 이미 잘린 장면을 참조하면, 원본 기준인지 questions 로 확인.
-- **"자막" 요청의 default 는 발화 전사(STT)다**: audio_expert transcribe_video → text_expert
-  add_auto_subtitle 경로를 쓴다. video_context.scenes 의 *장면 묘사 텍스트를 자막으로 쓰지 않는다* —
+- **"자막" 요청의 default 는 발화 전사(STT)다**: text_expert의
+  `add_auto_subtitle`을 쓴다. 이 도구는 편집본의 origin 메타를 따라 원본 Whisper 캐시를
+  결과 시간축으로 재구성하므로, 편집본을 `transcribe_video`로 다시 전사하는 step을 넣지 않는다.
+  video_context.scenes 의 *장면 묘사 텍스트를 자막으로 쓰지 않는다* —
   장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로.
   영상에 음성이 없다고 판단되면 questions 로 사용자에게 확인 (묘사 캡션 대체 여부).
 - **자막 수정 요청 ("두번째 자막 오타", "이 자막만 노란색", "자막 전부 위로") 은 재전사가 아니라
@@ -475,6 +489,14 @@ Supervisor 가 모든 step 을 끝냈다고 알렸을 때 호출된다.
 2. script_plan 의 모든 step 산출물이 누락 없이 통합됐는가?
 3. 사용자 요청의 핵심 요소 (TTS, 자막, 자른 구간, 포맷 등) 가 다 들어갔는가?
 4. 타겟 포맷의 컨벤션을 위반하지 않는가? (쇼츠인데 60 초 넘음 / 9:16 아님 등)
+
+평가 원칙:
+- **실행 step과 사용자 원문에 있는 기능만 필수**다. creative_brief의 narration,
+  on_screen_text, bgm_flow가 비어 있거나 실행 step에 없으면 누락으로 판정하지 마라.
+- 발화가 중간에 잘리지 않게 경계를 스냅하면 목표 길이에서 최대 5초 벗어날 수 있다.
+  파일이 정상이고 그 범위 안이면 길이만으로 RETRY 하지 마라.
+- 반응형 자막은 실제 해상도에 맞춰 size를 조정할 수 있다. 렌더 성공 여부와 가독성을
+  보고 판단하고 계획 숫자와 다르다는 이유만으로 RETRY 하지 마라.
 
 출력 스키마 (JSON):
 ```json

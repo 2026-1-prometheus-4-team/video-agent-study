@@ -68,6 +68,258 @@ def _extract_json(text: str) -> dict[str, Any]:
         }
 
 
+def _enforce_requested_features(plan: dict[str, Any], user_request: str) -> dict[str, Any]:
+    """Drop optional production features the user did not request.
+
+    Prompt-only guards are not sufficient: a creative brief often inspires the
+    model to add narration/BGM and then critic treats those invented steps as
+    required. Keep the plan's creative text, but constrain executable steps and
+    follow-up questions to explicit user intent.
+    """
+    request = user_request.casefold()
+
+    def requested(*terms: str) -> bool:
+        return any(term.casefold() in request for term in terms)
+
+    wants_tts = requested(
+        "tts", "나레이션", "내레이션", "음성 합성", "목소리", "더빙", "보이스",
+    )
+    wants_bgm = requested("bgm", "배경 음악", "배경음악", "노래", "음악 넣")
+    wants_sfx = requested("sfx", "효과음")
+    wants_audio_mix = wants_tts or requested("오디오", "음원", "소리 섞", "mix", "믹스")
+    wants_caption = requested(
+        "캡션", "화면 문구", "온스크린", "타이틀", "제목 넣", "텍스트 넣",
+    )
+    wants_emoji = requested("이모지", "emoji")
+
+    brief = plan.get("creative_brief")
+    if isinstance(brief, dict):
+        if not wants_bgm:
+            brief["bgm_flow"] = ""
+        storyboard = brief.get("storyboard")
+        if isinstance(storyboard, list):
+            for scene in storyboard:
+                if not isinstance(scene, dict):
+                    continue
+                if not wants_tts:
+                    scene["narration"] = ""
+                if not wants_caption:
+                    scene["on_screen_text"] = ""
+
+    def keep_step(step: Any) -> bool:
+        if not isinstance(step, dict):
+            return False
+        action = str(step.get("action", "")).casefold()
+        if action in {"text_to_speech", "transcribe_video_to_speech"}:
+            return wants_tts
+        if action == "mix_audio":
+            return wants_audio_mix
+        if action == "add_bgm":
+            return wants_bgm
+        if action == "add_sfx":
+            return wants_sfx
+        if action in {"add_caption", "add_title"}:
+            return wants_caption
+        if action == "add_emoji_overlay":
+            return wants_emoji
+        return True
+
+    path_aliases: dict[str, str] = {}
+
+    def resolve_alias(value: Any) -> Any:
+        if isinstance(value, str):
+            seen: set[str] = set()
+            while value in path_aliases and value not in seen:
+                seen.add(value)
+                value = path_aliases[value]
+            return value
+        if isinstance(value, list):
+            return [resolve_alias(item) for item in value]
+        if isinstance(value, dict):
+            return {key: resolve_alias(item) for key, item in value.items()}
+        return value
+
+    steps = []
+    for raw_step in plan.get("steps", []):
+        if not isinstance(raw_step, dict):
+            continue
+        step = dict(raw_step)
+        params = resolve_alias(dict(step.get("params") or {}))
+        step["params"] = params
+        if keep_step(step):
+            steps.append(step)
+            continue
+
+        # Audio/text overlays generally preserve the input video's timeline.
+        # If such a step is omitted, downstream references to its output must
+        # point back to the resolved input rather than a file that will not exist.
+        output_path = params.get("output_path")
+        input_path = params.get("video_path")
+        if isinstance(output_path, str) and isinstance(input_path, str):
+            path_aliases[output_path] = input_path
+
+    # A kept step may reference a removed output that appeared immediately
+    # before it; resolve once more after all aliases have been collected.
+    for step in steps:
+        step["params"] = resolve_alias(step.get("params") or {})
+
+    for index, step in enumerate(steps, 1):
+        step["step_id"] = index
+    plan["steps"] = steps
+
+    questions = []
+    for question in plan.get("questions", []):
+        text = str(question).casefold()
+        if not wants_tts and any(term in text for term in ("tts", "나레이션", "내레이션", "보이스")):
+            continue
+        if not wants_bgm and any(term in text for term in ("bgm", "배경 음악", "배경음악")):
+            continue
+        if not wants_sfx and any(term in text for term in ("sfx", "효과음")):
+            continue
+        questions.append(question)
+    plan["questions"] = questions
+    return plan
+
+
+def _constrain_cut_duration(
+    plan: dict[str, Any],
+    user_request: str,
+    video_context: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep planned cuts inside an explicit duration range after speech snap."""
+    duration_match = re.search(
+        r"(\d+(?:\.\d+)?)\s*(?:초|s)?\s*[~\-–]\s*"
+        r"(\d+(?:\.\d+)?)\s*(?:초|s)",
+        user_request,
+        re.IGNORECASE,
+    )
+    if not duration_match or not isinstance(video_context, dict):
+        return plan
+
+    min_ms = int(float(duration_match.group(1)) * 1000)
+    max_ms = int(float(duration_match.group(2)) * 1000)
+    if min_ms > max_ms:
+        min_ms, max_ms = max_ms, min_ms
+
+    transcripts: dict[str, list[dict[str, Any]]] = {}
+    for item in video_context.get("transcript", []):
+        if not isinstance(item, dict) or not item.get("video"):
+            continue
+        transcripts.setdefault(str(item["video"]), []).append(item)
+
+    cuts: list[dict[str, Any]] = []
+    for index, step in enumerate(plan.get("steps", [])):
+        if not isinstance(step, dict) or step.get("action") != "cut_video":
+            continue
+        params = step.get("params") or {}
+        try:
+            start_ms = int(params["start_ms"])
+            end_ms = int(params["end_ms"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        source = str(params.get("video_path", ""))
+        snapped_start, snapped_end = start_ms, end_ms
+        for segment in transcripts.get(source, []):
+            try:
+                speech_start = int(round(float(segment["start"]) * 1000))
+                speech_end = int(round(float(segment["end"]) * 1000))
+            except (KeyError, TypeError, ValueError):
+                continue
+            if (
+                speech_start < start_ms < speech_end
+                and start_ms - speech_start <= 4000
+            ):
+                snapped_start = min(snapped_start, speech_start)
+            if (
+                speech_start < end_ms < speech_end
+                and speech_end - end_ms <= 4000
+            ):
+                snapped_end = max(snapped_end, speech_end)
+        cuts.append({
+            "index": index,
+            "source": source,
+            "duration_ms": max(0, snapped_end - snapped_start),
+            "output_path": str(params.get("output_path", "")),
+        })
+
+    total_ms = sum(cut["duration_ms"] for cut in cuts)
+    if total_ms <= max_ms:
+        return plan
+
+    source_counts: dict[str, int] = {}
+    for cut in cuts:
+        source_counts[cut["source"]] = source_counts.get(cut["source"], 0) + 1
+
+    removed_indices: set[int] = set()
+    removed_outputs: set[str] = set()
+    while total_ms > max_ms:
+        removable = [
+            cut for cut in cuts
+            if cut["index"] not in removed_indices
+            and source_counts.get(cut["source"], 0) > 1
+            and total_ms - cut["duration_ms"] >= min_ms
+        ]
+        if not removable:
+            break
+        # Prefer the removal that lands closest to the requested upper bound.
+        chosen = min(
+            removable,
+            key=lambda cut: abs(max_ms - (total_ms - cut["duration_ms"])),
+        )
+        removed_indices.add(chosen["index"])
+        if chosen["output_path"]:
+            removed_outputs.add(chosen["output_path"])
+        source_counts[chosen["source"]] -= 1
+        total_ms -= chosen["duration_ms"]
+
+    path_aliases: dict[str, str] = {}
+
+    def resolve(value: Any) -> Any:
+        if isinstance(value, str):
+            seen: set[str] = set()
+            while value in path_aliases and value not in seen:
+                seen.add(value)
+                value = path_aliases[value]
+            return value
+        if isinstance(value, list):
+            return [
+                resolve(item)
+                for item in value
+                if not (isinstance(item, str) and item in removed_outputs)
+            ]
+        if isinstance(value, dict):
+            return {key: resolve(item) for key, item in value.items()}
+        return value
+
+    constrained: list[dict[str, Any]] = []
+    for index, raw_step in enumerate(plan.get("steps", [])):
+        if index in removed_indices or not isinstance(raw_step, dict):
+            continue
+        step = dict(raw_step)
+        params = resolve(dict(step.get("params") or {}))
+        step["params"] = params
+        if step.get("action") == "merge_video":
+            clip_paths = params.get("clip_paths")
+            output_path = params.get("output_path")
+            if isinstance(clip_paths, list) and len(clip_paths) == 0:
+                continue
+            if (
+                isinstance(clip_paths, list)
+                and len(clip_paths) == 1
+                and isinstance(output_path, str)
+            ):
+                path_aliases[output_path] = str(clip_paths[0])
+                continue
+        constrained.append(step)
+
+    for index, step in enumerate(constrained, 1):
+        step["params"] = resolve(step.get("params") or {})
+        step["step_id"] = index
+    plan["steps"] = constrained
+    plan["estimated_cut_duration_ms"] = total_ms
+    return plan
+
+
 # =============================================================
 # 노드 본체
 # =============================================================
@@ -171,6 +423,8 @@ def script_node(state: AgentState) -> dict[str, Any]:
     plan.setdefault("questions", [])
     plan.setdefault("target_format", "general")
     plan.setdefault("mode", "edit")
+    plan = _enforce_requested_features(plan, user_request)
+    plan = _constrain_cut_duration(plan, user_request, video_context)
     # chat 모드인데 reply 가 없으면 edit 모드로 강등 (오분류 방어)
     if plan.get("mode") == "chat" and not str(plan.get("reply") or "").strip():
         plan["mode"] = "edit"

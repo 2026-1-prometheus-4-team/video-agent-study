@@ -14,9 +14,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent.tools.edit import (
+    _orientation_args,
     cut_by_description,
     cut_video,
     merge_video,
+    remove_by_description,
+    remove_video_segments,
     resize_video,
     search_video_segments,
 )
@@ -124,6 +127,58 @@ class TestCutVideo:
         cmd = mock_run.call_args[0][0]
         assert cmd[-1] == out
 
+    def test_uses_visual_orientation_instead_of_bad_metadata(self, tmp_path):
+        """신뢰도 높은 방향 캐시는 FFmpeg 자동 회전을 명시적으로 대체한다."""
+        videos = tmp_path / "videos"
+        videos.mkdir()
+        source = videos / "sample.mp4"
+        source.write_bytes(b"fake")
+        (videos / "sample_analysis.json").write_text(json.dumps({
+            "orientation": {
+                "clockwise_degrees": 0,
+                "confidence": 0.98,
+            }
+        }), encoding="utf-8")
+
+        with patch("agent.tools.edit.VIDEOS_DIR", str(videos)):
+            input_args, filters = _orientation_args(str(source))
+
+        assert input_args == ["-noautorotate"]
+        assert filters == []
+
+    def test_orientation_rotation_filter(self, tmp_path):
+        videos = tmp_path / "videos"
+        videos.mkdir()
+        source = videos / "sample.mp4"
+        source.write_bytes(b"fake")
+        (videos / "sample_analysis.json").write_text(json.dumps({
+            "orientation": {
+                "clockwise_degrees": 90,
+                "confidence": 0.9,
+            }
+        }), encoding="utf-8")
+
+        with patch("agent.tools.edit.VIDEOS_DIR", str(videos)):
+            input_args, filters = _orientation_args(str(source))
+
+        assert input_args == ["-noautorotate"]
+        assert filters == ["transpose=clock"]
+
+    def test_low_confidence_orientation_keeps_ffmpeg_default(self, tmp_path):
+        videos = tmp_path / "videos"
+        videos.mkdir()
+        source = videos / "sample.mp4"
+        source.write_bytes(b"fake")
+        (videos / "sample_analysis.json").write_text(json.dumps({
+            "orientation": {
+                "clockwise_degrees": 0,
+                "confidence": 0.4,
+            }
+        }), encoding="utf-8")
+
+        with patch("agent.tools.edit.VIDEOS_DIR", str(videos)):
+            assert _orientation_args(str(source)) == ([], [])
+
     def test_bare_output_filename_goes_to_outputs_dir(self, tmp_path):
         """디렉터리 없는 output_path 도 outputs/ 기준으로 안전하게 처리."""
         fake_video = tmp_path / "sample.mp4"
@@ -147,6 +202,33 @@ class TestCutVideo:
 # =============================================================
 
 class TestMergeVideo:
+    def test_reencode_uses_majority_resolution_not_first_clip(self, tmp_path):
+        clips = [tmp_path / f"clip{i}.mp4" for i in range(3)]
+        for clip in clips:
+            clip.write_bytes(b"fake")
+        metas = [
+            {"width": 1920, "height": 1080, "codec_name": "h264", "fps": "30/1"},
+            {"width": 720, "height": 1280, "codec_name": "h264", "fps": "30/1"},
+            {"width": 720, "height": 1280, "codec_name": "h264", "fps": "30/1"},
+        ]
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit._ffprobe_video_meta", side_effect=metas), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=True), \
+             patch("agent.tools.edit._probe_duration_ms", return_value=1000), \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)):
+            _mock_ffmpeg_success(mock_run)
+            result = merge_video.invoke({"clip_paths": [str(p) for p in clips]})
+
+        assert not result.startswith("ERROR")
+        cmd = next(
+            call[0][0] for call in mock_run.call_args_list
+            if call[0] and call[0][0][0] == "ffmpeg"
+        )
+        filter_complex = cmd[cmd.index("-filter_complex") + 1]
+        assert "scale=720:1280" in filter_complex
+        assert "scale=1920:1080" not in filter_complex
+
     def test_two_clips_concat_command(self, tmp_path):
         """클립 2개 → FFmpeg concat demuxer 명령 정상 생성 확인."""
         clip1 = tmp_path / "clip1.mp4"
@@ -224,6 +306,36 @@ class TestMergeVideo:
 # =============================================================
 
 class TestAnalysisDrivenEdit:
+    def test_semantic_search_does_not_merge_low_relevance_whole_video(
+        self, tmp_path, monkeypatch
+    ):
+        """고정 0.5 임계값만으로 모든 창이 붙어 영상 전체가 되는 회귀 방지."""
+        analysis_path = tmp_path / "analysis.json"
+        analysis_path.write_text(json.dumps({
+            "segments": [
+                {"start_ms": i * 1000, "end_ms": (i + 1) * 1000,
+                 "description": f"장면 {i}"}
+                for i in range(5)
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+        monkeypatch.setenv("EDIT_SEMANTIC_SEARCH", "1")
+
+        with patch(
+            "agent.tools.edit._semantic_scores",
+            return_value=[0.82, 0.69, 0.68, 0.67, 0.66],
+        ):
+            result = json.loads(search_video_segments.invoke({
+                "video_path": "sample.mp4",
+                "query": "핵심 장면",
+                "analysis_path": str(analysis_path),
+                "max_results": 3,
+            }))
+
+        assert result["status"] == "success"
+        assert result["matches"][0]["start_ms"] == 0
+        assert result["matches"][0]["end_ms"] == 1000
+        assert result["stats"]["effective_threshold"] == 0.77
+
     def test_search_video_segments_matches_description_and_objects(self, tmp_path):
         """분석 JSON의 description / objects 기반으로 구간 검색."""
         analysis = {
@@ -256,6 +368,29 @@ class TestAnalysisDrivenEdit:
         assert len(payload["matches"]) == 1
         assert payload["matches"][0]["start_ms"] == 1000
 
+    def test_exact_keyword_phrase_excludes_single_term_false_positives(
+        self, tmp_path, monkeypatch
+    ):
+        analysis_path = tmp_path / "analysis.json"
+        analysis_path.write_text(json.dumps({
+            "segments": [
+                {"start_ms": 0, "end_ms": 1000, "description": "에어컨 청소 완료"},
+                {"start_ms": 1000, "end_ms": 2000, "description": "입주 청소 완료"},
+                {"start_ms": 2000, "end_ms": 3000, "description": "에어컨 설치"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+        monkeypatch.setenv("EDIT_SEMANTIC_SEARCH", "0")
+
+        payload = json.loads(search_video_segments.invoke({
+            "video_path": "sample.mp4",
+            "query": "에어컨 청소",
+            "analysis_path": str(analysis_path),
+        }))
+
+        assert len(payload["matches"]) == 1
+        assert payload["matches"][0]["start_ms"] == 0
+        assert payload["stats"]["keyword_floor"] == 20
+
     def test_cut_by_description_cuts_each_match_and_merges(self, tmp_path):
         """내용 기반 검색 -> cut_video -> merge_video 흐름."""
         fake_video = tmp_path / "sample.mp4"
@@ -285,6 +420,86 @@ class TestAnalysisDrivenEdit:
         assert len(payload["clips"]) == 2
         assert payload["merged_output"] == str(tmp_path / "steak.mp4")
 
+    def test_remove_video_segments_keeps_complement(self, tmp_path):
+        """3~5초 제거 요청은 0~3초와 5~10초를 잘라 병합해야 한다."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+        output = tmp_path / "removed.mp4"
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit._probe_duration_ms", return_value=10_000):
+            _mock_ffmpeg_success(mock_run)
+            result = remove_video_segments.invoke({
+                "video_path": str(fake_video),
+                "ranges": [{"start_ms": 3000, "end_ms": 5000}],
+                "output_path": str(output),
+                "snap_to_speech": False,
+            })
+
+        assert result == str(output)
+        ffmpeg_commands = [
+            call[0][0] for call in mock_run.call_args_list
+            if call[0] and call[0][0][0] == "ffmpeg"
+        ]
+        cut_commands = [cmd for cmd in ffmpeg_commands if "-ss" in cmd]
+        assert len(cut_commands) == 2
+        assert (cut_commands[0][cut_commands[0].index("-ss") + 1],
+                cut_commands[0][cut_commands[0].index("-t") + 1]) == ("0.000", "3.000")
+        assert (cut_commands[1][cut_commands[1].index("-ss") + 1],
+                cut_commands[1][cut_commands[1].index("-t") + 1]) == ("5.000", "5.000")
+
+    def test_remove_video_segments_merges_overlapping_ranges(self, tmp_path):
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit._probe_duration_ms", return_value=10_000), \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)):
+            _mock_ffmpeg_success(mock_run)
+            result = remove_video_segments.invoke({
+                "video_path": str(fake_video),
+                "ranges": [
+                    {"start_ms": 6000, "end_ms": 8000},
+                    {"start_ms": 2000, "end_ms": 7000},
+                ],
+                "snap_to_speech": False,
+            })
+
+        assert not result.startswith("ERROR")
+        cut_commands = [
+            call[0][0] for call in mock_run.call_args_list
+            if call[0] and call[0][0][0] == "ffmpeg" and "-ss" in call[0][0]
+        ]
+        assert len(cut_commands) == 2
+        assert cut_commands[0][cut_commands[0].index("-t") + 1] == "2.000"
+        assert cut_commands[1][cut_commands[1].index("-ss") + 1] == "8.000"
+
+    def test_remove_by_description_uses_matched_ranges(self, tmp_path):
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+        analysis_path = tmp_path / "sample_analysis.json"
+        analysis_path.write_text(json.dumps({
+            "segments": [
+                {"start_ms": 1000, "end_ms": 2500, "description": "긴 침묵과 흔들린 화면"},
+                {"start_ms": 3000, "end_ms": 5000, "description": "핵심 설명"},
+            ]
+        }, ensure_ascii=False), encoding="utf-8")
+
+        fake_remove = MagicMock()
+        fake_remove.invoke.return_value = str(tmp_path / "clean.mp4")
+        with patch("agent.tools.edit.remove_video_segments", fake_remove):
+            result = remove_by_description.invoke({
+                "video_path": str(fake_video),
+                "query": "침묵 흔들린",
+                "analysis_path": str(analysis_path),
+                "padding_ms": 250,
+            })
+
+        payload = json.loads(result)
+        assert payload["status"] == "success"
+        called = fake_remove.invoke.call_args[0][0]
+        assert called["ranges"] == [{"start_ms": 750, "end_ms": 2750}]
+
 
 # =============================================================
 # resize_video — 화면비 변환
@@ -311,8 +526,7 @@ class TestResizeVideo:
         vf = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-vf") + 1]
         assert "force_original_aspect_ratio=increase" in vf
         assert "crop=" in vf
-        # 1080 높이 기준 9:16 -> 1080*9/16 = 607.5 -> 반올림 608 (짝수)
-        assert "608:1080" in vf
+        assert "720:1280" in vf
 
     def test_pad_mode_builds_pad_filter(self, tmp_path):
         """pad 모드는 decrease + pad 필터로 여백을 채운다."""
