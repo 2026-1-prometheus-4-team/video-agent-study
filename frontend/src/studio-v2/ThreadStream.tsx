@@ -12,6 +12,7 @@ import { FinalCard } from "./rows/FinalCard";
 import { InfoRow } from "./rows/InfoRow";
 import { ErrorRow } from "./rows/ErrorRow";
 import { PhaseCard } from "./rows/PhaseCard";
+import { SubtitleStyleCard } from "./subtitle/SubtitleStyleCard";
 import styles from "./thread.module.css";
 
 /**
@@ -97,5 +98,14 @@ function renderRow(item: ReturnType<typeof useAgentStore.getState>["stream"][num
       return <ErrorRow item={item} />;
     case "phase":
       return <PhaseCard item={item} />;
+    case "subtitle_style":
+      return (
+        <SubtitleStyleCard
+          id={item.id}
+          stem={item.stem}
+          status={item.status}
+          outputPath={item.outputPath}
+        />
+      );
   }
 }

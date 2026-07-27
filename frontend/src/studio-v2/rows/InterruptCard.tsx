@@ -41,6 +41,19 @@ export function InterruptCard({
       return;
     }
     resolve(true);
+
+    // 자막 관련 스텝이 플랜에 있으면 자막 스타일 카드 표시
+    const hasSubtitleStep = item.plan.some((p) =>
+      /자막|subtitle|caption/i.test(p.action + " " + p.rationale)
+    );
+    if (hasSubtitleStep) {
+      const store = useAgentStore.getState();
+      const serverPath = store.serverVideoPath;
+      const stem = serverPath
+        ? serverPath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? ""
+        : "";
+      if (stem) store.pushSubtitleStyle(stem);
+    }
   };
 
   const submitFeedback = () => {

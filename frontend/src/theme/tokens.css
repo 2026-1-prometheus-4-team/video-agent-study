@@ -22,15 +22,15 @@
   --surface-strong: #1C1D21;
   --surface-hover: #1E1F23;
   --surface-pressed: #171820;
-  --surface-selected: #2A1A0C;
-  --surface-selected-strong: #3D2612;
+  --surface-selected: #1a1c2e;
+  --surface-selected-strong: #252840;
 
   /* ---------- Border (last resort) ---------- */
   --border-subtle: #1A1B1E;
   --border-default: #26272C;
   --border-emphasis: #3A3B42;
-  --border-focus: #E08A3C;
-  --border-focus-glow: rgba(224, 138, 60, 0.32);
+  --border-focus: #7c8df1;
+  --border-focus-glow: rgba(124, 141, 241, 0.25);
 
   /* ---------- Text ---------- */
   --text-primary: #F4F5F7;
@@ -38,15 +38,15 @@
   --text-tertiary: #82858C;
   --text-muted: #54575D;
   --text-disabled: #3A3C42;
-  --text-on-accent: #150804;
+  --text-on-accent: #ffffff;
   --text-inverse: #0A0A0B;
 
-  /* ---------- Accent (warm ember) ---------- */
-  --accent: #E08A3C;
-  --accent-hover: #EC9D55;
-  --accent-pressed: #C67630;
-  --accent-subtle-bg: #2A1A0C;
-  --accent-subtle-fg: #F0B476;
+  /* ---------- Accent (indigo) ---------- */
+  --accent: #7c8df1;
+  --accent-hover: #99a5ff;
+  --accent-pressed: #6b7de8;
+  --accent-subtle-bg: rgba(124, 141, 241, 0.14);
+  --accent-subtle-fg: #99a5ff;
   --accent-secondary: #6B7280;
   --accent-secondary-hover: #7D848D;
   --link: #79B8FF;
@@ -65,7 +65,7 @@
   --info-fg: #A3CCFF;
   --info-bg: #0D1F2E;
   --streaming: var(--accent);
-  --streaming-pulse: rgba(224, 138, 60, 0.4);
+  --streaming-pulse: rgba(124, 141, 241, 0.4);
 
   /* ---------- Agent node colors ---------- */
   --node-orchestrator: #B6B9C1;

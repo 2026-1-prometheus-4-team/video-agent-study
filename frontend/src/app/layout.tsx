@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/theme/ThemeProvider";
+import "@/theme/tokens.css";
 import "./globals.css";
 
 /**

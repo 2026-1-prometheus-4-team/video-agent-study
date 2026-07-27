@@ -104,6 +104,14 @@ export type StreamItem =
       toolId?: string;
     }
   | {
+      kind: "subtitle_style";
+      id: string;
+      createdAt: number;
+      stem: string;
+      status: "pending" | "applied";
+      outputPath?: string;
+    }
+  | {
       kind: "phase";
       id: string;
       // 실제 노드 이름 (analysis/script/interrupt_gate/supervisor/critic) 또는
@@ -217,6 +225,8 @@ export interface AgentState {
   ) => void;
   pushInfo: (text: string) => void;
   pushError: (title: string, detail?: string, toolId?: string) => void;
+  pushSubtitleStyle: (stem: string) => void;
+  applySubtitleStyle: (id: string, outputPath: string) => void;
   /** 노드 진행 카드 시작. 이미 같은 phase 카드가 있으면 no-op. */
   startPhase: (phase: string, label: string, detail: string) => void;
   /** 진행 중인 phase 카드를 완료 상태로. label/detail 을 갱신하고 elapsed 를 fix. */
@@ -558,6 +568,28 @@ export const useAgentStore = create<AgentState>()(
         }
       }),
 
+    pushSubtitleStyle: (stem) =>
+      set((s) => {
+        s.stream.push({
+          kind: "subtitle_style",
+          id: nextId(),
+          createdAt: Date.now(),
+          stem,
+          status: "pending",
+        });
+      }),
+
+    applySubtitleStyle: (id, outputPath) =>
+      set((s) => {
+        const item = s.stream.find(
+          (x) => x.kind === "subtitle_style" && x.id === id
+        );
+        if (item && item.kind === "subtitle_style") {
+          item.status = "applied";
+          item.outputPath = outputPath;
+        }
+      }),
+
     pushInfo: (text) =>
       set((s) => {
         s.stream.push({
@@ -738,3 +770,9 @@ export const useAgentStore = create<AgentState>()(
       }),
   }))
 );
+
+// dev helper — browser console: __store.getState().pushSubtitleStyle("test")
+if (typeof window !== "undefined") {
+  // @ts-expect-error dev
+  window.__store = useAgentStore;
+}
