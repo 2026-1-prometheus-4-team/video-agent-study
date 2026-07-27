@@ -188,16 +188,16 @@ cp .env.example .env.local            # Mac
 
 ```bash
 cd frontend
-pnpm dev                              # http://localhost:3000
+pnpm dev                              # http://localhost:3001
 ```
 
-포트가 이미 쓰이는 중이면 자동으로 3001, 3002 로 승격됨.
+포트가 이미 쓰이는 중이면 Next.js가 사용 가능한 다른 포트를 안내함.
 
 ---
 
 ## 4. 실행 확인 · 첫 테스트
 
-1. 브라우저 http://localhost:3000
+1. 브라우저 http://localhost:3001
 2. 좌측 사이드바 `영상 업로드` → 짧은 mp4 (10~30 초 권장) 업로드
 3. 채팅에 `숏츠로 만들어줘` 전송
 4. Rail 에 `영상 분석 중 · Xs 경과` phase 카드 · `계획 승인` 카드가 순차 등장

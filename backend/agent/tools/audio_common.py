@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -33,6 +34,14 @@ def resolve_output_path(path: str, suffix: str, extension: str) -> Path:
 
 def ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def copy_video_sidecars(source: Path, output: Path) -> None:
+    """Preserve edit timeline metadata across audio-only video transforms."""
+    for suffix in (".origin.json", ".pad.json"):
+        source_sidecar = Path(f"{source}{suffix}")
+        if source_sidecar.exists():
+            shutil.copy2(source_sidecar, Path(f"{output}{suffix}"))
 
 
 def _run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:

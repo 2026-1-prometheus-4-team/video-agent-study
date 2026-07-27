@@ -7,6 +7,7 @@ import json
 from langchain_core.tools import tool
 
 from agent.tools.audio_common import (
+    copy_video_sidecars,
     ensure_parent,
     resolve_input_path,
     resolve_output_path,
@@ -45,6 +46,7 @@ def add_sfx(
             "-map", "0:v?", "-map", "[mix]",
             "-c:v", "copy", "-y", str(output),
         )
+        copy_video_sidecars(video, output)
         return json.dumps(
             {"status": "success", "output": str(output), "at_time": at_time},
             ensure_ascii=False,

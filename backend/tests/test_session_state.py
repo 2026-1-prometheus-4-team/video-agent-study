@@ -29,6 +29,50 @@ def _fake_session(server_mod, tmp_path, video_paths):
 
 
 class TestTranscriptSidecar:
+    def test_final_stem_wins_over_input_sidecar(
+        self, server_mod, tmp_path, monkeypatch
+    ):
+        """최종 타임라인 요청에서 원본 입력 자막을 잘못 반환하면 안 된다."""
+        videos = tmp_path / "videos"
+        subs = videos / "subtitles"
+        outputs = tmp_path / "outputs"
+        subs.mkdir(parents=True)
+        outputs.mkdir()
+        (subs / "input.json").write_text(json.dumps({
+            "segments": [{"start": 0, "end": 10, "text": "원본 전체"}],
+        }), encoding="utf-8")
+        (subs / "final_subtitled.cues.json").write_text(json.dumps({
+            "cues": [{"id": "c001", "start": 1, "end": 2, "text": "최종 컷"}],
+        }), encoding="utf-8")
+        final = outputs / "final_subtitled.mp4"
+        final.write_bytes(b"video")
+        monkeypatch.setattr(server_mod.agent_config, "VIDEOS_DIR", videos)
+        monkeypatch.setattr(server_mod.agent_config, "PROJECT_ROOT", tmp_path)
+
+        session = _fake_session(server_mod, tmp_path, ["videos/input.mp4"])
+        out = server_mod._load_transcript_sidecar(session, str(final))
+        assert out == [{"start": 1.0, "end": 2.0, "text": "최종 컷"}]
+
+    def test_final_without_matching_sidecar_does_not_use_input(
+        self, server_mod, tmp_path, monkeypatch
+    ):
+        videos = tmp_path / "videos"
+        subs = videos / "subtitles"
+        outputs = tmp_path / "outputs"
+        subs.mkdir(parents=True)
+        outputs.mkdir()
+        (subs / "input.json").write_text(json.dumps({
+            "segments": [{"start": 0, "end": 10, "text": "틀린 타임라인"}],
+        }), encoding="utf-8")
+        final = outputs / "different_final.mp4"
+        final.write_bytes(b"video")
+        monkeypatch.setattr(server_mod.agent_config, "VIDEOS_DIR", videos)
+        monkeypatch.setattr(server_mod.agent_config, "PROJECT_ROOT", tmp_path)
+
+        session = _fake_session(server_mod, tmp_path, ["videos/input.mp4"])
+        out = server_mod._load_transcript_sidecar(session, str(final))
+        assert out == []
+
     def test_cues_doc_wins_over_stale_transcript_sidecar(
         self, server_mod, tmp_path, monkeypatch
     ):

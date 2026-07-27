@@ -6,7 +6,8 @@
 - merge_video: FFmpeg concat demuxer 방식으로 클립 병합
 - search_video_segments: 분석 JSON에서 내용 기반 구간 검색
 - cut_by_description: 내용 기반 검색 후 해당 구간 자동 추출
-- cut_scene: 기존 scene 이름/번호 기반 호출 호환
+- remove_video_segments: 지정한 불필요 구간을 제거하고 나머지를 연결
+- remove_by_description: 내용 기반 검색 후 해당 구간을 제거
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import subprocess
 import tempfile
 import time
 import uuid
+from collections import Counter
 from typing import Any, Optional
 
 from langchain_core.tools import tool
@@ -247,7 +249,7 @@ def _json_text(value: Any) -> str:
 def _scoped_analysis_stem(video_path: str) -> Optional[str]:
     """video_analysis 의 분석 JSON 명명 규칙을 그대로 사용 (규칙 이중화 방지).
 
-    video_analysis 는 cv2 / google.generativeai 를 module import 하므로 지연 임포트.
+    video_analysis 는 cv2 / google-genai 를 module import 하므로 지연 임포트.
     실패해도 아래 videos/ 기준 후보로 폴백하면 되니 조용히 None.
     """
     try:
@@ -295,6 +297,32 @@ def _load_analysis(video_path: str, analysis_path: Optional[str] = None) -> tupl
         return None
     with open(resolved, encoding="utf-8") as f:
         return resolved, json.load(f)
+
+
+def _orientation_args(video_path: str) -> tuple[list[str], list[str]]:
+    """신뢰 가능한 시각 방향 판정이 있으면 FFmpeg 입력/필터 인자를 반환."""
+    loaded = _load_analysis(video_path)
+    if not loaded:
+        return [], []
+    orientation = loaded[1].get("orientation")
+    if not isinstance(orientation, dict):
+        return [], []
+    try:
+        degrees = int(orientation.get("clockwise_degrees"))
+        confidence = float(orientation.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        return [], []
+    if degrees not in (0, 90, 180, 270) or confidence < 0.7:
+        return [], []
+
+    filters = {
+        0: [],
+        90: ["transpose=clock"],
+        180: ["hflip,vflip"],
+        270: ["transpose=cclock"],
+    }
+    # -noautorotate는 입력 옵션이므로 -i보다 앞에 와야 한다.
+    return ["-noautorotate"], filters[degrees]
 
 
 def _extract_raw_segments(analysis: dict) -> list[tuple[str, dict]]:
@@ -381,6 +409,10 @@ def _score_segment(query: str, segment: dict) -> int:
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
 EMBEDDING_DIM = 768
 SEMANTIC_MIN_SCORE = float(os.getenv("SEMANTIC_MIN_SCORE", "0.5"))
+SEMANTIC_SCORE_WINDOW = float(os.getenv("SEMANTIC_SCORE_WINDOW", "0.05"))
+SEMANTIC_CANDIDATE_MULTIPLIER = int(
+    os.getenv("SEMANTIC_CANDIDATE_MULTIPLIER", "4")
+)
 
 
 EMBEDDING_BATCH = 100  # Gemini embed API 는 요청당 최대 100개
@@ -554,16 +586,30 @@ def _search_segments(
             ranked = sorted(
                 zip(segments, best_sims), key=lambda t: (-t[1], t[0]["start_ms"])
             )
+            top_score = ranked[0][1] if ranked else 0.0
+            # embedding 모델/언어에 따라 무관한 문장도 0.5 이상으로 몰리는
+            # 경우가 있다. 고정 임계값만 쓰면 모든 1초 창이 이어져 영상 전체가
+            # 하나의 match가 된다. 최고점 근처 후보만 남겨 상대적 관련도를 보존한다.
+            effective_threshold = max(
+                SEMANTIC_MIN_SCORE,
+                top_score - max(0.0, SEMANTIC_SCORE_WINDOW),
+            )
+            candidate_limit = max(
+                max_results,
+                max_results * max(1, SEMANTIC_CANDIDATE_MULTIPLIER),
+            )
             above = [
                 _public_segment(seg, sim, "semantic")
                 for seg, sim in ranked
-                if sim >= SEMANTIC_MIN_SCORE
-            ]
+                if sim >= effective_threshold
+            ][:candidate_limit]
             stats.update({
                 "match_type": "semantic",
                 "threshold": SEMANTIC_MIN_SCORE,
+                "effective_threshold": round(effective_threshold, 3),
+                "candidate_limit": candidate_limit,
                 "total_above_threshold": len(above),
-                "top_score": round(ranked[0][1], 3) if ranked else 0.0,
+                "top_score": round(top_score, 3),
                 "second_score": round(ranked[1][1], 3) if len(ranked) > 1 else 0.0,
             })
             stats["margin"] = round(stats["top_score"] - stats["second_score"], 3)
@@ -594,9 +640,21 @@ def _search_segments(
 
     scored.sort(key=lambda s: (-s["score"], s["start_ms"]))
     if scored:
+        top_keyword_score = scored[0]["score"]
+        # 완전 구문 매치(20점+) 또는 복수 핵심어 매치(8점+)가 있으면
+        # 단어 하나만 우연히 겹친 4점 후보를 제거한다. remove_by_description에서
+        # 약한 후보까지 실제 삭제되는 것을 막기 위한 정밀도 우선 정책이다.
+        if top_keyword_score >= 20:
+            keyword_floor = 20
+        elif top_keyword_score >= 8:
+            keyword_floor = 8
+        else:
+            keyword_floor = 1
+        scored = [item for item in scored if item["score"] >= keyword_floor]
         # 키워드가 잡았으면 그 통계로 덮어쓴다 (semantic stats 는 참고용 유지).
         stats.update({
             "match_type": "keyword",
+            "keyword_floor": keyword_floor,
             "total_above_threshold": len(scored),
             "top_score": scored[0]["score"],
             "second_score": scored[1]["score"] if len(scored) > 1 else 0,
@@ -659,11 +717,18 @@ def cut_video(
         duration_sec = (end_ms - start_ms) / 1000.0
         # 프레임 정확도 컷: -c copy 는 키프레임 단위로 밀려서 (수 초 오차 + concat 시
         # 재생 깨짐) 재인코딩으로 자름. 인코딩 설정을 통일해 merge concat 도 안전.
+        orientation_input, orientation_filters = _orientation_args(resolved)
         cmd = [
             "ffmpeg", "-y",
             "-ss", f"{start_sec:.3f}",
+            *orientation_input,
             "-i", resolved,
             "-t", f"{duration_sec:.3f}",
+            *(
+                ["-vf", ",".join(orientation_filters)]
+                if orientation_filters
+                else []
+            ),
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "192k",
@@ -703,12 +768,17 @@ def cut_video(
 def merge_video(
     clip_paths: list[str],
     output_path: Optional[str] = None,
+    aspect_ratio: Optional[str] = None,
+    mode: str = "pad",
 ) -> str:
     """여러 클립을 순서대로 이어 붙여 하나의 영상으로 저장.
 
     Args:
         clip_paths: 병합할 클립 경로 목록. 순서 그대로 concat.
         output_path: 저장 경로. 생략 시 outputs/merged_<id>.mp4.
+        aspect_ratio: 혼합 해상도 클립의 목표 비율. "9:16", "16:9", "1:1", "4:5".
+            생략하면 가장 흔한 클립 해상도를 사용한다.
+        mode: aspect_ratio 지정 시 "crop"은 화면을 꽉 채우고 "pad"는 전체를 보존한다.
 
     Returns:
         성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
@@ -716,7 +786,20 @@ def merge_video(
     try:
         if not clip_paths:
             return "ERROR: clip_paths 가 비어 있습니다."
+        if aspect_ratio is not None and aspect_ratio not in _TARGET_RESOLUTIONS:
+            return f"ERROR: 지원하지 않는 비율: {aspect_ratio}"
+        if mode not in {"crop", "pad"}:
+            return f"ERROR: mode 는 crop 또는 pad 만 가능: {mode}"
         if len(clip_paths) == 1:
+            if aspect_ratio:
+                resolved = _resolve_video_path(clip_paths[0])
+                output = _resolve_output_path(output_path, "merged", resolved)
+                return resize_video.invoke({
+                    "video_path": resolved,
+                    "aspect_ratio": aspect_ratio,
+                    "mode": mode,
+                    "output_path": output,
+                })
             return _resolve_video_path(clip_paths[0])
 
         resolved_clips = [_resolve_video_path(p) for p in clip_paths]
@@ -726,7 +809,7 @@ def merge_video(
 
         output_path = _resolve_output_path(output_path, "merged", resolved_clips[0])
         metas = [_ffprobe_video_meta(path) for path in resolved_clips]
-        compatible = _streams_compatible(metas)
+        compatible = _streams_compatible(metas) and aspect_ratio is None
 
         if compatible:
             with tempfile.NamedTemporaryFile(
@@ -756,19 +839,43 @@ def merge_video(
                 except OSError:
                     pass
         else:
-            first_meta = next(meta for meta in metas if meta)
-            width = first_meta["width"] or 1280
-            height = first_meta["height"] or 720
+            dimensions = [
+                (int(meta["width"]), int(meta["height"]))
+                for meta in metas
+                if meta and meta.get("width") and meta.get("height")
+            ]
+            # 혼합 가로/세로 소스에서 첫 클립만 기준으로 삼으면 나머지 다수
+            # 클립이 작은 letterbox로 축소된다. 가장 흔한 해상도를 기준으로
+            # 정규화하고, 빈 메타데이터일 때만 일반 가로 규격을 쓴다.
+            if aspect_ratio:
+                width, height = _TARGET_RESOLUTIONS[aspect_ratio]
+            else:
+                width, height = (
+                    Counter(dimensions).most_common(1)[0][0]
+                    if dimensions
+                    else (1280, 720)
+                )
             all_have_audio = all(_ffprobe_has_audio(path) for path in resolved_clips)
+            target_fps = max(1, min(60, int(os.getenv("EDIT_OUTPUT_FPS", "30"))))
             inputs = []
             filter_parts = []
             concat_inputs = []
             for idx, path in enumerate(resolved_clips):
                 inputs.extend(["-i", path])
-                filter_parts.append(
-                    f"[{idx}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
-                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{idx}]"
-                )
+                if aspect_ratio and mode == "crop":
+                    video_filter = (
+                        f"[{idx}:v]scale={width}:{height}:"
+                        "force_original_aspect_ratio=increase,"
+                        f"crop={width}:{height},fps={target_fps},setsar=1[v{idx}]"
+                    )
+                else:
+                    video_filter = (
+                        f"[{idx}:v]scale={width}:{height}:"
+                        "force_original_aspect_ratio=decrease,"
+                        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
+                        f"fps={target_fps},setsar=1[v{idx}]"
+                    )
+                filter_parts.append(video_filter)
                 if all_have_audio:
                     filter_parts.append(
                         f"[{idx}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{idx}]"
@@ -1037,11 +1144,216 @@ def cut_by_description(
         return json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False)
 
 
+def _normalize_removal_ranges(
+    ranges: list[dict],
+    duration_ms: int,
+) -> list[dict]:
+    normalized: list[dict] = []
+    for item in ranges:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start_ms = max(0, int(round(float(item.get("start_ms", 0)))))
+            end_ms = min(
+                duration_ms,
+                int(round(float(item.get("end_ms", duration_ms)))),
+            )
+        except (TypeError, ValueError):
+            continue
+        if end_ms <= start_ms:
+            continue
+        if normalized and start_ms <= normalized[-1]["end_ms"]:
+            normalized[-1]["end_ms"] = max(normalized[-1]["end_ms"], end_ms)
+        else:
+            normalized.append({"start_ms": start_ms, "end_ms": end_ms})
+    return normalized
+
+
+@tool
+def remove_video_segments(
+    video_path: str,
+    ranges: list[dict],
+    output_path: Optional[str] = None,
+    snap_to_speech: bool = True,
+) -> str:
+    """지정한 불필요 구간들을 제거하고 나머지 구간을 순서대로 이어 붙인다.
+
+    `cut_video`가 지정 구간을 뽑는 keep 방식이라면, 이 도구는 지정 구간을
+    버리는 remove 방식이다. 여러 제거 구간이 겹치면 자동으로 합친다.
+
+    Args:
+        video_path: 원본 영상 경로 또는 파일명.
+        ranges: 제거할 구간 목록. 예:
+            [{"start_ms": 5000, "end_ms": 8000}, ...]
+        output_path: 최종 저장 경로. 생략 시 outputs/removed_<id>.mp4.
+        snap_to_speech: 제거 경계가 발화 중간이면 해당 발화 전체를 제거하도록
+            경계를 넓힌다. 보존 구간 자체에는 추가 스냅을 적용하지 않는다.
+
+    Returns:
+        성공 시 최종 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
+    """
+    try:
+        resolved = _resolve_video_path(video_path)
+        if not os.path.exists(resolved):
+            return f"ERROR: 파일을 찾을 수 없음: {resolved}"
+
+        duration_ms = _probe_duration_ms(resolved)
+        if duration_ms <= 0:
+            return f"ERROR: 영상 길이를 확인할 수 없음: {resolved}"
+
+        prepared: list[dict] = []
+        for item in ranges or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                start_ms = int(round(float(item.get("start_ms", 0))))
+                end_ms = int(round(float(item.get("end_ms", 0))))
+            except (TypeError, ValueError):
+                continue
+            if snap_to_speech and end_ms > start_ms:
+                start_ms, end_ms = _snap_to_speech(
+                    resolved,
+                    max(0, start_ms),
+                    min(duration_ms, end_ms),
+                )
+            prepared.append({"start_ms": start_ms, "end_ms": end_ms})
+
+        removals = _normalize_removal_ranges(
+            sorted(prepared, key=lambda item: item.get("start_ms", 0)),
+            duration_ms,
+        )
+        if not removals:
+            return "ERROR: 유효한 제거 구간이 없습니다."
+
+        kept: list[dict] = []
+        cursor = 0
+        for removal in removals:
+            if removal["start_ms"] > cursor:
+                kept.append({"start_ms": cursor, "end_ms": removal["start_ms"]})
+            cursor = max(cursor, removal["end_ms"])
+        if cursor < duration_ms:
+            kept.append({"start_ms": cursor, "end_ms": duration_ms})
+        kept = [item for item in kept if item["end_ms"] > item["start_ms"]]
+        if not kept:
+            return "ERROR: 제거 구간이 영상 전체를 덮습니다."
+
+        output_path = _resolve_output_path(output_path, "removed", resolved)
+        if len(kept) == 1:
+            return cut_video.invoke({
+                "video_path": resolved,
+                "start_ms": kept[0]["start_ms"],
+                "end_ms": kept[0]["end_ms"],
+                "output_path": output_path,
+                "snap_to_speech": False,
+            })
+
+        with tempfile.TemporaryDirectory(prefix="vibeedit_remove_") as temp_dir:
+            clips: list[str] = []
+            for index, item in enumerate(kept):
+                clip_path = os.path.join(temp_dir, f"keep_{index:03d}.mp4")
+                result = cut_video.invoke({
+                    "video_path": resolved,
+                    "start_ms": item["start_ms"],
+                    "end_ms": item["end_ms"],
+                    "output_path": clip_path,
+                    "snap_to_speech": False,
+                })
+                if isinstance(result, str) and result.startswith("ERROR"):
+                    return result
+                clips.append(result)
+            return merge_video.invoke({
+                "clip_paths": clips,
+                "output_path": output_path,
+            })
+    except Exception as e:
+        logger.exception("remove_video_segments 예외")
+        return f"ERROR: {e}"
+
+
+@tool
+def remove_by_description(
+    video_path: str,
+    query: str,
+    analysis_path: Optional[str] = None,
+    padding_ms: int = 0,
+    max_segments: int = 5,
+    output_path: Optional[str] = None,
+    snap_to_speech: bool = True,
+) -> str:
+    """분석 JSON에서 불필요한 장면을 찾아 제거하고 나머지를 이어 붙인다.
+
+    `"침묵과 반복 장면을 빼줘"`처럼 검색된 장면을 결과에서 제외해야 할 때
+    사용한다. 필요한 장면만 추출하려면 `cut_by_description`을 사용한다.
+    """
+    try:
+        search = _search_segments(
+            video_path,
+            query,
+            analysis_path,
+            max_segments,
+        )
+        if not search["analysis_path"]:
+            return json.dumps({
+                "status": "error",
+                "error": "analysis_not_found",
+                "message": "분석 JSON이 없습니다. analyze_video 후 다시 호출하세요.",
+            }, ensure_ascii=False)
+        if not search["matches"]:
+            return json.dumps({
+                "status": "error",
+                "error": "no_match",
+                "query": query,
+                "analysis_path": search["analysis_path"],
+                "near_misses": search["near_misses"],
+                "stats": search["stats"],
+            }, ensure_ascii=False)
+
+        padding_ms = max(0, int(padding_ms))
+        ranges = [
+            {
+                "start_ms": max(0, int(match["start_ms"]) - padding_ms),
+                "end_ms": int(match["end_ms"]) + padding_ms,
+            }
+            for match in search["matches"]
+        ]
+        output = remove_video_segments.invoke({
+            "video_path": video_path,
+            "ranges": ranges,
+            "output_path": output_path,
+            "snap_to_speech": snap_to_speech,
+        })
+        if isinstance(output, str) and output.startswith("ERROR"):
+            return json.dumps({
+                "status": "error",
+                "error": "remove_failed",
+                "detail": output,
+                "matches": search["matches"],
+            }, ensure_ascii=False)
+        return json.dumps({
+            "status": "success",
+            "query": query,
+            "analysis_path": search["analysis_path"],
+            "removed_ranges": ranges,
+            "matches": search["matches"],
+            "output": output,
+        }, ensure_ascii=False)
+    except Exception as e:
+        logger.exception("remove_by_description 예외")
+        return json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False)
+
+
 _ASPECT_RATIOS = {
     "9:16": (9, 16),    # 쇼츠 / 릴스 / 틱톡 (세로)
     "16:9": (16, 9),    # 유튜브 (가로)
     "1:1": (1, 1),      # 인스타 피드 (정사각)
     "4:5": (4, 5),      # 인스타 세로
+}
+
+_TARGET_RESOLUTIONS = {
+    "9:16": (720, 1280),
+    "16:9": (1280, 720),
+    "1:1": (1080, 1080),
+    "4:5": (1080, 1350),
 }
 
 
@@ -1080,22 +1392,12 @@ def resize_video(
         if mode not in ("crop", "pad"):
             return f"ERROR: mode 는 crop 또는 pad 만 가능: {mode}"
 
-        aw, ah = _ASPECT_RATIOS[aspect_ratio]
-
-        # 출력 해상도: 원본 높이 기준으로 비율 맞추되 짝수로 (libx264 요구사항)
+        # 플랫폼별 실용 표준 해상도를 사용한다. 원본 높이만 기준으로 계산하면
+        # 1280x720 가로 영상을 9:16으로 바꿀 때 404x720까지 축소된다.
         meta = _ffprobe_video_meta(resolved)
         src_w = (meta or {}).get("width") or 1920
         src_h = (meta or {}).get("height") or 1080
-
-        # 원본을 최대한 담는 크기 산출 후 짝수 보정
-        if aw / ah >= src_w / src_h:
-            out_w = src_w
-            out_h = int(round(src_w * ah / aw))
-        else:
-            out_h = src_h
-            out_w = int(round(src_h * aw / ah))
-        out_w -= out_w % 2
-        out_h -= out_h % 2
+        out_w, out_h = _TARGET_RESOLUTIONS[aspect_ratio]
 
         if mode == "crop":
             # 중앙 기준으로 꽉 채우고 넘치는 부분 잘라냄
@@ -1169,5 +1471,7 @@ TOOLS = [
     merge_video,
     search_video_segments,
     cut_by_description,
+    remove_video_segments,
+    remove_by_description,
     resize_video,
 ]

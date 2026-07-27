@@ -13,11 +13,13 @@ import re
 import subprocess
 from dotenv import load_dotenv
 from langchain_core.tools import tool
+from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(__file__)
-VIDEOS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "videos"))
+PROJECT_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+VIDEOS_DIR = os.path.join(PROJECT_ROOT, "videos")
 SUBTITLES_DIR = os.path.join(VIDEOS_DIR, "subtitles")
 FONTS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "assets", "fonts"))
 
@@ -33,6 +35,20 @@ _EMOJI_FONT_FILE = "NotoColorEmoji.ttf"
 _FONT_SIZE_PCT = 0.05          # 화면 높이의 5%
 _MARGIN_LANDSCAPE_PCT = 0.08   # 가로형 하단 마진 (8%)
 _MARGIN_PORTRAIT_PCT = 0.15    # 세로형 하단 마진 (15%)
+
+
+class AutoSubtitleStyle(TypedDict, total=False):
+    platform: str
+    font: str
+    font_size: int
+    size: int
+    color: str
+    stroke_color: str
+    stroke_width: float
+    position: str
+    margin_v: int
+    bold: bool
+    fade: bool
 
 
 def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
@@ -51,6 +67,33 @@ def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
         return int(w), int(h)
     except (ValueError, IndexError):
         return 0, 0
+
+
+def _resolve_video_path(video_path: str) -> str:
+    """Resolve absolute, backend-relative, then videos-relative paths."""
+    if os.path.isabs(video_path):
+        return os.path.normpath(video_path)
+    project_relative = os.path.join(PROJECT_ROOT, video_path)
+    if os.path.exists(project_relative):
+        return os.path.normpath(project_relative)
+    return os.path.normpath(os.path.join(VIDEOS_DIR, video_path))
+
+
+def _render_error(result: str) -> str | None:
+    """Normalize text_expert tool errors, including JSON-formatted errors."""
+    if not isinstance(result, str):
+        return "자막 렌더 결과 형식이 올바르지 않습니다."
+    if result.startswith("ERROR"):
+        return result.partition(":")[2].strip() or result
+    try:
+        parsed = json.loads(result)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if isinstance(parsed, dict) and (
+        parsed.get("status") == "error" or parsed.get("error")
+    ):
+        return str(parsed.get("message") or parsed.get("error"))
+    return None
 
 
 def _font_family_from_file(font_file: str) -> str:
@@ -161,13 +204,15 @@ def _default_style(platform: str = "youtube") -> dict:
     }
 
 
-def _merge_style(style_json: str, tool_defaults: dict | None = None) -> dict:
-    """style JSON 문자열을 파싱해 플랫폼 기본값에 병합. tool_defaults가 있으면 중간에 덮어씀."""
+def _merge_style(style_json: str | dict, tool_defaults: dict | None = None) -> dict:
+    """style JSON 문자열/dict를 플랫폼 기본값에 병합."""
     overrides: dict = {}
-    if style_json:
+    if isinstance(style_json, dict):
+        overrides = dict(style_json)
+    elif style_json:
         try:
             overrides = json.loads(style_json)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             logger.warning("style JSON 파싱 실패 — 기본값 사용")
 
     platform = overrides.get("platform", "youtube")
@@ -282,7 +327,7 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
                 'position':'bottom', 'margin_v':40, 'platform':'youtube'}
     """
     try:
-        input_path = os.path.join(VIDEOS_DIR, video_path)
+        input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
@@ -320,9 +365,11 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
 
         vf = f"subtitles='{srt_ffmpeg}'{fonts_part}:force_style='{force_style}'"
 
-        name, ext = os.path.splitext(video_path)
-        output_name = f"{name}_subtitled{ext}"
-        output_path = os.path.join(VIDEOS_DIR, output_name)
+        name, ext = os.path.splitext(os.path.basename(input_path))
+        output_path = os.path.join(
+            os.path.dirname(input_path),
+            f"{name}_subtitled{ext or '.mp4'}",
+        )
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, output_path]
         code, stderr = _run_ffmpeg(cmd)
@@ -340,7 +387,7 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
             logger.warning(f"큐 문서 동기화 스킵: {sync_error}")
 
         return json.dumps({
-            "output": output_name,
+            "output": output_path,
             "style": {"font": font_name, "size": s["font_size"], "color": s["color"]},
             "segments": segments,
             "status": "success",
@@ -455,7 +502,11 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
 
 
 @tool
-def add_auto_subtitle(video_path: str, style: str = "") -> str:
+def add_auto_subtitle(
+    video_path: str,
+    style: str | AutoSubtitleStyle = "",
+    output_path: str = "",
+) -> str:
     """영상을 자동 전사(Whisper)하고 자막 큐 문서 생성 후 burn-in — one-shot 처리.
 
     내부 흐름: Whisper 전사 → SRT/JSON 사이드카 저장(프론트 호환) →
@@ -467,19 +518,22 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
     Args:
         video_path: 입력 영상 파일명 (videos/ 기준, 예: sample.mp4)
         style: JSON 스타일 문자열 {'platform':'youtube'|'shorts', 'font_size':24, ...}
+        output_path: 최종 자막 번인 영상 경로. 생략 시 입력 파일 옆
+            <stem>_subtitled.mp4.
     """
     try:
         from agent.tools.transcribe import transcribe_video  # 지연 임포트 (순환 방지)
 
-        input_path = os.path.join(VIDEOS_DIR, video_path)
+        input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         platform = "youtube"
         if style:
             try:
-                platform = json.loads(style).get("platform", "youtube")
-            except json.JSONDecodeError:
+                parsed_style = style if isinstance(style, dict) else json.loads(style)
+                platform = parsed_style.get("platform", "youtube")
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         # 1. 자막 원천 확보
@@ -510,7 +564,7 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
         max_len = _calc_max_chars(font_size)
 
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
-        name, _ = os.path.splitext(video_path)
+        name = os.path.splitext(os.path.basename(input_path))[0]
         srt_abs = os.path.join(SUBTITLES_DIR, f"{name}.srt")
         srt_content = _build_srt(transcript, platform, max_len=max_len)
         with open(srt_abs, "w", encoding="utf-8") as f:
@@ -537,18 +591,59 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
         )
 
         # 4. 큐 문서 기준 ASS 렌더 + burn-in (기존 출력 위치/이름 유지 — 프론트 호환)
-        _, ext = os.path.splitext(video_path)
-        output_name = f"{name}_subtitled{ext}"
+        _, ext = os.path.splitext(input_path)
+        if output_path:
+            if os.path.isabs(output_path):
+                resolved_output_path = os.path.normpath(output_path)
+            elif os.path.dirname(output_path):
+                resolved_output_path = os.path.normpath(
+                    os.path.join(PROJECT_ROOT, output_path)
+                )
+            else:
+                resolved_output_path = os.path.join(
+                    os.path.dirname(input_path),
+                    output_path,
+                )
+        else:
+            resolved_output_path = os.path.join(
+                os.path.dirname(input_path),
+                f"{name}_subtitled{ext or '.mp4'}",
+            )
         rendered = subtitle_cues.render_subtitles.invoke({
-            "video_path": video_path,
-            "output_path": os.path.join(VIDEOS_DIR, output_name),
+            "video_path": input_path,
+            "output_path": resolved_output_path,
         })
-        if isinstance(rendered, str) and rendered.startswith("ERROR"):
-            return json.dumps({"error": rendered}, ensure_ascii=False)
+        render_error = _render_error(rendered)
+        if render_error:
+            return json.dumps({"status": "error", "error": render_error}, ensure_ascii=False)
+        if not os.path.exists(rendered):
+            return json.dumps({
+                "status": "error",
+                "error": f"자막 렌더 결과 파일이 생성되지 않았습니다: {rendered}",
+            }, ensure_ascii=False)
+
+        # 최종 파일 stem으로도 전사/큐 문서를 남겨 server final 복구가 입력
+        # 영상의 오래된 자막을 잘못 고르지 않게 한다.
+        rendered_stem = os.path.splitext(os.path.basename(rendered))[0]
+        rendered_json = os.path.join(SUBTITLES_DIR, f"{rendered_stem}.json")
+        with open(rendered_json, "w", encoding="utf-8") as f:
+            json.dump({
+                "segments": transcript,
+                "language": result.get("language"),
+                "engine": result.get("engine") or "origin-reuse",
+                "source_video": input_path,
+            }, f, ensure_ascii=False, indent=2)
+        _, rendered_cues_doc = subtitle_cues.create_cues_doc(
+            stem=rendered_stem,
+            source_video=input_path,
+            segments=transcript,
+            style_defaults=defaults,
+        )
 
         return json.dumps({
-            "output": output_name,
-            "cues_doc": cues_doc_path,
+            "output": rendered,
+            "cues_doc": rendered_cues_doc,
+            "source_cues_doc": cues_doc_path,
             "style": {
                 "font": defaults["font"],
                 "size": defaults["size"],
@@ -588,7 +683,7 @@ def add_title(
         style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':2}
     """
     try:
-        input_path = os.path.join(VIDEOS_DIR, video_path)
+        input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
@@ -684,7 +779,7 @@ def add_caption(
                'platform':'youtube'}
     """
     try:
-        input_path = os.path.join(VIDEOS_DIR, video_path)
+        input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
@@ -770,7 +865,7 @@ def add_emoji_overlay(
         position: 'center'|'top'|'bottom'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
     """
     try:
-        input_path = os.path.join(VIDEOS_DIR, video_path)
+        input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 

@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import uuid
 
@@ -125,6 +126,36 @@ def _apply_responsive_style(
             result["margin_v"] = max(4, round(PLAY_RES_Y * pct))
 
     return result
+
+
+def _fit_portrait_font_size(
+    requested_size: float,
+    texts: list[str],
+    play_res_x: int,
+) -> float:
+    """세로 영상에서 긴 문장이 세 줄 안팎으로 들어오도록 폰트 상한을 계산."""
+    if not texts:
+        return requested_size
+
+    def _text_units(text: str) -> float:
+        # 한글/전각 문자는 거의 1em, ASCII와 공백은 더 좁게 잡는다.
+        return sum(1.0 if ord(char) > 127 else 0.55 for char in text)
+
+    longest = max(_text_units(text.replace("\n", " ")) for text in texts)
+    if longest <= 0:
+        return requested_size
+
+    usable_width = play_res_x - 20
+    max_lines = 3
+    width_limit = usable_width * max_lines / (longest * 0.9)
+    height_limit = PLAY_RES_Y * 0.24 / max_lines
+    responsive_cap = PLAY_RES_Y * 0.06
+    return max(10.0, min(
+        float(requested_size),
+        responsive_cap,
+        width_limit,
+        height_limit,
+    ))
 
 
 # subtitle.py 의 SUBTITLE_FONT (파일명 기반) 와 같은 기본값을 쓴다 — 두 렌더
@@ -303,8 +334,10 @@ def style_defaults_from_legacy(style: dict) -> dict:
         except ValueError:
             return fallback
 
+    requested_font = str(style.get("font", _default_font_family()))
+    resolved_font = _resolve_font_family(requested_font) or requested_font
     return {
-        "font": style.get("font", _default_font_family()),
+        "font": resolved_font,
         "size": style.get("font_size", 24),
         "color": to_hex(style.get("color", "white"), "#FFFFFF"),
         "stroke_color": to_hex(style.get("stroke_color", "black"), "#000000"),
@@ -426,6 +459,12 @@ def _scan_fonts() -> dict[str, str]:
 def _resolve_font_family(requested: str) -> str | None:
     families = _scan_fonts()
     key = _normalize_font_key(requested)
+    aliases = {
+        "notosanscjkkr": "notosanskr",
+        "notosanscjk": "notosanskr",
+        "notosanskorean": "notosanskr",
+    }
+    key = aliases.get(key, key)
     if key in families:
         return families[key]
     for k, family in families.items():
@@ -499,9 +538,19 @@ def _build_ass(
     margin_v 를 비율 기반으로 자동 조정. content_area 가 주어지면 pad 모드 검은
     여백을 피해 자막이 콘텐츠 영역 안에 위치하도록 margin_v 를 재계산.
     """
+    play_res_x = PLAY_RES_X
+    if video_size and video_size[0] > 0 and video_size[1] > 0:
+        play_res_x = max(1, round(PLAY_RES_Y * video_size[0] / video_size[1]))
+
     defaults = {**DEFAULT_STYLE, **(doc.get("style_defaults") or {})}
     if video_size:
         defaults = _apply_responsive_style(defaults, video_size[0], video_size[1], content_area)
+        if video_size[1] > video_size[0]:
+            defaults["size"] = _fit_portrait_font_size(
+                defaults["size"],
+                [str(cue.get("text", "")) for cue in doc.get("cues", [])],
+                play_res_x,
+            )
     family = _resolve_font_family(str(defaults["font"])) or str(defaults["font"])
     primary = _color_to_ass(defaults["color"], alpha="00")
     outline = _color_to_ass(defaults["stroke_color"], alpha="00")
@@ -515,7 +564,7 @@ def _build_ass(
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
-        f"PlayResX: {PLAY_RES_X}",
+        f"PlayResX: {play_res_x}",
         f"PlayResY: {PLAY_RES_Y}",
         "WrapStyle: 0",
         "ScaledBorderAndShadow: yes",
@@ -534,7 +583,17 @@ def _build_ass(
     ]
 
     for cue in doc.get("cues", []):
-        style = cue.get("style") or {}
+        style = dict(cue.get("style") or {})
+        if (
+            video_size
+            and video_size[1] > video_size[0]
+            and style.get("size") is not None
+        ):
+            style["size"] = _fit_portrait_font_size(
+                style["size"],
+                [str(cue.get("text", ""))],
+                play_res_x,
+            )
         # 큐가 fade 를 명시하지 않은 경우에만 defaults 의 fade 적용
         # ("fade": false 로 끈 큐는 존중 — get() 이 아니라 키 존재로 판정).
         if default_fade and "fade" not in style:
@@ -798,8 +857,12 @@ def set_subtitle_style(video_path: str, style: str, scope: str = "defaults") -> 
         error = _validate_style(style_dict)
         if error:
             return json.dumps({"status": "error", "error": error}, ensure_ascii=False)
-        if style_dict.get("font") and not _resolve_font_family(str(style_dict["font"])):
-            return _font_error(str(style_dict["font"]))
+        if style_dict.get("font"):
+            requested_font = str(style_dict["font"])
+            resolved_font = _resolve_font_family(requested_font)
+            if not resolved_font:
+                return _font_error(requested_font)
+            style_dict["font"] = resolved_font
         if scope not in ("defaults", "all_cues"):
             return json.dumps(
                 {"status": "error", "error": f"scope 값이 잘못됨: {scope} (defaults | all_cues)"},
@@ -909,6 +972,16 @@ def render_subtitles(video_path: str, output_path: str = "") -> str:
         code, stderr = _run_ffmpeg(cmd)
         if code != 0:
             return f"ERROR: FFmpeg 렌더 실패 (rc={code}): {stderr[-800:]}"
+
+        # 자막 번인은 시간축/콘텐츠 영역을 바꾸지 않는다. 이후 재편집과
+        # 자막 재사용이 이어지도록 edit origin 및 pad 메타를 승계한다.
+        for suffix in (".origin.json", ".pad.json"):
+            source_sidecar = source + suffix
+            if os.path.exists(source_sidecar):
+                try:
+                    shutil.copy2(source_sidecar, resolved + suffix)
+                except OSError:
+                    logger.warning("subtitle sidecar copy failed: %s", source_sidecar)
 
         logger.info(f"render_subtitles 완료: {resolved} ({len(doc.get('cues', []))}개 큐)")
         return resolved

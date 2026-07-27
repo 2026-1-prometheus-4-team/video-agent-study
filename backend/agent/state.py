@@ -21,14 +21,23 @@ class Scene(TypedDict, total=False):
     end: float
     description: str
     video: str
+    transcript: str
+    objects: list[str]
+    people_count: int
+    people: list[str]
+    actions: list[str]
+    scene_change: bool
+    mood: str
     """다중 영상 입력 시 이 장면이 어느 영상 것인지 (예: videos/a.mp4).
     단일 영상이면 생략 — cut step 의 video_path 는 이 값을 그대로 써야 한다."""
 
 
-class Transcript(TypedDict):
+class Transcript(TypedDict, total=False):
     start: float
     end: float
     text: str
+    video: str
+    """다중 영상 입력 시 발화가 속한 원본 경로."""
 
 
 class VideoContext(TypedDict, total=False):

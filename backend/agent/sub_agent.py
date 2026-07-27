@@ -21,12 +21,13 @@ Sub-Agent Spawn (OpenClaw ACP 패턴의 Python/LangGraph 이식)
 from __future__ import annotations
 
 import logging
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from agent import config
 from agent.llm import make_llm
@@ -241,6 +242,46 @@ def _extract_result(role: str, state: dict, started: float) -> SubAgentResult:
             duration_sec=time.monotonic() - started,
         )
 
+    tool_messages = [message for message in messages if isinstance(message, ToolMessage)]
+    if not tool_messages:
+        return SubAgentResult(
+            role=role,
+            status="error",
+            summary="sub-agent returned without calling a tool",
+            error="no_tool_call",
+            duration_sec=time.monotonic() - started,
+        )
+
+    for message in tool_messages:
+        content = getattr(message, "content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        text = str(content).strip()
+        is_error = text.startswith("ERROR")
+        if not is_error:
+            try:
+                parsed = json.loads(text)
+                is_error = (
+                    isinstance(parsed, dict)
+                    and (
+                        parsed.get("status") in {"error", "failed"}
+                        or bool(parsed.get("error"))
+                    )
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if is_error:
+            return SubAgentResult(
+                role=role,
+                status="error",
+                summary=text[:300],
+                error=text[:1000],
+                duration_sec=time.monotonic() - started,
+            )
+
     last_msg = messages[-1]
     summary = getattr(last_msg, "content", "") or ""
     if isinstance(summary, list):
@@ -274,6 +315,8 @@ def _extract_paths_from_messages(messages: list) -> list[str]:
     pattern = re.compile(r'[\w./\-]+\.(?:mp4|mov|wav|mp3|aac|srt|vtt|png|jpg|json)\b', re.I)
     seen: list[str] = []
     for m in messages:
+        if isinstance(m, HumanMessage):
+            continue
         content = getattr(m, "content", None)
         if isinstance(content, str):
             for p in pattern.findall(content):
