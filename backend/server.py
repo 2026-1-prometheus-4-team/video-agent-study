@@ -980,7 +980,10 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                     session.session_id, "awaiting-interrupt"
                 )
                 interrupted = True
-                continue
+                # The interrupt is checkpointed already. End this execution
+                # segment now so run_lock and session.busy are released before
+                # the user can answer the newly displayed question.
+                break
 
             for node_name, state in chunk.items():
                 if not isinstance(state, dict):
@@ -1608,23 +1611,35 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                 continue
 
             if msg_type == "resume":
-                # busy 는 동기 플래그 — 다른 접속의 turn 이 락을 잡기 전이어도 잡힌다.
-                # 이 가드가 없으면 두 탭이 같은 interrupt 에 각각 resume 을 보내
-                # 두 번째 값이 *다음* interrupt 를 잘못 소비한다.
-                if session.busy:
-                    await websocket.send_json({
-                        "type": "error",
-                        "detail": "이미 실행 중이에요. 완료 후 응답해줘.",
-                    })
-                    continue
                 # interrupt 는 체크포인트 기준으로 판단 — 재접속 후 resume 도 허용
                 if session.pending_interrupt() is None:
                     await websocket.send_json({
                         "type": "error",
+                        "code": "NO_PENDING_INTERRUPT",
                         "detail": "대기 중인 승인 요청이 없습니다.",
                     })
                     continue
+
+                # The card can be clicked just before the interrupted turn's
+                # done callback clears busy. Wait briefly instead of dropping
+                # a valid response, but keep the wait bounded to prevent two
+                # graph executions from overlapping.
+                if session.busy:
+                    deadline = asyncio.get_running_loop().time() + 1.5
+                    while session.busy and asyncio.get_running_loop().time() < deadline:
+                        await asyncio.sleep(0.05)
+
+                if session.busy:
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "RESUME_NOT_READY",
+                        "retry_after_ms": 300,
+                        "detail": "질문 상태를 정리하고 있어요. 잠시 후 자동으로 다시 시도할게요.",
+                    })
+                    continue
+
                 await _start_resume(_resume_from_payload(payload))
+                await websocket.send_json({"type": "resume_accepted"})
                 continue
 
             # 일반 채팅

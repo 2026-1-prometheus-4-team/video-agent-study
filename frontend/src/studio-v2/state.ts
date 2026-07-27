@@ -41,6 +41,40 @@ export interface ClarifyCandidate {
   score?: number;
 }
 
+export interface StoryboardItem {
+  idx: number;
+  outputStartMs?: number;
+  outputEndMs?: number;
+  role: string;
+  source: string;
+  sourceStartMs?: number;
+  sourceEndMs?: number;
+  visual: string;
+  selectionReason: string;
+  onScreenText: string;
+  narration: string;
+  editDirection: string;
+  sfx: string;
+}
+
+export interface CreativeBrief {
+  title: string;
+  concept: string;
+  intent: string;
+  hook: string;
+  targetDurationSec?: number;
+  durationReason: string;
+  recommendedBgm: string;
+  bgmFlow: string;
+  storyboard: StoryboardItem[];
+  directing: {
+    cutTempo: string;
+    subtitleAndFont: string;
+    visualAndSpeed: string;
+  };
+  userRevisionGuide: string[];
+}
+
 export type StreamItem =
   | { kind: "user"; id: string; text: string; createdAt: number; files?: string[] }
   | {
@@ -69,6 +103,7 @@ export type StreamItem =
       createdAt: number;
       plan: PlanStep[];
       questions: string[];
+      creativeBrief?: CreativeBrief;
       resolved?: "approved" | "revised" | "answered";
       // interrupt 종류. 미지정이면 script_approval (하위호환).
       interruptKind?: "script_approval" | "clarify";
@@ -187,7 +222,11 @@ export interface AgentState {
     args: Record<string, unknown>
   ) => void;
   endTool: (id: string, ok: boolean, result?: unknown, errorMessage?: string) => void;
-  pushInterrupt: (plan: PlanStep[], questions: string[]) => void;
+  pushInterrupt: (
+    plan: PlanStep[],
+    questions: string[],
+    creativeBrief?: CreativeBrief
+  ) => void;
   /** clarify interrupt 카드 push. 미해결 카드가 있으면 갱신 (dedupe). */
   pushClarify: (
     question: string,
@@ -410,7 +449,7 @@ export const useAgentStore = create<AgentState>()(
         }
       }),
 
-    pushInterrupt: (plan, questions) =>
+    pushInterrupt: (plan, questions, creativeBrief) =>
       set((s) => {
         // 재접속/복원으로 같은 interrupt 가 다시 오면 기존 미해결 카드를 갱신.
         const existing = lastUnresolvedInterrupt(s.stream);
@@ -418,6 +457,7 @@ export const useAgentStore = create<AgentState>()(
           existing.interruptKind = "script_approval";
           existing.plan = plan;
           existing.questions = questions;
+          existing.creativeBrief = creativeBrief;
           existing.question = undefined;
           existing.candidates = undefined;
           existing.options = undefined;
@@ -433,6 +473,7 @@ export const useAgentStore = create<AgentState>()(
           interruptKind: "script_approval" as const,
           plan,
           questions,
+          creativeBrief,
         };
         s.stream.push(item);
         s.pendingInterrupt = item;

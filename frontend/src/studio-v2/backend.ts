@@ -22,7 +22,12 @@
  *   done = "턴 종료" (세션은 계속 살아있음).
  */
 
-import { useAgentStore, type ClarifyCandidate, type PlanStep } from "./state";
+import {
+  useAgentStore,
+  type ClarifyCandidate,
+  type CreativeBrief,
+  type PlanStep,
+} from "./state";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
@@ -142,7 +147,13 @@ type BackendEvent =
   | { type: "info"; content?: string }
   | { type: "ping" }
   | { type: "done" }
-  | { type: "error"; detail: string };
+  | { type: "resume_accepted" }
+  | {
+      type: "error";
+      detail: string;
+      code?: "RESUME_NOT_READY" | "NO_PENDING_INTERRUPT" | string;
+      retry_after_ms?: number;
+    };
 
 const NODE_MAP: Record<string, "orchestrator" | "research" | "planning" | "edit" | "critic"> = {
   supervisor: "orchestrator",
@@ -247,7 +258,59 @@ export function applyInterruptPayload(payloadRaw: unknown) {
     : Array.isArray(payload.questions)
       ? (payload.questions as string[])
       : [];
-  store.pushInterrupt(steps, questions);
+  const creativeBrief = parseCreativeBrief(planLike.creative_brief);
+  store.pushInterrupt(steps, questions, creativeBrief);
+}
+
+function parseCreativeBrief(raw: unknown): CreativeBrief | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const brief = raw as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value : "");
+  const number = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  const directingRaw =
+    brief.directing && typeof brief.directing === "object"
+      ? (brief.directing as Record<string, unknown>)
+      : {};
+  const storyboardRaw = Array.isArray(brief.storyboard)
+    ? (brief.storyboard as Array<Record<string, unknown>>)
+    : [];
+
+  return {
+    title: text(brief.title),
+    concept: text(brief.concept),
+    intent: text(brief.intent),
+    hook: text(brief.hook),
+    targetDurationSec: number(brief.target_duration_sec),
+    durationReason: text(brief.duration_reason),
+    recommendedBgm: text(brief.recommended_bgm),
+    bgmFlow: text(brief.bgm_flow),
+    storyboard: storyboardRaw.map((item, index) => ({
+      idx: number(item.idx) ?? index + 1,
+      outputStartMs: number(item.output_start_ms),
+      outputEndMs: number(item.output_end_ms),
+      role: text(item.role),
+      source: text(item.source),
+      sourceStartMs: number(item.source_start_ms),
+      sourceEndMs: number(item.source_end_ms),
+      visual: text(item.visual),
+      selectionReason: text(item.selection_reason),
+      onScreenText: text(item.on_screen_text),
+      narration: text(item.narration),
+      editDirection: text(item.edit_direction),
+      sfx: text(item.sfx),
+    })),
+    directing: {
+      cutTempo: text(directingRaw.cut_tempo),
+      subtitleAndFont: text(directingRaw.subtitle_and_font),
+      visualAndSpeed: text(directingRaw.visual_and_speed),
+    },
+    userRevisionGuide: Array.isArray(brief.user_revision_guide)
+      ? brief.user_revision_guide.filter(
+          (item): item is string => typeof item === "string"
+        )
+      : [],
+  };
 }
 
 // ---------- Module-level socket singleton ----------
@@ -472,11 +535,12 @@ export function tryResumeInterrupt(
  */
 export function tryResumeClarify(
   reply: string,
-  selected: number[]
+  selected: number[],
+  appendReplyOnAccept = true
 ): boolean {
   if (!currentSocket) return false;
   try {
-    currentSocket.resumeClarify(reply, selected);
+    currentSocket.resumeClarify(reply, selected, appendReplyOnAccept);
     return true;
   } catch {
     return false;
@@ -511,6 +575,15 @@ export class AgentSocket {
   private currentToolStack: string[] = []; // FIFO 로 tool_result 매핑
   private openWaiters: Array<() => void> = [];
   private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingResume: {
+    payload: Record<string, unknown>;
+    resolution: "approved" | "revised" | "answered";
+    feedback?: string;
+    reply?: string;
+    appendReplyOnAccept?: boolean;
+  } | null = null;
+  private resumeRetryCount = 0;
+  private resumeRetryTimer: ReturnType<typeof setTimeout> | null = null;
   // 이번 턴이 error 이벤트 또는 사용자 cancel 로 깨졌는지. 서버는 중단된 tool 의
   // tool_result 를 보내지 않으므로, flush 시 이 값으로 성공/실패를 가른다.
   private turnBroken = false;
@@ -642,6 +715,12 @@ export class AgentSocket {
 
   disconnect() {
     this.closedByUser = true;
+    if (this.resumeRetryTimer) {
+      clearTimeout(this.resumeRetryTimer);
+      this.resumeRetryTimer = null;
+    }
+    this.pendingResume = null;
+    this.resumeRetryCount = 0;
     if (this.watchdogTimer) {
       clearTimeout(this.watchdogTimer);
       this.watchdogTimer = null;
@@ -664,20 +743,38 @@ export class AgentSocket {
   }
 
   resume(approved: boolean, feedback?: string) {
-    this.send({
+    const payload = {
       type: "resume",
       approved,
       feedback: approved ? undefined : feedback,
-    });
+    };
+    this.pendingResume = {
+      payload,
+      resolution: approved ? "approved" : "revised",
+      feedback,
+    };
+    this.resumeRetryCount = 0;
+    this.send(payload);
     this.turnBroken = false;
     this.bumpWatchdog();
   }
 
   /** clarify interrupt 답변: reply(텍스트)/selected(후보 인덱스) 조합. */
-  resumeClarify(reply: string, selected: number[]) {
+  resumeClarify(
+    reply: string,
+    selected: number[],
+    appendReplyOnAccept = true
+  ) {
     const payload: Record<string, unknown> = { type: "resume" };
     if (reply) payload.reply = reply;
     if (selected.length > 0) payload.selected = selected;
+    this.pendingResume = {
+      payload,
+      resolution: "answered",
+      reply,
+      appendReplyOnAccept,
+    };
+    this.resumeRetryCount = 0;
     this.send(payload);
     this.turnBroken = false;
     this.bumpWatchdog();
@@ -836,7 +933,68 @@ export class AgentSocket {
         this.turnBroken = false;
         break;
       }
+      case "resume_accepted": {
+        // Only resolve the card after the backend confirms that Command(resume)
+        // was started. Until this ack arrives the card remains available while
+        // transient RESUME_NOT_READY responses are retried.
+        const pending = this.pendingResume;
+        if (pending) {
+          if (pending.resolution === "answered") {
+            if (pending.reply && pending.appendReplyOnAccept) {
+              store.appendUser(pending.reply);
+            }
+            store.markInterruptResolved("answered");
+          } else {
+            store.resolveInterrupt(
+              pending.resolution === "approved",
+              pending.feedback
+            );
+          }
+        }
+        if (this.resumeRetryTimer) clearTimeout(this.resumeRetryTimer);
+        this.resumeRetryTimer = null;
+        this.pendingResume = null;
+        this.resumeRetryCount = 0;
+        break;
+      }
       case "error": {
+        if (ev.code === "RESUME_NOT_READY" && this.pendingResume) {
+          const delays = [200, 500, 1000];
+          if (this.resumeRetryCount < delays.length) {
+            const delay = Math.max(
+              ev.retry_after_ms ?? 0,
+              delays[this.resumeRetryCount]
+            );
+            this.resumeRetryCount += 1;
+            if (this.resumeRetryTimer) clearTimeout(this.resumeRetryTimer);
+            this.resumeRetryTimer = setTimeout(() => {
+              if (!this.pendingResume) return;
+              try {
+                this.send(this.pendingResume.payload);
+                this.bumpWatchdog();
+              } catch {
+                // A reconnect/error event will preserve the unresolved card.
+              }
+            }, delay);
+            store.pushInfo("질문 상태를 정리하는 중이에요. 답변을 자동으로 다시 전송할게요.");
+            break;
+          }
+
+          // Keep the interrupt unresolved so the user can submit it again.
+          this.pendingResume = null;
+          this.resumeRetryCount = 0;
+          this.stopWatchdog();
+          store.pushInfo("답변 자동 전송에 실패했어요. 선택 카드에서 다시 시도해주세요.");
+          break;
+        }
+
+        if (ev.code === "NO_PENDING_INTERRUPT" && this.pendingResume) {
+          if (this.resumeRetryTimer) clearTimeout(this.resumeRetryTimer);
+          this.resumeRetryTimer = null;
+          this.pendingResume = null;
+          this.resumeRetryCount = 0;
+        }
+
         // 이번 턴은 깨졌다 — 이후 flush 되는 tool 카드를 초록색으로 닫지 않게.
         this.turnBroken = true;
         store.pushError("오류", ev.detail);

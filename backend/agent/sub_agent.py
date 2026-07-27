@@ -21,8 +21,10 @@ Sub-Agent Spawn (OpenClaw ACP 패턴의 Python/LangGraph 이식)
 from __future__ import annotations
 
 import logging
+import json
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from langgraph.prebuilt import create_react_agent
@@ -251,17 +253,80 @@ def _extract_result(role: str, state: dict, started: float) -> SubAgentResult:
         )
     summary = str(summary)[:1000]
 
-    # output 경로 추출: tool 결과 메시지에서 .mp4 / .wav / .srt / .png 경로 추출
-    output_paths = _extract_paths_from_messages(messages)
+    tool_errors, output_paths = _inspect_tool_results(messages)
+    status = "error" if tool_errors else "ok"
+    error = "; ".join(tool_errors)[:1000] if tool_errors else None
 
     return SubAgentResult(
         role=role,
-        status="ok",
+        status=status,
         summary=summary[:300],
         output_paths=output_paths,
         detail=summary if len(summary) > 300 else "",
+        error=error,
         duration_sec=time.monotonic() - started,
     )
+
+
+def _existing_output_path(value: object) -> Optional[str]:
+    """Return the reported path only when the file actually exists."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    path = Path(raw)
+    candidates = [path] if path.is_absolute() else [
+        config.PROJECT_ROOT / path,
+        config.VIDEOS_DIR / path,
+        config.VIDEOS_DIR / Path(*path.parts[1:])
+        if path.parts and path.parts[0].lower() == "videos"
+        else config.VIDEOS_DIR / path,
+    ]
+    return raw if any(candidate.exists() for candidate in candidates) else None
+
+
+def _inspect_tool_results(messages: list) -> tuple[list[str], list[str]]:
+    """Read structured ToolMessage JSON; never infer outputs from error prose."""
+    from langchain_core.messages import ToolMessage
+
+    errors: list[str] = []
+    outputs: list[str] = []
+    for message in messages:
+        if not isinstance(message, ToolMessage):
+            continue
+        content = getattr(message, "content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        text = str(content).strip()
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            # Some framework/tool errors are plain text rather than JSON.
+            lowered = text.lower()
+            if text.startswith("ERROR") or "status=error" in lowered:
+                errors.append(text[:300])
+            continue
+        if not isinstance(payload, dict):
+            continue
+        status = str(payload.get("status", "")).lower()
+        error_value = payload.get("error")
+        if status in {"error", "fail", "failed"} or (
+            error_value and status != "success"
+        ):
+            detail_parts = [str(error_value or status)]
+            if payload.get("status_code") is not None:
+                detail_parts.append(f"status_code={payload['status_code']}")
+            if payload.get("response"):
+                detail_parts.append(f"response={str(payload['response'])[:700]}")
+            errors.append("; ".join(detail_parts)[:1000])
+            continue
+        for key in ("output", "manifest"):
+            existing = _existing_output_path(payload.get(key))
+            if existing and existing not in outputs:
+                outputs.append(existing)
+    return errors, outputs
 
 
 def _extract_paths_from_messages(messages: list) -> list[str]:

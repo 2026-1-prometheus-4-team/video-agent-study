@@ -35,6 +35,7 @@ from agent.tools.subtitle import (
     SUBTITLES_DIR,
     VIDEOS_DIR,
     _color_to_ass,
+    _ffmpeg_env,
     _ffmpeg_filter_path,
     _hex_to_rgb,
 )
@@ -469,7 +470,12 @@ def _build_ass(doc: dict) -> str:
 
 def _run_ffmpeg(cmd: list) -> tuple[int, str]:
     result = subprocess.run(
-        cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore"
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+        env=_ffmpeg_env(),
     )
     return result.returncode, result.stderr
 

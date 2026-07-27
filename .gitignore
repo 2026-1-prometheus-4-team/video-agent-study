@@ -92,3 +92,28 @@ backend/postgres-data/
 # 기본 NotoSansKR 만 커밋 — 스크립트 미실행 환경에서도 자막 렌더가 되게.
 backend/assets/fonts/*
 !backend/assets/fonts/NotoSansKR-Regular.ttf
+
+# ── Windows Python venv ──
+.venv-win/
+backend/.venv-win/
+
+# Python cache
+__pycache__/
+
+# ── 로컬 실행용 런타임 ──
+backend/.runtime/
+
+# ── 추가 미디어 생성 폴더 ──
+backend/video_files/**
+!backend/video_files/
+!backend/video_files/.gitkeep
+
+audio_files/**
+bgm_files/**
+video_files/**
+output/**
+outputs/**
+
+# ── 로컬 테스트 로그 ──
+simulation_*.log
+codex_simulation_server*.log
