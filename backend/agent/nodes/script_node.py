@@ -139,8 +139,19 @@ def _enforce_requested_features(plan: dict[str, Any], user_request: str) -> dict
             return {key: resolve_alias(item) for key, item in value.items()}
         return value
 
+    raw_steps = [
+        step for step in plan.get("steps", [])
+        if isinstance(step, dict)
+    ]
+    raw_by_id = {
+        step.get("step_id"): step
+        for step in raw_steps
+        if step.get("step_id") is not None
+    }
+    removed_dependencies: dict[Any, list[Any]] = {}
+    kept_original_ids: list[Any] = []
     steps = []
-    for raw_step in plan.get("steps", []):
+    for raw_step in raw_steps:
         if not isinstance(raw_step, dict):
             continue
         step = dict(raw_step)
@@ -148,13 +159,32 @@ def _enforce_requested_features(plan: dict[str, Any], user_request: str) -> dict
         step["params"] = params
         if keep_step(step):
             steps.append(step)
+            kept_original_ids.append(step.get("step_id"))
             continue
 
         # Audio/text overlays generally preserve the input video's timeline.
         # If such a step is omitted, downstream references to its output must
         # point back to the resolved input rather than a file that will not exist.
+        old_id = step.get("step_id")
+        if old_id is not None:
+            dependencies = step.get("depends_on")
+            removed_dependencies[old_id] = (
+                list(dependencies) if isinstance(dependencies, list) else []
+            )
         output_path = params.get("output_path")
-        input_path = params.get("video_path")
+        input_path = next(
+            (
+                params.get(key)
+                for key in (
+                    "video_path",
+                    "input_path",
+                    "input_video",
+                    "input_video_path",
+                )
+                if isinstance(params.get(key), str)
+            ),
+            None,
+        )
         if isinstance(output_path, str) and isinstance(input_path, str):
             path_aliases[output_path] = input_path
 
@@ -163,8 +193,87 @@ def _enforce_requested_features(plan: dict[str, Any], user_request: str) -> dict
     for step in steps:
         step["params"] = resolve_alias(step.get("params") or {})
 
-    for index, step in enumerate(steps, 1):
+    # If a removed producer used a malformed input key, its output can still be
+    # recognized as unavailable. Reconnect only that missing generated path to
+    # the latest valid video output; source video paths are never rewritten.
+    raw_output_paths = {
+        str((step.get("params") or {}).get("output_path"))
+        for step in raw_steps
+        if isinstance((step.get("params") or {}).get("output_path"), str)
+    }
+    produced_paths: set[str] = set()
+    latest_video_output: str | None = None
+    video_extensions = (".mp4", ".mov", ".mkv", ".avi", ".webm")
+    for step in steps:
+        params = dict(step.get("params") or {})
+        video_path = params.get("video_path")
+        if (
+            isinstance(video_path, str)
+            and video_path in raw_output_paths
+            and video_path not in produced_paths
+            and latest_video_output
+        ):
+            params["video_path"] = latest_video_output
+        step["params"] = params
+
+        output_path = params.get("output_path")
+        if isinstance(output_path, str):
+            produced_paths.add(output_path)
+            if output_path.casefold().endswith(video_extensions):
+                latest_video_output = output_path
+
+    old_to_new = {
+        old_id: index
+        for index, old_id in enumerate(kept_original_ids, 1)
+        if old_id is not None
+    }
+
+    def resolve_dependency(old_id: Any, seen: set[Any] | None = None) -> list[int]:
+        if old_id in old_to_new:
+            return [old_to_new[old_id]]
+        if old_id not in removed_dependencies:
+            return []
+        visited = set(seen or ())
+        if old_id in visited:
+            return []
+        visited.add(old_id)
+        resolved: list[int] = []
+        for dependency in removed_dependencies[old_id]:
+            resolved.extend(resolve_dependency(dependency, visited))
+        return resolved
+
+    for index, (step, old_id) in enumerate(zip(steps, kept_original_ids), 1):
+        dependencies = step.get("depends_on")
+        repaired_dependencies: list[int] = []
+        if isinstance(dependencies, list):
+            for dependency in dependencies:
+                for resolved in resolve_dependency(dependency):
+                    if resolved != index and resolved not in repaired_dependencies:
+                        repaired_dependencies.append(resolved)
+        step["depends_on"] = repaired_dependencies
         step["step_id"] = index
+
+    producer_by_path = {
+        str((step.get("params") or {}).get("output_path")): step["step_id"]
+        for step in steps
+        if isinstance((step.get("params") or {}).get("output_path"), str)
+    }
+    for step in steps:
+        params = step.get("params") or {}
+        consumed_paths = []
+        video_path = params.get("video_path")
+        if isinstance(video_path, str):
+            consumed_paths.append(video_path)
+        clip_paths = params.get("clip_paths")
+        if isinstance(clip_paths, list):
+            consumed_paths.extend(path for path in clip_paths if isinstance(path, str))
+        dependencies = list(step.get("depends_on") or [])
+        for consumed_path in consumed_paths:
+            producer = producer_by_path.get(consumed_path)
+            if producer and producer != step["step_id"] and producer not in dependencies:
+                dependencies.append(producer)
+        step["depends_on"] = sorted(dependencies)
+
     plan["steps"] = steps
 
     questions = []
@@ -320,6 +429,52 @@ def _constrain_cut_duration(
     return plan
 
 
+def _propagate_target_aspect_ratio(plan: dict[str, Any]) -> dict[str, Any]:
+    """Normalize each clip before concat so mixed orientations do not letterbox."""
+    target = str(plan.get("target_aspect_ratio") or "")
+    if target not in {"9:16", "16:9", "1:1", "4:5"}:
+        return plan
+
+    steps = plan.get("steps")
+    if not isinstance(steps, list):
+        return plan
+
+    resize_by_input: dict[str, dict[str, Any]] = {}
+    for step in steps:
+        if not isinstance(step, dict) or step.get("action") != "resize_video":
+            continue
+        params = step.get("params") or {}
+        video_path = params.get("video_path")
+        if isinstance(video_path, str):
+            resize_by_input[video_path] = params
+
+    for step in steps:
+        if not isinstance(step, dict) or step.get("action") != "merge_video":
+            continue
+        params = dict(step.get("params") or {})
+        output_path = params.get("output_path")
+        downstream_resize = (
+            resize_by_input.get(output_path)
+            if isinstance(output_path, str)
+            else None
+        )
+        ratio = (
+            str(downstream_resize.get("aspect_ratio") or target)
+            if downstream_resize
+            else target
+        )
+        if ratio not in {"9:16", "16:9", "1:1", "4:5"}:
+            ratio = target
+        params["aspect_ratio"] = ratio
+        params["mode"] = (
+            str(downstream_resize.get("mode") or "crop")
+            if downstream_resize
+            else "crop"
+        )
+        step["params"] = params
+    return plan
+
+
 # =============================================================
 # 노드 본체
 # =============================================================
@@ -425,6 +580,7 @@ def script_node(state: AgentState) -> dict[str, Any]:
     plan.setdefault("mode", "edit")
     plan = _enforce_requested_features(plan, user_request)
     plan = _constrain_cut_duration(plan, user_request, video_context)
+    plan = _propagate_target_aspect_ratio(plan)
     # chat 모드인데 reply 가 없으면 edit 모드로 강등 (오분류 방어)
     if plan.get("mode") == "chat" and not str(plan.get("reply") or "").strip():
         plan["mode"] = "edit"

@@ -28,6 +28,7 @@ def test_openai_engine_calls_openai_not_gemini(tmp_path, monkeypatch):
         result = json.loads(transcribe_video.invoke({
             "video_path": str(source),
             "force": True,
+            "polish": False,
         }))
 
     assert result["status"] == "success"
@@ -49,7 +50,10 @@ def test_cache_hit_skips_audio_processing(tmp_path):
     with patch("agent.tools.transcribe.resolve_input_path", return_value=source), \
          patch("agent.tools.transcribe._load_cached_transcript", return_value=cached), \
          patch("agent.tools.transcribe._normalize_audio") as normalize:
-        result = json.loads(transcribe_video.invoke({"video_path": str(source)}))
+        result = json.loads(transcribe_video.invoke({
+            "video_path": str(source),
+            "polish": False,
+        }))
 
     assert result["cache_hit"] is True
     assert result["segments"][0]["text"] == "캐시"

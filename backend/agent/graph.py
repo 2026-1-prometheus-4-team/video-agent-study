@@ -108,36 +108,37 @@ def _analyze_one_video(path: str) -> tuple[str, dict]:
                         exc_info=True,
                     )
 
-        # 시각 분석 JSON과 원본 Whisper 캐시는 수명이 다르다. analysis가 이미
-        # 있어도 전사 캐시가 빠져 있으면 별도로 생성하거나 기존 캐시를 재사용한다.
-        transcript = data.get("transcript")
-        if not isinstance(transcript, list) or not transcript:
-            try:
-                from agent.tools.transcribe import transcribe_video
+        # 분석 JSON의 transcript는 오래된 요약일 수 있다. planning과 자막이
+        # 동일한 원문을 보도록 항상 canonical Whisper 캐시를 먼저 읽는다.
+        transcript = None
+        try:
+            from agent.tools.transcribe import transcribe_video
 
-                source = config.VIDEOS_DIR / filename
-                transcript_raw = transcribe_video.invoke({"video_path": str(source)})
-                transcript_data = _json.loads(transcript_raw)
-                if transcript_data.get("status") == "success":
-                    transcript = transcript_data.get("segments", [])
-            except Exception:
-                logger.warning(
-                    "analysis_node: %s 원본 전사 확보 실패, 분석 transcript fallback",
-                    filename,
-                    exc_info=True,
-                )
+            source = config.VIDEOS_DIR / filename
+            transcript_raw = transcribe_video.invoke({"video_path": str(source)})
+            transcript_data = _json.loads(transcript_raw)
+            if transcript_data.get("status") == "success":
+                transcript = transcript_data.get("segments", [])
+        except Exception:
+            logger.warning(
+                "analysis_node: %s 원본 전사 확보 실패, 분석 transcript fallback",
+                filename,
+                exc_info=True,
+            )
 
         # 외부 전사 실패 시에도 기존 분석 JSON의 대사 요약은 planning에 전달한다.
         if not isinstance(transcript, list) or not transcript:
-            transcript = [
-                {
-                    "start": float(seg.get("start_ms", 0)) / 1000,
-                    "end": float(seg.get("end_ms", 0)) / 1000,
-                    "text": str(seg.get("transcript") or "").strip(),
-                }
-                for seg in data.get("segments", [])
-                if str(seg.get("transcript") or "").strip()
-            ]
+            transcript = data.get("transcript")
+            if not isinstance(transcript, list) or not transcript:
+                transcript = [
+                    {
+                        "start": float(seg.get("start_ms", 0)) / 1000,
+                        "end": float(seg.get("end_ms", 0)) / 1000,
+                        "text": str(seg.get("transcript") or "").strip(),
+                    }
+                    for seg in data.get("segments", [])
+                    if str(seg.get("transcript") or "").strip()
+                ]
 
         data["_source_transcript"] = transcript
         return filename, data

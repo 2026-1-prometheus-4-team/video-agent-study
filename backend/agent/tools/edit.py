@@ -768,12 +768,17 @@ def cut_video(
 def merge_video(
     clip_paths: list[str],
     output_path: Optional[str] = None,
+    aspect_ratio: Optional[str] = None,
+    mode: str = "pad",
 ) -> str:
     """여러 클립을 순서대로 이어 붙여 하나의 영상으로 저장.
 
     Args:
         clip_paths: 병합할 클립 경로 목록. 순서 그대로 concat.
         output_path: 저장 경로. 생략 시 outputs/merged_<id>.mp4.
+        aspect_ratio: 혼합 해상도 클립의 목표 비율. "9:16", "16:9", "1:1", "4:5".
+            생략하면 가장 흔한 클립 해상도를 사용한다.
+        mode: aspect_ratio 지정 시 "crop"은 화면을 꽉 채우고 "pad"는 전체를 보존한다.
 
     Returns:
         성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
@@ -781,7 +786,20 @@ def merge_video(
     try:
         if not clip_paths:
             return "ERROR: clip_paths 가 비어 있습니다."
+        if aspect_ratio is not None and aspect_ratio not in _TARGET_RESOLUTIONS:
+            return f"ERROR: 지원하지 않는 비율: {aspect_ratio}"
+        if mode not in {"crop", "pad"}:
+            return f"ERROR: mode 는 crop 또는 pad 만 가능: {mode}"
         if len(clip_paths) == 1:
+            if aspect_ratio:
+                resolved = _resolve_video_path(clip_paths[0])
+                output = _resolve_output_path(output_path, "merged", resolved)
+                return resize_video.invoke({
+                    "video_path": resolved,
+                    "aspect_ratio": aspect_ratio,
+                    "mode": mode,
+                    "output_path": output,
+                })
             return _resolve_video_path(clip_paths[0])
 
         resolved_clips = [_resolve_video_path(p) for p in clip_paths]
@@ -791,7 +809,7 @@ def merge_video(
 
         output_path = _resolve_output_path(output_path, "merged", resolved_clips[0])
         metas = [_ffprobe_video_meta(path) for path in resolved_clips]
-        compatible = _streams_compatible(metas)
+        compatible = _streams_compatible(metas) and aspect_ratio is None
 
         if compatible:
             with tempfile.NamedTemporaryFile(
@@ -829,21 +847,35 @@ def merge_video(
             # 혼합 가로/세로 소스에서 첫 클립만 기준으로 삼으면 나머지 다수
             # 클립이 작은 letterbox로 축소된다. 가장 흔한 해상도를 기준으로
             # 정규화하고, 빈 메타데이터일 때만 일반 가로 규격을 쓴다.
-            width, height = (
-                Counter(dimensions).most_common(1)[0][0]
-                if dimensions
-                else (1280, 720)
-            )
+            if aspect_ratio:
+                width, height = _TARGET_RESOLUTIONS[aspect_ratio]
+            else:
+                width, height = (
+                    Counter(dimensions).most_common(1)[0][0]
+                    if dimensions
+                    else (1280, 720)
+                )
             all_have_audio = all(_ffprobe_has_audio(path) for path in resolved_clips)
+            target_fps = max(1, min(60, int(os.getenv("EDIT_OUTPUT_FPS", "30"))))
             inputs = []
             filter_parts = []
             concat_inputs = []
             for idx, path in enumerate(resolved_clips):
                 inputs.extend(["-i", path])
-                filter_parts.append(
-                    f"[{idx}:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
-                    f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{idx}]"
-                )
+                if aspect_ratio and mode == "crop":
+                    video_filter = (
+                        f"[{idx}:v]scale={width}:{height}:"
+                        "force_original_aspect_ratio=increase,"
+                        f"crop={width}:{height},fps={target_fps},setsar=1[v{idx}]"
+                    )
+                else:
+                    video_filter = (
+                        f"[{idx}:v]scale={width}:{height}:"
+                        "force_original_aspect_ratio=decrease,"
+                        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
+                        f"fps={target_fps},setsar=1[v{idx}]"
+                    )
+                filter_parts.append(video_filter)
                 if all_have_audio:
                     filter_parts.append(
                         f"[{idx}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{idx}]"

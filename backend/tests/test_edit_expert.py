@@ -202,6 +202,39 @@ class TestCutVideo:
 # =============================================================
 
 class TestMergeVideo:
+    def test_target_aspect_ratio_crops_each_clip_before_concat(self, tmp_path):
+        clips = [tmp_path / "portrait.mp4", tmp_path / "landscape.mp4"]
+        for clip in clips:
+            clip.write_bytes(b"fake")
+        metas = [
+            {"width": 720, "height": 1280, "codec_name": "h264", "fps": "30/1"},
+            {"width": 1280, "height": 720, "codec_name": "h264", "fps": "30/1"},
+        ]
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit._ffprobe_video_meta", side_effect=metas), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=True), \
+             patch("agent.tools.edit._probe_duration_ms", return_value=1000), \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)):
+            _mock_ffmpeg_success(mock_run)
+            result = merge_video.invoke({
+                "clip_paths": [str(path) for path in clips],
+                "aspect_ratio": "9:16",
+                "mode": "crop",
+            })
+
+        assert not result.startswith("ERROR")
+        cmd = next(
+            call[0][0] for call in mock_run.call_args_list
+            if call[0] and call[0][0][0] == "ffmpeg"
+        )
+        filter_complex = cmd[cmd.index("-filter_complex") + 1]
+        assert "scale=720:1280" in filter_complex
+        assert "force_original_aspect_ratio=increase" in filter_complex
+        assert "crop=720:1280" in filter_complex
+        assert "fps=30" in filter_complex
+        assert "pad=" not in filter_complex
+
     def test_reencode_uses_majority_resolution_not_first_clip(self, tmp_path):
         clips = [tmp_path / f"clip{i}.mp4" for i in range(3)]
         for clip in clips:

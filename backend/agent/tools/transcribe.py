@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from langchain_core.tools import tool
 
 from agent.tools.audio_common import probe_duration, resolve_input_path, run_ffmpeg
+from agent.tools.transcript_polish import polish_transcript
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -42,9 +43,10 @@ def _load_cached_transcript(source: Path) -> dict | None:
         return None
 
     duration = max((float(segment.get("end", 0)) for segment in segments), default=0.0)
-    return {
+    result = {
         "status": "success",
         "segments": segments,
+        "raw_segments": data.get("raw_segments", segments),
         "segment_count": len(segments),
         "total_duration": duration,
         "language": data.get("language", "unknown"),
@@ -55,13 +57,19 @@ def _load_cached_transcript(source: Path) -> dict | None:
         "cache_path": str(path),
         "report": f"segments: {len(segments)}, total_duration: {duration}, cache: hit",
     }
+    if isinstance(data.get("correction"), dict):
+        result["correction"] = data["correction"]
+    return result
 
 
 def _save_transcript_cache(source: Path, payload: dict) -> Path:
     path = _transcript_cache_path(source)
     path.parent.mkdir(parents=True, exist_ok=True)
     cache_payload = {
+        "schema_version": 2,
         "segments": payload.get("segments", []),
+        "raw_segments": payload.get("raw_segments", payload.get("segments", [])),
+        "correction": payload.get("correction"),
         "language": payload.get("language"),
         "engine": payload.get("engine"),
         "chunk_count": payload.get("chunk_count", 0),
@@ -73,6 +81,47 @@ def _save_transcript_cache(source: Path, payload: dict) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def _correction_complete(correction: Any) -> bool:
+    return (
+        isinstance(correction, dict)
+        and correction.get("status") in {
+            "applied",
+            "no_changes",
+            "disabled",
+            "no_segments",
+        }
+    )
+
+
+def _apply_transcript_correction(
+    payload: dict,
+    *,
+    media_path: Path | None = None,
+) -> dict:
+    """Add one correction attempt while preserving the immutable Whisper output."""
+    if _correction_complete(payload.get("correction")):
+        return payload
+
+    raw_segments = payload.get("raw_segments")
+    if not isinstance(raw_segments, list):
+        raw_segments = payload.get("segments", [])
+
+    corrected, correction = polish_transcript(
+        raw_segments,
+        language=str(payload.get("language") or "unknown"),
+        media_path=media_path,
+    )
+    payload["raw_segments"] = raw_segments
+    payload["segments"] = corrected
+    payload["correction"] = correction
+    payload["segment_count"] = len(corrected)
+    payload["total_duration"] = max(
+        (float(segment.get("end", 0)) for segment in corrected),
+        default=0.0,
+    )
+    return payload
 
 
 def _normalize_audio(video_path: Path) -> Path:
@@ -203,12 +252,13 @@ def _local_whisper(audio_path: Path) -> tuple[list[dict], str]:
 
 
 @tool
-def transcribe_video(video_path: str, force: bool = False) -> str:
+def transcribe_video(video_path: str, force: bool = False, polish: bool = True) -> str:
     """Return Whisper transcript as a clean segment list with timestamps.
 
     Args:
         video_path: Absolute path or project-root-relative video path.
         force: True면 기존 transcript JSON 캐시를 무시하고 다시 전사.
+        polish: When True, correct only obvious ASR errors once before caching.
     """
     try:
         source = resolve_input_path(video_path)
@@ -218,6 +268,13 @@ def transcribe_video(video_path: str, force: bool = False) -> str:
     if not force:
         cached = _load_cached_transcript(source)
         if cached:
+            if polish and not _correction_complete(cached.get("correction")):
+                cached = _apply_transcript_correction(cached, media_path=source)
+                try:
+                    cache_path = _save_transcript_cache(source, cached)
+                    cached["cache_path"] = str(cache_path)
+                except OSError:
+                    logger.warning("corrected transcript cache save failed", exc_info=True)
             logger.info("transcript cache reused: %s", cached["cache_path"])
             return json.dumps(cached, ensure_ascii=False)
 
@@ -257,6 +314,7 @@ def transcribe_video(video_path: str, force: bool = False) -> str:
                 payload = {
                     "status": "success",
                     "segments": segments,
+                    "raw_segments": segments,
                     "segment_count": len(segments),
                     "total_duration": duration,
                     "language": language,
@@ -269,6 +327,11 @@ def transcribe_video(video_path: str, force: bool = False) -> str:
                         f"language: {language}"
                     ),
                 }
+                if polish:
+                    payload = _apply_transcript_correction(
+                        payload,
+                        media_path=normalized_path or source,
+                    )
                 try:
                     cache_path = _save_transcript_cache(source, payload)
                     payload["cache_path"] = str(cache_path)

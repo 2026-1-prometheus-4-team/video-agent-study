@@ -466,6 +466,13 @@ def build_sub_agent_system_prompt(
     stable_prefix = "\n\n---\n\n".join(sections_stable)
 
     sections_dynamic: list[str] = []
+    sections_dynamic.append(
+        "# Execution Contract\n\n"
+        "You must call at least one provided tool to execute the parent task. "
+        "Never report success from the task text or from an output file that already exists. "
+        "Existing output paths must be overwritten by the requested tool call. "
+        "If no tool can perform the task, return `ERROR: no applicable tool`."
+    )
     if parent_task_summary:
         sections_dynamic.append("# Parent Supervisor Task\n\n" + parent_task_summary)
 
