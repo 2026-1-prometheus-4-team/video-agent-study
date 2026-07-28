@@ -363,6 +363,8 @@ action 종류 (TOOLS.md 참조):
 - **"자막" 요청의 default 는 발화 전사(STT)다**: text_expert의
   `add_auto_subtitle`을 쓴다. 이 도구는 편집본의 origin 메타를 따라 원본 Whisper 캐시를
   결과 시간축으로 재구성하므로, 편집본을 `transcribe_video`로 다시 전사하는 step을 넣지 않는다.
+  원본 미디어로 검증된 소수의 반응 괄호/효과음 표기도 자동 포함하므로 이를 위해 별도
+  add_caption step을 만들지 않는다.
   video_context.scenes 의 *장면 묘사 텍스트를 자막으로 쓰지 않는다* —
   장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로.
   영상에 음성이 없다고 판단되면 questions 로 사용자에게 확인 (묘사 캡션 대체 여부).

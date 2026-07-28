@@ -415,16 +415,69 @@ def _source_speech(source: str) -> list[dict]:
     if os.path.exists(whisper_path):
         try:
             with open(whisper_path, encoding="utf-8") as f:
-                segs = json.load(f).get("segments", [])
-            return [
+                cache = json.load(f)
+            segs = cache.get("segments", [])
+            correction = cache.get("correction") or {}
+            saved_display = cache.get("display_segments")
+            if isinstance(saved_display, list) and saved_display:
+                display_speech = [
+                    item
+                    for item in saved_display
+                    if isinstance(item, dict) and item.get("kind") != "sound"
+                ]
+                display_edits = {
+                    index: str(item.get("text", "")).strip()
+                    for index, item in enumerate(display_speech)
+                    if str(item.get("text", "")).strip()
+                }
+            else:
+                display_edits = {
+                    item["segment_index"]: item["display_text"]
+                    for item in correction.get("display_edits", [])
+                    if (
+                        isinstance(item, dict)
+                        and isinstance(item.get("segment_index"), int)
+                        and isinstance(item.get("display_text"), str)
+                    )
+                }
+            speech = [
                 {
                     "start_ms": int(float(s.get("start", 0)) * 1000),
                     "end_ms": int(float(s.get("end", 0)) * 1000),
                     "text": str(s.get("text", "")).strip(),
+                    "display_text": display_edits.get(
+                        index,
+                        str(s.get("text", "")).strip(),
+                    ),
+                    "kind": "speech",
                 }
-                for s in segs
+                for index, s in enumerate(segs)
                 if str(s.get("text", "")).strip()
             ]
+            if isinstance(saved_display, list) and saved_display:
+                sound_items = [
+                    {
+                        "start": item.get("start"),
+                        "end": item.get("end"),
+                        "text": item.get("text"),
+                    }
+                    for item in saved_display
+                    if isinstance(item, dict) and item.get("kind") == "sound"
+                ]
+            else:
+                sound_items = correction.get("sound_captions", [])
+            for item in sound_items:
+                if not isinstance(item, dict) or not str(item.get("text", "")).strip():
+                    continue
+                speech.append({
+                    "start_ms": int(float(item.get("start", 0)) * 1000),
+                    "end_ms": int(float(item.get("end", 0)) * 1000),
+                    "text": "",
+                    "display_text": str(item["text"]).strip(),
+                    "kind": "sound",
+                })
+            speech.sort(key=lambda item: (item["start_ms"], item["end_ms"]))
+            return speech
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             pass
 
@@ -438,6 +491,8 @@ def _source_speech(source: str) -> list[dict]:
                     "start_ms": s.get("start_ms", 0),
                     "end_ms": s.get("end_ms", 0),
                     "text": str(s.get("transcript") or "").strip(),
+                    "display_text": str(s.get("transcript") or "").strip(),
+                    "kind": "speech",
                 }
                 for s in segs
                 if str(s.get("transcript") or "").strip()
@@ -495,10 +550,82 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
                 "start": round(new_start / 1000, 2),
                 "end": round(new_end / 1000, 2),
                 "text": seg["text"],
+                "display_text": seg.get("display_text", seg["text"]),
+                "kind": seg.get("kind", "speech"),
             })
 
     out.sort(key=lambda s: s["start"])
     return out
+
+
+def _display_segments(
+    segments: list[dict],
+    correction: dict | None = None,
+) -> list[dict]:
+    """Build render-only captions while leaving canonical spoken segments untouched."""
+    correction = correction if isinstance(correction, dict) else {}
+    display_edits = {
+        item["segment_index"]: item["display_text"]
+        for item in correction.get("display_edits", [])
+        if (
+            isinstance(item, dict)
+            and isinstance(item.get("segment_index"), int)
+            and isinstance(item.get("display_text"), str)
+        )
+    }
+    rendered: list[dict] = []
+    for index, segment in enumerate(segments):
+        display_text = str(
+            segment.get("display_text")
+            or display_edits.get(index)
+            or segment.get("text", "")
+        ).strip()
+        if not display_text:
+            continue
+        item = {
+            "start": float(segment["start"]),
+            "end": float(segment["end"]),
+            "text": display_text,
+        }
+        if isinstance(segment.get("style"), dict):
+            item["style"] = segment["style"]
+        if segment.get("kind") == "sound":
+            item["style"] = {
+                "position": "top",
+                "color": "#FFE600",
+                **item.get("style", {}),
+            }
+            item["kind"] = "sound"
+        rendered.append(item)
+
+    for sound in correction.get("sound_captions", []):
+        if not isinstance(sound, dict) or not str(sound.get("text", "")).strip():
+            continue
+        rendered.append({
+            "start": float(sound["start"]),
+            "end": float(sound["end"]),
+            "text": str(sound["text"]).strip(),
+            "kind": "sound",
+            "style": {"position": "top", "color": "#FFE600"},
+        })
+    rendered.sort(key=lambda item: (item["start"], item["end"]))
+    return rendered
+
+
+def _canonical_segments(segments: list[dict]) -> list[dict]:
+    """Strip display-only annotations from a transcript sidecar."""
+    canonical = []
+    for segment in segments:
+        text = str(segment.get("text", "")).strip()
+        if not text or segment.get("kind") == "sound":
+            continue
+        item = {
+            "start": segment["start"],
+            "end": segment["end"],
+            "text": text,
+        }
+        canonical.append(item)
+    return canonical
 
 
 @tool
@@ -509,9 +636,12 @@ def add_auto_subtitle(
 ) -> str:
     """영상을 자동 전사(Whisper)하고 자막 큐 문서 생성 후 burn-in — one-shot 처리.
 
-    내부 흐름: Whisper 전사 → SRT/JSON 사이드카 저장(프론트 호환) →
+    내부 흐름: Whisper 전사·보수적 교정·화면용 반응/효과음 캡션 제안 →
+    SRT/JSON 사이드카 저장(프론트 호환) →
     큐 문서(videos/subtitles/<stem>.cues.json, source_video 기록) 생성 →
     render_subtitles 로 ASS 렌더 + burn-in.
+    교정된 발화 원문과 `(당황)`, `[쾅]` 같은 화면 연출은 별도로 저장되며,
+    연출은 원본 미디어 근거와 높은 신뢰도를 통과한 소수 큐에만 적용된다.
     이후 개별 수정은 update_subtitle_cues / set_subtitle_style + render_subtitles 로 처리.
     플랫폼(shorts/youtube)에 따라 줄 길이와 폰트 크기 자동 조정.
 
@@ -558,6 +688,27 @@ def add_auto_subtitle(
             if not transcript:
                 return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
 
+        canonical_transcript = _canonical_segments(transcript)
+        display_transcript = _display_segments(
+            transcript,
+            result.get("correction"),
+        )
+        if not display_transcript:
+            return json.dumps({"error": "화면용 자막 결과가 비어 있습니다."}, ensure_ascii=False)
+        expressive_caption_count = sum(
+            1
+            for segment in transcript
+            if (
+                segment.get("kind") == "sound"
+                or str(segment.get("display_text", "")).strip()
+                not in {"", str(segment.get("text", "")).strip()}
+            )
+        )
+        correction = result.get("correction")
+        if isinstance(correction, dict):
+            expressive_caption_count += len(correction.get("display_edits", []))
+            expressive_caption_count += len(correction.get("sound_captions", []))
+
         # 2. SRT 생성 (font_size 기반 80% 줄바꿈)
         s_tmp = _merge_style(style)
         font_size = s_tmp.get("font_size", 24)
@@ -566,14 +717,18 @@ def add_auto_subtitle(
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
         name = os.path.splitext(os.path.basename(input_path))[0]
         srt_abs = os.path.join(SUBTITLES_DIR, f"{name}.srt")
-        srt_content = _build_srt(transcript, platform, max_len=max_len)
+        srt_content = _build_srt(display_transcript, platform, max_len=max_len)
         with open(srt_abs, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
         json_abs = os.path.join(SUBTITLES_DIR, f"{name}.json")
         with open(json_abs, "w", encoding="utf-8") as f:
             json.dump({
-                "segments": transcript,
+                "schema_version": 2,
+                "segments": canonical_transcript,
+                "raw_segments": result.get("raw_segments", canonical_transcript),
+                "display_segments": display_transcript,
+                "correction": result.get("correction"),
                 "language": result.get("language"),
                 "engine": result.get("engine") or "origin-reuse",
             }, f, ensure_ascii=False, indent=2)
@@ -586,7 +741,7 @@ def add_auto_subtitle(
         _, cues_doc_path = subtitle_cues.create_cues_doc(
             stem=name,
             source_video=input_path,
-            segments=transcript,
+            segments=display_transcript,
             style_defaults=defaults,
         )
 
@@ -628,7 +783,11 @@ def add_auto_subtitle(
         rendered_json = os.path.join(SUBTITLES_DIR, f"{rendered_stem}.json")
         with open(rendered_json, "w", encoding="utf-8") as f:
             json.dump({
-                "segments": transcript,
+                "schema_version": 2,
+                "segments": canonical_transcript,
+                "raw_segments": result.get("raw_segments", canonical_transcript),
+                "display_segments": display_transcript,
+                "correction": result.get("correction"),
                 "language": result.get("language"),
                 "engine": result.get("engine") or "origin-reuse",
                 "source_video": input_path,
@@ -636,7 +795,7 @@ def add_auto_subtitle(
         _, rendered_cues_doc = subtitle_cues.create_cues_doc(
             stem=rendered_stem,
             source_video=input_path,
-            segments=transcript,
+            segments=display_transcript,
             style_defaults=defaults,
         )
 
@@ -649,7 +808,9 @@ def add_auto_subtitle(
                 "size": defaults["size"],
                 "color": defaults["color"],
             },
-            "segments": len(transcript),
+            "segments": len(display_transcript),
+            "spoken_segments": len(canonical_transcript),
+            "expressive_captions": expressive_caption_count,
             "status": "success",
         }, ensure_ascii=False)
 

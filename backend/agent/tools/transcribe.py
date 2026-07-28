@@ -84,8 +84,13 @@ def _save_transcript_cache(source: Path, payload: dict) -> Path:
 
 
 def _correction_complete(correction: Any) -> bool:
+    try:
+        schema_version = int(correction.get("schema_version", 0))
+    except (AttributeError, TypeError, ValueError):
+        schema_version = 0
     return (
         isinstance(correction, dict)
+        and schema_version >= 2
         and correction.get("status") in {
             "applied",
             "no_changes",
@@ -107,12 +112,22 @@ def _apply_transcript_correction(
     raw_segments = payload.get("raw_segments")
     if not isinstance(raw_segments, list):
         raw_segments = payload.get("segments", [])
+    current_segments = payload.get("segments")
+    if not isinstance(current_segments, list):
+        current_segments = raw_segments
+    previous_correction = payload.get("correction")
 
     corrected, correction = polish_transcript(
-        raw_segments,
+        current_segments,
         language=str(payload.get("language") or "unknown"),
         media_path=media_path,
     )
+    if (
+        isinstance(previous_correction, dict)
+        and previous_correction.get("status") in {"applied", "no_changes"}
+        and previous_correction.get("schema_version") != correction.get("schema_version")
+    ):
+        correction["previous_correction"] = previous_correction
     payload["raw_segments"] = raw_segments
     payload["segments"] = corrected
     payload["correction"] = correction
@@ -330,7 +345,7 @@ def transcribe_video(video_path: str, force: bool = False, polish: bool = True) 
                 if polish:
                     payload = _apply_transcript_correction(
                         payload,
-                        media_path=normalized_path or source,
+                        media_path=source,
                     )
                 try:
                     cache_path = _save_transcript_cache(source, payload)

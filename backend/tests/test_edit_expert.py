@@ -748,6 +748,38 @@ class TestSpeechSnap:
         assert speech[0]["start_ms"] == 1250, "Whisper 의 실제 발화 시작"
         assert speech[0]["text"] == "첫 문장입니다"
 
+    def test_whisper_caption_enhancements_are_exposed_separately(self, speech_dirs):
+        """발화 원문은 유지하고 화면용 괄호/효과음만 별도 필드로 전달."""
+        from agent.tools.subtitle import _source_speech
+
+        cache_path = speech_dirs / "subtitles" / "src.json"
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        cache["correction"] = {
+            "schema_version": 2,
+            "status": "applied",
+            "display_edits": [{
+                "segment_index": 0,
+                "display_text": "(당황) 첫 문장입니다",
+            }],
+            "sound_captions": [{
+                "start": 4.5,
+                "end": 5.0,
+                "text": "[쾅]",
+            }],
+        }
+        cache_path.write_text(
+            json.dumps(cache, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        with patch("agent.tools.subtitle.VIDEOS_DIR", str(speech_dirs)), \
+             patch("agent.tools.subtitle.SUBTITLES_DIR", str(speech_dirs / "subtitles")):
+            speech = _source_speech(str(speech_dirs / "src.mp4"))
+
+        assert speech[0]["text"] == "첫 문장입니다"
+        assert speech[0]["display_text"] == "(당황) 첫 문장입니다"
+        assert any(item["kind"] == "sound" and item["display_text"] == "[쾅]" for item in speech)
+
     def test_snap_extends_to_speech_boundary(self, speech_dirs):
         """발화 한가운데를 자르면 발화 시작/끝으로 넓힌다."""
         from agent.tools.edit import _snap_to_speech
