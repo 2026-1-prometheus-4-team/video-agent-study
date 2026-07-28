@@ -159,6 +159,65 @@ class TestRouting:
 
         assert [s["step_id"] for s in out["script_plan"]["steps"]] == [1, 2]
 
+    def test_malformed_json_is_retried_before_user_interrupt(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        responses = iter([
+            '{"mode":"edit","steps":[',
+            json.dumps({"mode": "edit", "steps": [{"expert": "edit_expert"}], "questions": []}),
+        ])
+
+        class _FakeMsg:
+            def __init__(self, content):
+                self.content = content
+
+        class _FakeLLM:
+            def invoke(self, _messages):
+                return _FakeMsg(next(responses))
+
+        orig = sn.make_llm
+        sn.make_llm = lambda *a, **k: _FakeLLM()
+        try:
+            out = sn.script_node({"user_request": "30초 하이라이트로 만들어줘"})
+        finally:
+            sn.make_llm = orig
+
+        assert len(out["script_plan"]["steps"]) == 1
+        assert out["script_plan"]["questions"] == []
+        assert "_parse_error" not in out["script_plan"]
+
+    def test_repeated_malformed_json_does_not_show_zero_step_approval(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        class _FakeMsg:
+            content = '{"mode":"edit","steps":['
+
+        class _FakeLLM:
+            def invoke(self, _messages):
+                return _FakeMsg()
+
+        orig = sn.make_llm
+        sn.make_llm = lambda *a, **k: _FakeLLM()
+        try:
+            out = sn.script_node({"user_request": "30초 하이라이트로 만들어줘"})
+        finally:
+            sn.make_llm = orig
+
+        plan = out["script_plan"]
+        assert plan["mode"] == "chat"
+        assert plan["steps"] == []
+        assert plan["questions"] == []
+        assert "JSON" in plan["reply"]
+
+    def test_trailing_comma_is_repaired_without_retry(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        plan = sn._extract_json('{"mode":"edit","steps":[],"questions":[],}')
+        assert plan == {"mode": "edit", "steps": [], "questions": []}
+
     def test_chat_mode_routes_to_respond(self):
         state = {"script_plan": {"mode": "chat", "reply": "방금 1:23 구간을 잘랐어."}}
         assert should_interrupt_for_questions(state) == "respond"

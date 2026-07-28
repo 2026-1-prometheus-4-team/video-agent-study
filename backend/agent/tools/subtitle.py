@@ -61,8 +61,18 @@ def _font_family_from_file(font_file: str) -> str:
     stem = os.path.splitext(os.path.basename(font_file))[0]
     for suffix in ("-Regular", "-Bold", "-Medium", "-Light", "-SemiBold", "-ExtraBold"):
         if stem.endswith(suffix):
-            return stem[: -len(suffix)]
-    return stem
+            stem = stem[: -len(suffix)]
+            break
+
+    # File names are not guaranteed to equal the font's internal family name.
+    # In particular, the bundled file is NotoSansKR-Regular.ttf but libass must
+    # receive "Noto Sans KR".  "NotoSansKR" silently falls back to Arial and
+    # Korean subtitles become tofu boxes on hosts without a usable fallback.
+    known_families = {
+        "NotoSansKR": "Noto Sans KR",
+        "NotoSerifKR": "Noto Serif KR",
+    }
+    return known_families.get(stem, stem)
 
 
 # ─── 내부 헬퍼 ────────────────────────────────────────────────────────────────

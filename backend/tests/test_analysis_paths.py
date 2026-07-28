@@ -15,7 +15,27 @@ from unittest.mock import patch
 import pytest
 
 from agent.tools.edit import _find_analysis_path
-from agent.tools.video_analysis import analysis_stem
+from agent.tools.video_analysis import analysis_stem, _analysis_api_key, _is_rate_limit_error
+
+
+class TestAnalysisApiKey:
+    def test_dedicated_analysis_key_wins(self, monkeypatch):
+        monkeypatch.setenv("GOOGLE_API_KEY_ANALYSIS", "analysis-key")
+        monkeypatch.setenv("GOOGLE_API_KEY", "shared-key")
+        assert _analysis_api_key() == "analysis-key"
+
+    def test_shared_key_is_fallback(self, monkeypatch):
+        monkeypatch.delenv("GOOGLE_API_KEY_ANALYSIS", raising=False)
+        monkeypatch.setenv("GOOGLE_API_KEY", "shared-key")
+        assert _analysis_api_key() == "shared-key"
+
+    @pytest.mark.parametrize("message", [
+        "429 Too Many Requests",
+        "RESOURCE_EXHAUSTED: quota exceeded",
+        "rate limit reached",
+    ])
+    def test_rate_limit_detection(self, message):
+        assert _is_rate_limit_error(RuntimeError(message))
 
 
 @pytest.fixture

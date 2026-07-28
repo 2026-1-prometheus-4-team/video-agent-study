@@ -692,4 +692,7 @@ class TestMixAudioOffset:
         cmd = mock_run.call_args[0]
         audio_filter = cmd[cmd.index("-filter_complex") + 1]
         assert "adelay" not in audio_filter
-        assert audio_filter == "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[mix]"
+        assert "[0:a]volume=0.85[src]" in audio_filter
+        assert "[1:a]volume=1.0[ovl]" in audio_filter
+        assert "[src][ovl]amix=inputs=2:duration=first:normalize=0" in audio_filter
+        assert "alimiter=limit=0.95[mix]" in audio_filter

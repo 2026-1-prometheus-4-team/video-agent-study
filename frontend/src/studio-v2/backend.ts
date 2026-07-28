@@ -114,7 +114,7 @@ export async function createSession(
 
 type BackendEvent =
   | { type: "message"; node?: string; content: string }
-  | { type: "tool_call"; node?: string; tool_name: string; args?: Record<string, unknown> }
+  | { type: "tool_call"; tool_call_id?: string; node?: string; tool_name: string; args?: Record<string, unknown> }
   | { type: "tool_result"; tool_call_id?: string; ok?: boolean; result?: unknown; detail?: string }
   | {
       type: "interrupt";
@@ -139,6 +139,7 @@ type BackendEvent =
     }
   | {
       type: "final";
+      success?: boolean;
       output_path?: string;
       output_url?: string;
       video_context?: Record<string, unknown>;
@@ -573,6 +574,7 @@ export class AgentSocket {
   private retries = 0;
   private currentAgentMsgId: string | null = null;
   private currentToolStack: string[] = []; // FIFO 로 tool_result 매핑
+  private toolIds = new Map<string, string>();
   private openWaiters: Array<() => void> = [];
   private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingResume: {
@@ -587,6 +589,7 @@ export class AgentSocket {
   // 이번 턴이 error 이벤트 또는 사용자 cancel 로 깨졌는지. 서버는 중단된 tool 의
   // tool_result 를 보내지 않으므로, flush 시 이 값으로 성공/실패를 가른다.
   private turnBroken = false;
+  private turnBrokenReason: string | null = null;
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
@@ -739,6 +742,7 @@ export class AgentSocket {
   sendChat(message: string) {
     this.send({ type: "chat", message });
     this.turnBroken = false;
+    this.turnBrokenReason = null;
     this.bumpWatchdog();
   }
 
@@ -756,6 +760,7 @@ export class AgentSocket {
     this.resumeRetryCount = 0;
     this.send(payload);
     this.turnBroken = false;
+    this.turnBrokenReason = null;
     this.bumpWatchdog();
   }
 
@@ -777,6 +782,7 @@ export class AgentSocket {
     this.resumeRetryCount = 0;
     this.send(payload);
     this.turnBroken = false;
+    this.turnBrokenReason = null;
     this.bumpWatchdog();
   }
 
@@ -784,6 +790,7 @@ export class AgentSocket {
     this.send({ type: "cancel" });
     // 중지된 턴의 남은 tool 카드는 성공이 아니다.
     this.turnBroken = true;
+    this.turnBrokenReason = "사용자가 작업을 중지했어";
   }
 
   /**
@@ -795,7 +802,7 @@ export class AgentSocket {
     while (this.currentToolStack.length) {
       const id = this.currentToolStack.shift()!;
       if (this.turnBroken) {
-        store.endTool(id, false, undefined, "턴이 중단돼 결과를 받지 못했어");
+        store.endTool(id, false, undefined, this.turnBrokenReason || "서버 오류로 결과를 받지 못했어");
       } else {
         store.endTool(id, true);
       }
@@ -818,11 +825,15 @@ export class AgentSocket {
         const id = `tool-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
         store.startTool(id, asNode(ev.node), ev.tool_name, ev.args ?? {});
         this.currentToolStack.push(id);
+        if (ev.tool_call_id) this.toolIds.set(ev.tool_call_id, id);
         break;
       }
       case "tool_result": {
-        const id = this.currentToolStack.shift();
+        const mapped = ev.tool_call_id ? this.toolIds.get(ev.tool_call_id) : undefined;
+        const id = mapped ?? this.currentToolStack.shift();
         if (id) {
+          this.currentToolStack = this.currentToolStack.filter((x) => x !== id);
+          if (ev.tool_call_id) this.toolIds.delete(ev.tool_call_id);
           store.endTool(id, ev.ok !== false, ev.result, ev.detail);
         }
         break;
@@ -897,6 +908,7 @@ export class AgentSocket {
 
         store.pushFinal(outputPath, duration, {
           criticNote: ev.critic?.message_to_user,
+          success: ev.success !== false,
           outputUrl,
           scenes,
           transcript,
@@ -931,6 +943,8 @@ export class AgentSocket {
         store.endTurn();
         // 다음 턴 (큐잉된 chat 이 서버에서 자동 실행되는 경우 포함) 을 위해 리셋.
         this.turnBroken = false;
+        this.turnBrokenReason = null;
+        this.toolIds.clear();
         break;
       }
       case "resume_accepted": {
@@ -997,6 +1011,7 @@ export class AgentSocket {
 
         // 이번 턴은 깨졌다 — 이후 flush 되는 tool 카드를 초록색으로 닫지 않게.
         this.turnBroken = true;
+        this.turnBrokenReason = ev.detail || "서버 오류로 결과를 받지 못했어";
         store.pushError("오류", ev.detail);
         // 다른 탭이 먼저 응답해 interrupt 가 이미 해소된 상태에서 우리가 resume 을
         // 보낸 경우. 낙관적으로 띄운 pending phase 카드가 영원히 도는 걸 막고,

@@ -379,17 +379,20 @@ def make_spawn_tools(
     def _make_tool(role: str):
         # closure 로 각 역할 캡처
         @tool(role.replace("_expert", ""))  # tool name: edit / audio / text / effect / research
-        def _spawn(task: str, allowed_tools: Optional[list[str]] = None) -> str:
+        def _spawn(task: str) -> str:
             """위임 도구. 자세한 task description 을 자연어로 넘기면 해당 전문가가 격리 컨텍스트에서 처리.
 
             Args:
                 task: 전문가에게 줄 작업 설명. 파일 경로, 타임스탬프, 이전 산출물 등 필요한 정보 *전부* 박을 것.
-                allowed_tools: 이 호출에서 child 가 쓸 수 있는 tool 만 좁히고 싶을 때 (선택).
+                도구 선택은 child 전문가가 수행한다. Supervisor가 allowlist를
+                추측해 넘기면 여러 도구가 필요한 작업에서 후속 도구가 사라질 수 있다.
             """
             envelope = SubAgentEnvelope(
                 role=role,
                 task=task,
-                inherited_tool_allowlist=allowed_tools,
+                # Supervisor LLM이 임의로 tool group을 축소하지 못하게 한다.
+                # 역할별 격리는 ROLE_TO_TOOL_GROUP 자체로 이미 보장된다.
+                inherited_tool_allowlist=None,
                 video_context=video_context,
                 spawn_depth=parent_depth + 1,
                 parent_session_id=parent_session_id,

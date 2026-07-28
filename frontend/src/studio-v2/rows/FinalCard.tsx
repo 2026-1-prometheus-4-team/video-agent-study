@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CheckCircle2, Film, PenLine } from "lucide-react";
+import { AlertCircle, CheckCircle2, Film, PenLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { StreamItem } from "../state";
 import { formatSeconds } from "@/lib/format";
@@ -19,9 +19,16 @@ export function FinalCard({
     router.push("/motion");
   };
 
+  const onRetry = () => {
+    const prompt = item.criticNote
+      ? `미완료된 편집을 이어서 완료해줘. 이전 오류: ${item.criticNote}`
+      : "미완료된 편집 단계부터 다시 실행해서 최종 결과물을 완성해줘.";
+    window.dispatchEvent(new CustomEvent("va:fill-composer", { detail: prompt }));
+  };
+
   return (
     <motion.div
-      className={styles.finalCard}
+      className={`${styles.finalCard} ${item.success === false ? styles.finalCardFailed : ""}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -32,10 +39,16 @@ export function FinalCard({
       }}
     >
       <div className={styles.finalHeader}>
-        <div className={styles.finalCheck}>
-          <CheckCircle2 size={14} strokeWidth={2.4} />
+        <div className={item.success === false ? styles.finalFailed : styles.finalCheck}>
+          {item.success === false ? (
+            <AlertCircle size={14} strokeWidth={2.4} />
+          ) : (
+            <CheckCircle2 size={14} strokeWidth={2.4} />
+          )}
         </div>
-        <div className={styles.finalTitle}>편집 완료</div>
+        <div className={styles.finalTitle}>
+          {item.success === false ? "편집 미완료" : "편집 완료"}
+        </div>
         <div className={styles.finalDuration}>
           {formatSeconds(item.duration, false)}
         </div>
@@ -48,7 +61,7 @@ export function FinalCard({
       )}
 
       <div className={styles.finalActions}>
-        <button type="button" className={styles.btnGhost}>
+        <button type="button" className={styles.btnGhost} onClick={onRetry}>
           <PenLine size={12} />
           <span>다시 편집</span>
         </button>

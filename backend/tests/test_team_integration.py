@@ -11,6 +11,16 @@ import os
 import pytest
 
 
+class TestSubAgentToolIsolation:
+    def test_supervisor_cannot_narrow_child_role_tools(self):
+        """Supervisor가 merge만 허용해 cut_video를 숨기는 회귀를 막는다."""
+        from agent.sub_agent import make_spawn_tools
+
+        edit_spawn = next(tool for tool in make_spawn_tools() if tool.name == "edit")
+
+        assert set(edit_spawn.args_schema.model_fields) == {"task"}
+
+
 # =============================================================
 # PR #25 (이은채) — voice 선택 + 전사→TTS
 # =============================================================
@@ -103,6 +113,18 @@ class TestMultiVideoAnalysis:
         ctx = g.analysis_node({"video_paths": ["videos/ok.mp4", "videos/bad.mp4"]})["video_context"]
         assert ctx["duration"] == 4.0 and len(ctx["scenes"]) == 1
 
+    def test_all_failed_is_not_reported_as_zero_second_success(self, monkeypatch):
+        import agent.graph as g
+
+        monkeypatch.setattr(
+            g,
+            "_analyze_one_video",
+            lambda p: (os.path.basename(p), {"error": "429 quota exceeded"}),
+        )
+
+        with pytest.raises(RuntimeError, match="429 quota exceeded"):
+            g.analysis_node({"video_paths": ["videos/a.mp4"]})
+
     def test_transcript_feeds_search_blob(self, tmp_path):
         """byungkun 의 transcript 필드가 내 검색 blob 에 들어가야 발화 기반 검색이 산다."""
         from agent.tools.edit import search_video_segments
@@ -126,6 +148,11 @@ class TestMultiVideoAnalysis:
 # =============================================================
 
 class TestSubtitleFont:
+    def test_bundled_noto_uses_its_internal_family_name(self):
+        from agent.tools.subtitle import _font_family_from_file
+
+        assert _font_family_from_file("NotoSansKR-Regular.ttf") == "Noto Sans KR"
+
     def test_family_derived_from_filename(self):
         from agent.tools.subtitle import _font_family_from_file
 

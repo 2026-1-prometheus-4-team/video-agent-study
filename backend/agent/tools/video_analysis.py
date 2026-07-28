@@ -25,6 +25,20 @@ VIDEOS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "videos")
 SUBTITLES_DIR = os.path.join(VIDEOS_DIR, "subtitles")
 
 
+def _analysis_api_key() -> Optional[str]:
+    """Use the dedicated video-analysis key before the shared key."""
+    return os.getenv("GOOGLE_API_KEY_ANALYSIS") or os.getenv("GOOGLE_API_KEY")
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Recognize Gemini quota errors across SDK exception variants."""
+    message = str(exc).lower()
+    return any(token in message for token in (
+        "429", "resource_exhausted", "resource exhausted", "rate limit",
+        "quota exceeded", "too many requests",
+    ))
+
+
 def _load_transcript(video_path: str) -> list[dict]:
     """영상의 대사(transcript) 세그먼트 로드.
 
@@ -351,9 +365,12 @@ def analyze_video(
             f"청크 {n_chunks}개, 대사 {len(transcript)}개"
         )
 
-        api_key = os.getenv("GOOGLE_API_KEY")
+        api_key = _analysis_api_key()
         if not api_key:
-            return json.dumps({"error": "GOOGLE_API_KEY 환경변수가 설정되지 않았습니다."}, ensure_ascii=False)
+            return json.dumps({
+                "error": "GOOGLE_API_KEY_ANALYSIS 또는 GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.",
+                "error_code": "missing_api_key",
+            }, ensure_ascii=False)
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.5-flash")
@@ -389,6 +406,14 @@ def analyze_video(
                         chunk_summaries.append(parsed["summary"])
                     break
                 except Exception as e:
+                    if _is_rate_limit_error(e):
+                        logger.error("chunk %s analysis rate-limited: %s", chunk_no, e)
+                        return json.dumps({
+                            "error": f"Gemini 영상 분석 요청 한도 초과: {e}",
+                            "error_code": "rate_limited",
+                            "status_code": 429,
+                            "duration": round(duration_sec, 3),
+                        }, ensure_ascii=False)
                     if attempt < 3:
                         logger.warning(
                             f"청크 {chunk_no} 분석 실패 ({attempt}/3), 재시도: {e}"

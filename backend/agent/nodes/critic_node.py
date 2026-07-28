@@ -70,18 +70,49 @@ def critic_node(state: AgentState) -> dict[str, Any]:
 
     # 1. 객관 가드: 파일 존재 여부 같은 *기계적* 체크는 LLM 부르기 전에 먼저
     objective_issues: list[str] = []
+    trace = state.get("execution_trace", []) or []
+    plan_steps = (script_plan or {}).get("steps", []) if isinstance(script_plan, dict) else []
+    successful_ids = {
+        step.get("step_id") for step in trace
+        if step.get("status") == "ok" and step.get("step_id") is not None
+    }
+    # 과거에 실패했더라도 같은 step_id가 이후 재시도에서 성공했다면 해결된
+    # 오류다. 오래된 error trace 때문에 영원히 RETRY하지 않도록 제외한다.
+    failed_steps = [
+        step for step in trace
+        if step.get("status") == "error"
+        and step.get("step_id") not in successful_ids
+    ]
+    missing_steps = [
+        step for step in plan_steps
+        if step.get("step_id") is not None and step.get("step_id") not in successful_ids
+    ]
     if not final_path:
         objective_issues.append("final_output_path 가 비어 있음 (supervisor 가 출력 경로를 보고하지 않음)")
     elif not os.path.exists(final_path):
         objective_issues.append(f"final_output_path 가 file system 에 없음: {final_path}")
+    if failed_steps:
+        failed_ids = ", ".join(str(step.get("step_id", "?")) for step in failed_steps)
+        objective_issues.append(f"실패한 실행 step 존재: {failed_ids}")
+    if missing_steps:
+        missing_ids = ", ".join(str(step.get("step_id", "?")) for step in missing_steps)
+        objective_issues.append(f"완료되지 않은 계획 step 존재: {missing_ids}")
 
-    # 객관 가드만으로도 명백한 실패면 LLM 안 부르고 즉시 RETRY
-    if objective_issues and not final_path:
+    # MP4 하나가 존재해도 TTS/믹싱/캡션 step이 실패하거나 빠졌다면 완성본이
+    # 아니다. LLM의 낙관적 판정을 받지 않고 해당 step부터 즉시 RETRY한다.
+    if objective_issues:
+        retry_candidates = failed_steps + missing_steps
+        retry_from = retry_candidates[0].get("step_id") if retry_candidates else None
         verdict = {
             "verdict": "RETRY",
             "issues": objective_issues,
-            "retry_from_step_id": None,
-            "message_to_user": "최종 결과물이 만들어지지 않음. 처음부터 다시 실행 권장.",
+            "retry_from_step_id": retry_from,
+            "message_to_user": (
+                "일부 필수 편집 단계가 실패하거나 완료되지 않아 부분 결과만 생성됐어. "
+                f"step {retry_from}부터 다시 시도할게."
+                if retry_from is not None
+                else "최종 결과물이 만들어지지 않아 다시 시도할게."
+            ),
         }
         logger.warning("critic objective fail: %s", objective_issues)
         return {
