@@ -54,8 +54,10 @@ def make_llm(
         "temperature": temperature if temperature is not None else default_temp,
         # 일시적 서버 오류(503, RemoteProtocolError 등) 자동 재시도.
         # 서버가 응답 없이 끊는 경우가 있어 파이프라인 안정성을 위해 필수.
-        "max_retries": 5,
-        "timeout": 120,
+        # 짧은 일시 장애는 자동 복구하되, 한 요청이 수 분간 재시도되며 UI를
+        # busy 상태로 붙잡지 않도록 제한한다.
+        "max_retries": 2,
+        "timeout": 60,
     }
     if cached_content:
         kwargs["cached_content"] = cached_content

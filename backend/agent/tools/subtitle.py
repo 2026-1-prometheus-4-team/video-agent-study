@@ -11,6 +11,8 @@ import logging
 import os
 import re
 import subprocess
+import uuid
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 from typing_extensions import TypedDict
@@ -30,6 +32,27 @@ load_dotenv(os.path.abspath(os.path.join(_HERE, "..", "..", ".env")))
 
 _DEFAULT_FONT_FILE = os.getenv("SUBTITLE_FONT", "NotoSansKR-Regular.ttf")
 _EMOJI_FONT_FILE = "NotoColorEmoji.ttf"
+_FONTCONFIG_FILE = os.path.abspath(
+    os.path.join(_HERE, "..", "..", "assets", "fontconfig", "fonts.conf")
+)
+
+
+def _resolve_video_file(video_path: str) -> Path:
+    """Resolve absolute, videos/... and videos-relative paths consistently."""
+    raw = Path(video_path)
+    if raw.is_absolute():
+        return raw.resolve()
+    parts = raw.parts
+    without_videos = (
+        Path(*parts[1:]) if parts and parts[0].lower() == "videos" else raw
+    )
+    backend_root = Path(VIDEOS_DIR).parent
+    candidates = [
+        backend_root / raw,
+        Path(VIDEOS_DIR) / without_videos,
+        Path(VIDEOS_DIR) / raw,
+    ]
+    return next((p.resolve() for p in candidates if p.exists()), candidates[1].resolve())
 
 # 반응형 자막 비율 상수 (PlayResY=288 기준 ASS 캔버스 / drawtext 는 실제 픽셀)
 _FONT_SIZE_PCT = 0.05          # 화면 높이의 5%
@@ -114,6 +137,21 @@ def _resolve_font(filename: str) -> str | None:
     """fonts/ 디렉터리에 해당 폰트가 있으면 절대 경로, 없으면 None."""
     path = os.path.join(FONTS_DIR, filename)
     return path if os.path.exists(path) else None
+
+
+def _ffmpeg_env() -> dict[str, str]:
+    """Return a subprocess environment with a project fontconfig on Windows.
+
+    Gyan/WinGet FFmpeg builds can include libass/fontconfig without installing a
+    machine-wide default fonts.conf. In that case subtitles rendering fails even
+    when fontsdir points at a valid TTF. Keep explicit user configuration, but
+    provide the project config as the Windows fallback.
+    """
+    env = os.environ.copy()
+    if os.name == "nt" and os.path.isfile(_FONTCONFIG_FILE):
+        env.setdefault("FONTCONFIG_FILE", _FONTCONFIG_FILE)
+        env.setdefault("FONTCONFIG_PATH", os.path.dirname(_FONTCONFIG_FILE))
+    return env
 
 
 def _seconds_to_srt_time(s: float) -> str:
@@ -305,7 +343,12 @@ def _drawtext_xy(position: str) -> str:
 
 def _run_ffmpeg(cmd: list) -> tuple[int, str]:
     result = subprocess.run(
-        cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore"
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+        env=_ffmpeg_env(),
     )
     return result.returncode, result.stderr
 
@@ -891,9 +934,8 @@ def add_title(
 
         vf = "drawtext=" + ":".join(parts)
 
-        name, ext = os.path.splitext(video_path)
-        output_name = f"{name}_title{ext}"
-        output_path = os.path.join(VIDEOS_DIR, output_name)
+        output_file = Path(input_path).with_name(f"{Path(input_path).stem}_title{Path(input_path).suffix}")
+        output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
         code, stderr = _run_ffmpeg(cmd)
@@ -901,7 +943,7 @@ def add_title(
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
         return json.dumps({
-            "output": output_name,
+            "output": str(output_file),
             "style": {
                 "font": "NotoSansKR" if font_path else "system",
                 "size": font_size,
@@ -942,7 +984,7 @@ def add_caption(
     try:
         input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
-            return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
+            return json.dumps({"status": "error", "error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         s = _merge_style(style, tool_defaults={"font_size": 32, "color": "yellow", "position": "center"})
 
@@ -978,9 +1020,10 @@ def add_caption(
 
         vf = "drawtext=" + ":".join(parts)
 
-        name, ext = os.path.splitext(video_path)
-        output_name = f"{name}_caption_{int(at_time)}{ext}"
-        output_path = os.path.join(VIDEOS_DIR, output_name)
+        output_file = Path(input_path).with_name(
+            f"{Path(input_path).stem}_caption_{int(at_time)}{Path(input_path).suffix}"
+        )
+        output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
         code, stderr = _run_ffmpeg(cmd)
@@ -988,7 +1031,7 @@ def add_caption(
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
         return json.dumps({
-            "output": output_name,
+            "output": str(output_file),
             "style": {
                 "font": "NotoSansKR" if font_path else "system",
                 "size": font_size,
@@ -1003,6 +1046,133 @@ def add_caption(
     except Exception as e:
         logger.error(f"add_caption 오류: {e}")
         return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+
+@tool
+def add_captions_batch(
+    video_path: str,
+    captions: list[dict],
+    output_path: str = "",
+) -> str:
+    """여러 강조 캡션을 FFmpeg 한 번으로 영상에 삽입한다.
+
+    발화 전체 자막은 add_auto_subtitle을 사용하고, 이 도구는 제목·챕터·핵심
+    강조 문구처럼 선별된 화면 텍스트에만 사용한다.
+
+    Args:
+        video_path: 입력 영상 경로.
+        captions: 캡션 목록. 각 항목은 text와 at_time 또는 start_ms를 포함하고,
+            duration 또는 end_ms 및 선택적 style dict를 받을 수 있다.
+        output_path: 선택 출력 경로. 생략하면 입력 파일 옆에 고유 이름으로 저장.
+    """
+    try:
+        input_file = _resolve_video_file(video_path)
+        input_path = str(input_file.resolve())
+        if not os.path.exists(input_path):
+            return json.dumps(
+                {"status": "error", "error": f"영상 파일 없음: {input_path}"},
+                ensure_ascii=False,
+            )
+        if not captions:
+            return json.dumps(
+                {"status": "error", "error": "captions 목록이 비어 있습니다."},
+                ensure_ascii=False,
+            )
+
+        filters: list[str] = []
+        normalized: list[dict] = []
+        for index, item in enumerate(captions):
+            text = str(item.get("text") or "").strip()
+            if not text:
+                return json.dumps(
+                    {"status": "error", "error": f"captions[{index}].text가 비어 있습니다."},
+                    ensure_ascii=False,
+                )
+
+            if item.get("start_ms") is not None:
+                start = float(item["start_ms"]) / 1000.0
+            else:
+                start = float(item.get("at_time", 0.0))
+            if item.get("end_ms") is not None:
+                end = float(item["end_ms"]) / 1000.0
+            else:
+                end = start + float(item.get("duration", 2.0))
+            if start < 0 or end <= start:
+                return json.dumps(
+                    {"status": "error", "error": f"captions[{index}] 시간 범위가 잘못되었습니다."},
+                    ensure_ascii=False,
+                )
+
+            style_value = item.get("style") or {}
+            style_json = (
+                json.dumps(style_value, ensure_ascii=False)
+                if isinstance(style_value, dict)
+                else str(style_value)
+            )
+            s = _merge_style(
+                style_json,
+                tool_defaults={"font_size": 32, "color": "yellow", "position": "center"},
+            )
+            requested_font = str(s.get("font") or "").strip()
+            font_path = (
+                _resolve_font(requested_font)
+                or _resolve_font(f"{requested_font}.ttf")
+                or _resolve_font(_DEFAULT_FONT_FILE)
+            )
+            parts = [f"text='{_escape_drawtext(text)}'"]
+            if font_path:
+                parts.append(f"fontfile='{_ffmpeg_filter_path(font_path)}'")
+            parts += [
+                f"fontsize={int(s['font_size'])}",
+                f"fontcolor={s['color']}",
+                f"borderw={float(s['stroke_width']):g}",
+                f"bordercolor={s['stroke_color']}",
+                _drawtext_xy(s.get("position", "center")),
+                f"enable='between(t,{start:.3f},{end:.3f})'",
+            ]
+            filters.append("drawtext=" + ":".join(parts))
+            normalized.append({"text": text, "start": start, "end": end})
+
+        if output_path:
+            output_file = Path(output_path)
+            if not output_file.is_absolute():
+                output_file = Path(VIDEOS_DIR).parent / output_file
+        else:
+            output_file = input_file.with_name(
+                f"{input_file.stem}_captions_{uuid.uuid4().hex[:8]}{input_file.suffix}"
+            )
+        output_file = output_file.resolve()
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        cmd = [
+            "ffmpeg", "-y", "-i", input_path,
+            "-vf", ",".join(filters),
+            "-c:a", "copy", str(output_file),
+        ]
+        code, stderr = _run_ffmpeg(cmd)
+        if code != 0:
+            return json.dumps(
+                {"status": "error", "error": stderr[-1200:]}, ensure_ascii=False
+            )
+
+        return json.dumps(
+            {
+                "status": "success",
+                "output": str(output_file),
+                "segments": len(normalized),
+                "captions": normalized,
+                "render_passes": 1,
+            },
+            ensure_ascii=False,
+        )
+    except FileNotFoundError:
+        return json.dumps(
+            {"status": "error", "error": "FFmpeg가 설치되어 있지 않습니다."},
+            ensure_ascii=False,
+        )
+    except Exception as e:
+        logger.error(f"add_captions_batch 오류: {e}")
+        return json.dumps({"status": "error", "error": str(e)}, ensure_ascii=False)
 
 
 @tool
@@ -1050,9 +1220,10 @@ def add_emoji_overlay(
 
         vf = "drawtext=" + ":".join(parts)
 
-        name, ext = os.path.splitext(video_path)
-        output_name = f"{name}_emoji_{int(at_time)}{ext}"
-        output_path = os.path.join(VIDEOS_DIR, output_name)
+        output_file = Path(input_path).with_name(
+            f"{Path(input_path).stem}_emoji_{int(at_time)}{Path(input_path).suffix}"
+        )
+        output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
         code, stderr = _run_ffmpeg(cmd)
@@ -1060,7 +1231,7 @@ def add_emoji_overlay(
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
         return json.dumps({
-            "output": output_name,
+            "output": str(output_file),
             "style": {"font": font_used, "size": 72, "color": "color"},
             "segments": 1,
             "font_fallback": font_used == "system",
@@ -1074,7 +1245,14 @@ def add_emoji_overlay(
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
-TOOLS = [add_subtitle, add_auto_subtitle, add_title, add_caption, add_emoji_overlay]
+TOOLS = [
+    add_subtitle,
+    add_auto_subtitle,
+    add_title,
+    add_caption,
+    add_captions_batch,
+    add_emoji_overlay,
+]
 
 
 if __name__ == "__main__":
