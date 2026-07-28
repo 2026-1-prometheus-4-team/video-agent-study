@@ -229,20 +229,45 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
   "target_duration_sec": <number or null>,
 
   "creative_brief": {
+    "title": "<영상 내용을 반영한 직관적이고 흥미로운 기획 제목>",
     "concept": "<한 줄 컨셉. 예: 우당탕탕 복층 오피스텔 현실 이사 1일차>",
-    "hook": "<첫 3초 안에 시선을 잡는 멘트>",
+    "intent": "<전체적인 구성과 기획 방향>",
+    "hook": "<첫 3초 안에 시선을 잡는 장면 또는 메시지>",
+    "target_duration_sec": <number or null>,
+    "duration_reason": "<타겟 플랫폼과 몰입도를 고려한 길이 선정 이유>",
+    "recommended_bgm": "<음원명이 아닌 BGM 장르와 분위기>",
     "bgm_flow": "<BGM 흐름. 예: 경쾌한 브이로그 -> 실패 순간 정적/개그 -> 마무리 따뜻한>",
     "storyboard": [
       {
         "idx": 1,
-        "role": "<훅 | 전개 | 하이라이트 | 마무리>",
+        "output_start_ms": <결과 영상 시작 ms>,
+        "output_end_ms": <결과 영상 종료 ms>,
+        "role": "<Hook | Context | Build-up | Highlight | Payoff | Ending>",
         "source": "videos/<실제 영상 파일>",
         "source_start_ms": <원본 시작 ms — scenes 의 실제 경계값>,
         "source_end_ms": <원본 끝 ms>,
         "visual": "<이 구간에 무엇이 보이는지 (scenes 의 description 기반)>",
+        "selection_reason": "<이 장면을 선택하고 해당 위치에 배치한 기획적 이유>",
         "narration": "<이 구간에 얹을 나레이션 대본. 없으면 빈 문자열>",
-        "on_screen_text": "<화면에 띄울 자막/캡션. 없으면 빈 문자열>"
+        "narration_start_ms": <나레이션 시작 ms — output 구간 내부>,
+        "narration_end_ms": <나레이션 종료 목표 ms — output 구간 내부>,
+        "on_screen_text": "<화면에 띄울 자막/캡션. 없으면 빈 문자열>",
+        "edit_direction": "<화면 확대, 컷 전환, 배속 등의 편집 연출>",
+        "sfx": "<Pop, Whoosh, 없음 등>"
       }
+    ],
+    "directing": {
+      "cut_tempo": "<컷 길이와 전체 편집 템포>",
+      "subtitle_and_font": "<자막과 폰트 스타일>",
+      "visual_and_speed": "<화면 연출과 배속 방향>"
+    },
+    "user_revision_guide": [
+      "영상 길이 변경",
+      "특정 장면 교체 및 삭제",
+      "전체적인 분위기 및 콘셉트 수정",
+      "BGM 스타일 변경",
+      "자막 및 내레이션 톤 수정",
+      "전개 순서 변경"
     ]
   },
 
@@ -258,7 +283,7 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
     },
     ...
   ],
-  "tts_choice": { "voice_id": "...", "alternatives": ["...", "..."] } | null,
+  "tts_choice": { "voice": "1", "alternatives": ["2", "3"] } | null,
   "subtitle_style": { "font": "...", "size": ..., "color": "...", "position": "..." } | null,
   "bgm_choice": { "mood": "...", "ducking": true|false } | null,
   "color_grade": "warm" | "cool" | "cinematic" | "vivid" | "none",
@@ -271,8 +296,8 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 
 action 종류 (TOOLS.md 참조):
 - **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(필요 장면 추출), remove_video_segments(명시 구간 제거), remove_by_description(불필요 장면 검색+제거), resize_video(화면비 변환: 9:16 쇼츠 등)
-- **audio_expert**: transcribe_video, text_to_speech, add_bgm, add_sfx, mix_audio, denoise, normalize_loudness
-- **text_expert**: add_subtitle, add_auto_subtitle, add_title, add_caption, add_emoji_overlay
+- **audio_expert**: transcribe_video, text_to_speech, generate_bgm, add_bgm, generate_sfx, add_sfx, mix_audio, denoise, normalize_loudness
+- **text_expert**: add_subtitle, add_auto_subtitle, add_title, add_caption, add_captions_batch, add_emoji_overlay
 - **effect_expert**: apply_remotion_effect, query_effect_catalog
 - **research_expert**: web_search, youtube_trend
 
@@ -292,7 +317,16 @@ action 종류 (TOOLS.md 참조):
   원본 대사를 그대로 옮기지 마라 (그건 자막이 이미 담당한다).
   구어체로, 상황에 대한 코멘트/리액션/공감을 쓴다.
   나레이션이 필요 없는 구간은 빈 문자열로 둔다.
-- **on_screen_text 는 강조 캡션이다.** 짧고 임팩트 있게.
+- **on_screen_text 는 강조 캡션이다.** 짧고 임팩트 있게 쓰되 대부분의 storyboard
+  항목은 빈 문자열이어야 한다. 장면 설명을 매 항목마다 화면에 반복하지 마라.
+- TTS 보이스 선택은 `voice` 필드와 text_to_speech의 `voice` 인자를 사용한다.
+  이 프로젝트에 설정된 숫자 별칭 `"1"`~`"7"` 중 하나를 고른다.
+  `voice_id`는 사용자가 실제 ElevenLabs 원본 voice ID를 직접 제공한 경우에만 쓴다.
+- 각 storyboard 항목에는 결과 영상 배치 시간(`output_start_ms` / `output_end_ms`),
+  장면 선택 이유(`selection_reason`), 편집 연출(`edit_direction`), 효과음(`sfx`)을
+  빠짐없이 작성한다.
+- `creative_brief`에는 기획 제목, 예상 길이와 선정 이유, 전체 콘셉트, 기획 의도,
+  추천 BGM, 전체 편집 디렉팅을 포함한다.
 - 실패·어색함·현실적인 순간을 살려라. 완벽한 장면만 나열하면 재미가 없다.
 - 구성은 훅 -> 전개 -> 하이라이트 -> 마무리 흐름을 갖춘다.
 
@@ -300,14 +334,22 @@ action 종류 (TOOLS.md 참조):
 
 - 각 storyboard 항목의 `source` / `source_start_ms` / `source_end_ms` 를 그대로
   cut_video 의 파라미터로 쓴다. 임의의 값을 다시 만들지 마라.
-- **나레이션은 하나로 합쳐서 한 번만 만든다.**
-  storyboard 의 narration 들을 순서대로 이어 붙여 *하나의 대본*으로 만들고,
-  `text_to_speech` 1회 + `mix_audio` 1회로 처리한다.
-  구간마다 TTS/mix 를 따로 만들면 step 이 수십 개로 불어나고, 앞 단계 출력 경로를
-  줄줄이 참조하다 하나만 어긋나도 전부 실패한다.
-  예) text: "이사 전날, 제 방은 전쟁터였습니다. 피규어부터 옷까지 할 일이 산더미였죠. ..."
-- `text_to_speech` 의 text 는 **반드시 storyboard 의 narration 문구**를 이어 붙인
-  것이어야 한다. 사용자가 입력한 문장이나 원본 대사를 넣지 마라.
+- **나레이션은 storyboard 시간에 맞춰 구간별로 배치한다.**
+  모든 narration을 하나의 TTS로 합쳐 쉬지 않고 읽게 하지 마라. narration이 있는
+  storyboard 항목마다 별도 TTS를 만들고, 해당 항목의 `narration_start_ms`에
+  `mix_audio(mode="overlay", at_time_ms=...)`로 배치한다. narration_start_ms가
+  없으면 output_start_ms를 사용한다.
+- 각 TTS의 실제 `duration_sec`은 `narration_end_ms - narration_start_ms` 안에
+  들어와야 한다. 길면 음성 속도를 바꾸지 말고 문장을 짧게 다시 써서 재생성한다.
+  다음 장면의 문장을 앞당겨 읽지 말고, 장면 사이의 무음 간격을 그대로 보존한다.
+- 모든 장면에 나레이션을 넣지 않는다. 원본 대사·현장음만으로 전달되는 장면은
+  narration을 빈 문자열로 둔다. 45초 영상 기준 핵심 나레이션은 보통 3~5개로
+  제한하고, 각 문장 뒤에 최소 0.5초 이상의 여백을 확보한다.
+- 구간별 mix는 직전 mix의 실제 output을 다음 mix의 video_path로 연결한다.
+  나레이션은 원본 영상 소리를 보존하도록 `original_volume=0.85,
+  overlay_volume=1.0`을 사용한다. `replace`는 명시적인 더빙 교체에만 쓴다.
+- `text_to_speech`의 text는 해당 storyboard 항목의 narration 문구여야 한다.
+  사용자가 입력한 문장이나 원본 대사를 임의로 넣지 마라.
 
 ## step 은 최대한 적게, 경로 연결은 정확하게
 
@@ -318,17 +360,30 @@ action 종류 (TOOLS.md 참조):
   각자 다른 출력을 내면 누적되지 않고 마지막 하나만 남는다는 점도 주의.
 - 가로/세로 클립이 섞였고 최종 화면비가 명확하면 각 클립을 먼저 같은 화면비로
   맞춘 뒤 merge_video 하라. 병합 뒤에는 이미 생긴 letterbox를 복구할 수 없다.
-- 자막(add_auto_subtitle)은 원본 발화를 자동으로 처리하므로 storyboard 의
-  on_screen_text 와는 별개다. 둘 다 필요하면 각각 step 을 만든다.
+- 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다. storyboard 항목마다
+  발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본 발화를
+  자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
+- 제목·챕터·핵심 강조처럼 꼭 필요한 `on_screen_text`만 선별한다. 일반 브이로그/쇼츠는
+  보통 3~6개, 최대 8개만 허용한다. 사용자가 장면별 화면 텍스트를 명시적으로 요구한
+  경우에만 이 제한을 넘을 수 있다.
+- 강조 캡션이 2개 이상이면 개별 `add_caption` step 여러 개를 만들지 말고 모든 항목을
+  하나의 `add_captions_batch` step에 담아 FFmpeg 한 번으로 렌더한다.
 
 - **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
   미구현이라 실행이 실패한다.) 화면비 변환은 `resize_video` 로 처리하고,
   subject-aware 리프레임·속도 조절처럼 아직 없는 기능만 step 대신
   `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
 - 사용자 요청에 필요한 작업은 빠뜨리지 않되, 같은 expert의 연속 작업은 가능한 한 묶는다.
+  전체 step은 보통 15개 이내, 최대 20개로 제한하고, 같은 종류의 반복 작업은
+  배치 도구 또는 한 expert 호출로 묶는다. 숫자를 맞추려고 명시된 요구를 누락하지는
+  말고, 묶을 수 없는 작업만 예외로 둔다.
 - *사용자가 명시적으로 요청하지 않은* TTS/나레이션 / 자막 / BGM / 효과음 /
   transcribe step 은 추가하지 않는다. creative_brief 에 narration/bgm_flow 를 썼다는
   이유만으로 실행 step 을 만들지 마라.
+- 사용자가 BGM을 요청했는데 지정 파일이 없거나 찾을 수 없으면 선택지에 반드시
+  "AI로 새 BGM 생성 (추천)", "다른 파일 지정", "배경음악 없이 진행"을 포함한다.
+  생성 선택 시 audio_expert.generate_bgm을 먼저 실행하고, 반환된 output을
+  add_bgm.bgm_path로 연결한다. 파일 누락만으로 BGM 작업을 포기하지 않는다.
 - 자동 자막 폰트는 설치된 `NotoSansKR` 을 사용한다.
 - 목표 길이가 있으면 (예: 1분) 그 길이에 맞게 video_context.scenes 에서 필요한 장면 *몇 개만 선별*한다.
   전체 장면을 모두 cut 하는 plan 은 금지 (결과가 원본 길이 그대로 나옴).
@@ -363,8 +418,11 @@ action 종류 (TOOLS.md 참조):
 - **"자막" 요청의 default 는 발화 전사(STT)다**: text_expert의
   `add_auto_subtitle`을 쓴다. 이 도구는 편집본의 origin 메타를 따라 원본 Whisper 캐시를
   결과 시간축으로 재구성하므로, 편집본을 `transcribe_video`로 다시 전사하는 step을 넣지 않는다.
+  원본 미디어로 검증된 소수의 반응 괄호/효과음 표기도 자동 포함하므로 이를 위해 별도
+  add_caption step을 만들지 않는다.
   video_context.scenes 의 *장면 묘사 텍스트를 자막으로 쓰지 않는다* —
-  장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로.
+  장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로 하되,
+  2개 이상이면 `add_captions_batch` 한 step으로 묶는다.
   영상에 음성이 없다고 판단되면 questions 로 사용자에게 확인 (묘사 캡션 대체 여부).
 - **자막 수정 요청 ("두번째 자막 오타", "이 자막만 노란색", "자막 전부 위로") 은 재전사가 아니라
   큐 수정이다**: text_expert 의 list_subtitle_cues → update_subtitle_cues / set_subtitle_style →
@@ -388,12 +446,16 @@ def build_script_node_system_prompt(
     """Script 생성 노드용 system prompt."""
     workspace = config.WORKSPACE_DIR
 
+    shorts_fewshots = _read_cached(workspace / "SHORTS_FEWSHOTS.md")
+
     sections = [
         "# Identity & Voice\n\n" + _read_cached(workspace / "SOUL.md"),
         "# Governance & Routing\n\n" + _read_cached(workspace / "AGENTS.md"),
         "# Tool Catalog\n\n" + _read_cached(workspace / "TOOLS.md"),
-        "# TTS Voice Library\n\n" + _load_tts_voices(),
     ]
+    if shorts_fewshots:
+        sections.append("# Shorts Editing Few-shot Examples\n\n" + shorts_fewshots)
+    sections.append("# TTS Voice Library\n\n" + _load_tts_voices())
     if video_context:
         sections.append("# Pre-computed Video Analysis\n\n" + _format_video_context(video_context))
 

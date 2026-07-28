@@ -16,7 +16,7 @@ import requests
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 
-from agent.tools.audio_common import ensure_parent, resolve_input_path
+from agent.tools.audio_common import ensure_parent
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -24,7 +24,6 @@ ENV_PATH = PROJECT_ROOT / ".env"
 load_dotenv(ENV_PATH)
 
 ELEVENLABS_MUSIC_URL = "https://api.elevenlabs.io/v1/music"
-ELEVENLABS_VIDEO_TO_MUSIC_URL = "https://api.elevenlabs.io/v1/music/video-to-music"
 
 
 def _json_error(message: str, **extra: Any) -> str:
@@ -134,19 +133,28 @@ def _resolve_bgm_output_path(output_path: str, output_format: str) -> Path:
     return output_dir / f"generated_bgm_{time.time_ns()}{extension}"
 
 
-def _style_tags(*values: str) -> list[str]:
-    tags: list[str] = []
-    for value in values:
-        for item in (value or "").replace(",", " ").split():
-            cleaned = item.strip().lower()
-            if cleaned and cleaned not in tags:
-                tags.append(cleaned)
-    return tags[:10]
-
-
 def _save_audio_response(response: requests.Response, output: Path) -> None:
     ensure_parent(output)
     output.write_bytes(response.content)
+
+
+def _music_error(response: requests.Response, *, model: str, mode: str) -> str:
+    request_id = response.headers.get("request-id") or response.headers.get("x-request-id")
+    detail = _compact(response.text, 1200)
+    return _json_error(
+        "ElevenLabs Music API request failed",
+        status_code=response.status_code,
+        response=detail,
+        request_id=request_id,
+        model=model,
+        mode=mode,
+        hints=[
+            "401: API key invalid",
+            "403: Music permission/tier unavailable",
+            "402 or quota message: credits depleted",
+            "400/422: model, output_format, or request validation failed",
+        ],
+    )
 
 
 @tool
@@ -175,7 +183,9 @@ def generate_bgm(
             If omitted, a prompt is built from video_summary and scene_descriptions.
         duration_sec: Desired duration in seconds. ElevenLabs allows 3-600 seconds.
         instrumental: Force instrumental music when using text-prompt generation.
-        video_path: Optional video file. If provided, uses ElevenLabs Video To Music.
+        video_path: Optional source-video path retained as generation metadata. The
+            actual request uses the official Music Compose endpoint and the supplied
+            video_summary/scene_descriptions as musical context.
         video_summary: Summary of the video to generate matching BGM.
         scene_descriptions: Important scenes, transcript mood, or editing plan details.
         mood: Optional mood, e.g. calm, bright, tense, emotional.
@@ -224,56 +234,40 @@ def generate_bgm(
     params = {"output_format": audio_format}
 
     try:
-        if video_path:
-            source_video = resolve_input_path(video_path)
-            description = _compact(final_prompt, 1000)
-            tags = _style_tags(mood, genre, tempo, energy, target_use)
+        duration_ms = max(3000, min(int(duration_sec * 1000), 600000))
+        payload: dict[str, Any] = {
+            "prompt": final_prompt,
+            "music_length_ms": duration_ms,
+            "model_id": model_name,
+            "force_instrumental": instrumental,
+        }
 
-            with source_video.open("rb") as video_file:
-                files = [("videos[]", (source_video.name, video_file))]
-                data: list[tuple[str, str]] = [
-                    ("description", description),
-                    ("model_id", model_name),
-                ]
-                for tag in tags:
-                    data.append(("tags[]", tag))
+        response = requests.post(
+            ELEVENLABS_MUSIC_URL,
+            headers={**headers, "Content-Type": "application/json"},
+            params=params,
+            json=payload,
+            timeout=timeout_sec,
+        )
+        mode = "prompt"
 
-                response = requests.post(
-                    ELEVENLABS_VIDEO_TO_MUSIC_URL,
-                    headers=headers,
-                    params=params,
-                    files=files,
-                    data=data,
-                    timeout=timeout_sec,
-                )
-            mode = "video_to_music"
-        else:
-            duration_ms = max(3000, min(int(duration_sec * 1000), 600000))
-            payload: dict[str, Any] = {
-                "prompt": final_prompt,
-                "music_length_ms": duration_ms,
-                "model_id": model_name,
-                "force_instrumental": instrumental,
-            }
-
+        if response.status_code >= 400 and mode == "prompt" and response.status_code in {400, 422}:
+            # Compatibility fallback for accounts/output formats that reject
+            # music_v2. Retry once with the broadly available v1 + auto format.
+            fallback_payload = {**payload, "model_id": "music_v1"}
             response = requests.post(
                 ELEVENLABS_MUSIC_URL,
                 headers={**headers, "Content-Type": "application/json"},
-                params=params,
-                json=payload,
+                params={"output_format": "auto"},
+                json=fallback_payload,
                 timeout=timeout_sec,
             )
-            mode = "prompt"
+            if response.status_code < 400:
+                model_name = "music_v1"
+                audio_format = "auto"
 
         if response.status_code >= 400:
-            return _json_error(
-                "ElevenLabs Music API request failed",
-                status_code=response.status_code,
-                response=response.text,
-                provider=provider,
-                model=model_name,
-                mode=mode,
-            )
+            return _music_error(response, model=model_name, mode=mode)
 
         _save_audio_response(response, output)
         return json.dumps(

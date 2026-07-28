@@ -112,11 +112,30 @@ def critic_node(state: AgentState) -> dict[str, Any]:
         ])
     except Exception as e:
         logger.exception("critic LLM failed")
+        err_text = f"{type(e).__name__}: {e}"
+        lowered = err_text.lower()
+        is_connection_error = any(
+            key in lowered
+            for key in (
+                "remoteprotocolerror",
+                "server disconnected",
+                "readtimeout",
+                "connecttimeout",
+                "connectionerror",
+                "connection reset",
+            )
+        )
         return {
             "critic_verdict": {
                 "verdict": "RETRY",
-                "issues": [f"critic LLM 오류: {e}"],
-                "message_to_user": "검증 단계 LLM 호출 실패. 다시 시도 필요.",
+                "issues": [f"critic LLM 오류: {err_text}"],
+                "message_to_user": (
+                    "검증 중 Gemini 연결이 종료됐어. 자동 전체 재실행은 하지 않았으니 "
+                    "필요하면 검증을 다시 요청해줘."
+                    if is_connection_error
+                    else "검증 단계 LLM 호출 실패. 다시 시도 필요."
+                ),
+                "terminal": is_connection_error,
             },
             "critic_retries": state.get("critic_retries", 0) + 1,
         }
@@ -148,6 +167,8 @@ def route_after_critic(state: AgentState) -> str:
         "end" | "supervisor"
     """
     verdict = (state.get("critic_verdict") or {}).get("verdict", "RETRY")
+    if (state.get("critic_verdict") or {}).get("terminal"):
+        return "end"
     if verdict == "PASS":
         return "end"
     # 무한 루프 방지: critic 이 RETRY 낸 횟수 기준

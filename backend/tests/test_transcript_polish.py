@@ -38,6 +38,103 @@ def test_high_confidence_similar_correction_is_applied(monkeypatch):
     assert audit["changes"][0]["confidence"] == 0.96
 
 
+def test_expression_and_sound_are_saved_without_changing_spoken_text(monkeypatch):
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    review = {
+        "corrections": [{
+            "segment_index": 1,
+            "corrected_text": "간식으로 포카칩을 먹고",
+            "confidence": 0.96,
+            "reason": "명백한 상품명 오인식",
+        }],
+        "display_edits": [{
+            "segment_index": 1,
+            "display_text": "(신남) 간식으로 포카칩을 먹고",
+            "confidence": 0.97,
+            "reason": "들뜬 어조가 명확함",
+        }],
+        "sound_captions": [{
+            "start": 2.1,
+            "end": 2.8,
+            "text": "[쾅]",
+            "confidence": 0.98,
+            "reason": "충돌음이 명확함",
+        }],
+    }
+
+    with patch(
+        "agent.tools.transcript_polish._request_corrections",
+        return_value=review,
+    ):
+        corrected, audit = polish_transcript(_segments(), language="ko")
+
+    assert corrected[1]["text"] == "간식으로 포카칩을 먹고"
+    assert "display_text" not in corrected[1]
+    assert audit["schema_version"] == 2
+    assert audit["display_edits"][0]["display_text"] == "(신남) 간식으로 포카칩을 먹고"
+    assert audit["sound_captions"][0]["text"] == "[쾅]"
+    assert audit["status"] == "applied"
+
+
+def test_expression_that_rewrites_speech_and_unbracketed_sound_are_rejected(monkeypatch):
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    review = {
+        "corrections": [],
+        "display_edits": [{
+            "segment_index": 0,
+            "display_text": "(당황) 방 청소는 완전히 포기할게요",
+            "confidence": 0.99,
+            "reason": "dramatic rewrite",
+        }],
+        "sound_captions": [{
+            "start": 1.1,
+            "end": 1.8,
+            "text": "쾅!",
+            "confidence": 0.99,
+            "reason": "not bracketed",
+        }],
+    }
+
+    with patch(
+        "agent.tools.transcript_polish._request_corrections",
+        return_value=review,
+    ):
+        corrected, audit = polish_transcript(_segments(), language="ko")
+
+    assert corrected == _segments()
+    assert audit["display_edits"] == []
+    assert audit["sound_captions"] == []
+    assert len(audit["enhancement_rejected"]) == 2
+    assert audit["status"] == "no_changes"
+
+
+def test_expression_density_is_capped(monkeypatch):
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
+    monkeypatch.setenv("SUBTITLE_ENHANCE_MAX_RATIO", "0.25")
+    review = {
+        "corrections": [],
+        "display_edits": [
+            {
+                "segment_index": index,
+                "display_text": f"(강조) {segment['text']}",
+                "confidence": 0.99 - index * 0.01,
+                "reason": "clear emphasis",
+            }
+            for index, segment in enumerate(_segments())
+        ],
+        "sound_captions": [],
+    }
+
+    with patch(
+        "agent.tools.transcript_polish._request_corrections",
+        return_value=review,
+    ):
+        _, audit = polish_transcript(_segments(), language="ko")
+
+    assert len(audit["display_edits"]) == 1
+    assert len(audit["enhancement_rejected"]) == 2
+
+
 def test_low_confidence_and_large_rewrite_are_rejected(monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
     candidates = [
@@ -101,7 +198,7 @@ def test_legacy_cache_is_corrected_once_and_then_reused(tmp_path, monkeypatch):
     corrected = _segments()
     corrected[1]["text"] = "간식으로 포카칩을 먹고"
     audit = {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "applied",
         "changes": [{"segment_index": 1}],
         "rejected": [],
@@ -150,3 +247,38 @@ def test_failed_correction_is_retryable():
     assert result["segments"][1]["text"] == "간식으로 포카칩을 먹고"
     assert result["correction"]["status"] == "applied"
     polish.assert_called_once()
+
+
+def test_schema_upgrade_failure_preserves_existing_corrections():
+    raw = _segments()
+    existing = _segments()
+    existing[1]["text"] = "간식으로 포카칩을 먹고"
+    payload = {
+        "segments": existing,
+        "raw_segments": raw,
+        "language": "ko",
+        "correction": {
+            "schema_version": 1,
+            "status": "applied",
+            "changes": [{"segment_index": 1}],
+        },
+    }
+
+    with patch(
+        "agent.tools.transcribe.polish_transcript",
+        return_value=(
+            existing,
+            {
+                "schema_version": 2,
+                "status": "failed",
+                "error": "quota exhausted",
+            },
+        ),
+    ) as polish:
+        result = transcribe._apply_transcript_correction(payload)
+
+    assert result["segments"][1]["text"] == "간식으로 포카칩을 먹고"
+    assert result["raw_segments"][1]["text"] == "간식으로 도카치파를 먹고"
+    assert result["correction"]["status"] == "failed"
+    assert result["correction"]["previous_correction"]["schema_version"] == 1
+    assert polish.call_args.args[0][1]["text"] == "간식으로 포카칩을 먹고"

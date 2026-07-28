@@ -759,5 +759,10 @@ class TestMixAudioOffset:
         assert result["status"] == "success"
         cmd = mock_run.call_args[0]
         audio_filter = cmd[cmd.index("-filter_complex") + 1]
+        # 오프셋이 없어도 나레이션 볼륨 밸런싱(원본 0.85 / 오버레이 1.0) + 리미터가
+        # 걸린다. adelay 만 없다.
         assert "adelay" not in audio_filter
-        assert audio_filter == "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[mix]"
+        assert audio_filter == (
+            "[0:a]volume=0.85[src];[1:a]volume=1.0[ovl];"
+            "[src][ovl]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[mix]"
+        )

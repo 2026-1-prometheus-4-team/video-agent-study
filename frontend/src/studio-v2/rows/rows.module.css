@@ -326,6 +326,108 @@
   color: var(--accent-strong);
 }
 
+.brief {
+  margin: 2px 0 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(124, 141, 241, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.16);
+}
+
+.briefHeading,
+.briefSectionTitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-strong);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.briefTitle {
+  margin-top: 5px;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 650;
+  color: var(--text-1);
+}
+
+.briefOverview,
+.briefSection,
+.briefGuide {
+  margin-top: 12px;
+}
+
+.briefOverviewRow,
+.briefLine {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.briefOverviewRow span,
+.briefLine span {
+  color: var(--text-4);
+}
+
+.briefOverviewRow p,
+.briefLine p {
+  margin: 0;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.briefTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.briefScene {
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.13);
+}
+
+.briefSceneHead {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.briefSceneHead strong {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(124, 141, 241, 0.14);
+  color: var(--accent-strong);
+  font-family: var(--font-sans-stack);
+  font-size: 10px;
+}
+
+.briefSource {
+  margin-top: 5px;
+  font-family: var(--font-mono-stack);
+  font-size: 10.5px;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.briefGuide {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.briefGuide > div:last-child {
+  margin-top: 5px;
+}
+
 .planList {
   display: flex;
   flex-direction: column;
