@@ -98,6 +98,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",  # frontend/motion-editor (video agent studio)
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -505,7 +507,7 @@ async def get_session(session_id: str):
         # 새로고침 복원 시 체크포인트 값을 쓰면 타임라인이 편집 전으로 되돌아간다.
         video_context = session.video_context or values.get("video_context")
         if isinstance(video_context, dict) and not video_context.get("transcript"):
-            sidecar = _load_transcript_sidecar(session)
+            sidecar = _load_transcript_sidecar(session, final_path)
             if sidecar:
                 video_context = {**video_context, "transcript": sidecar}
         if video_context:
@@ -1127,7 +1129,42 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
     return {"interrupted": interrupted, "cancelled": cancelled, "errored": errored}
 
 
-def _load_transcript_sidecar(session: Session) -> list[dict]:
+def _read_transcript_sidecar(sidecar: Path) -> list[dict]:
+    try:
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+    cues = data.get("cues")
+    if isinstance(cues, list) and cues:
+        return [
+            {
+                "start": float(c.get("start", 0)),
+                "end": float(c.get("end", 0)),
+                "text": str(c.get("text", "")),
+            }
+            for c in cues
+            if isinstance(c, dict)
+        ]
+
+    segments = data.get("segments")
+    if isinstance(segments, list) and segments:
+        return [
+            {
+                "start": float(s.get("start", 0)),
+                "end": float(s.get("end", 0)),
+                "text": str(s.get("text", "")),
+            }
+            for s in segments
+            if isinstance(s, dict)
+        ]
+    return []
+
+
+def _load_transcript_sidecar(
+    session: Session,
+    final_path: str = "",
+) -> list[dict]:
     """transcribe(add_auto_subtitle)가 남긴 videos/subtitles/*.json 세그먼트 회수.
 
     그래프 state 의 video_context.transcript 는 sub-agent 내부에서만 채워지고
@@ -1143,6 +1180,37 @@ def _load_transcript_sidecar(session: Session) -> list[dict]:
     """
     subtitles_dir = agent_config.VIDEOS_DIR / "subtitles"
     if not subtitles_dir.is_dir():
+        return []
+
+    # 최종 산출물이 있으면 그 stem의 큐/전사만 먼저 본다. 세션 입력 원본의
+    # 오래된 JSON을 최종 타임라인으로 오인하는 것을 막는다.
+    if final_path:
+        cleaned_final = final_path.strip().strip("`'\"*").strip()
+        final_candidate = Path(cleaned_final)
+        final_stem = final_candidate.stem
+        for exact in (
+            subtitles_dir / f"{final_stem}.cues.json",
+            subtitles_dir / f"{final_stem}.json",
+        ):
+            if exact.exists():
+                transcript = _read_transcript_sidecar(exact)
+                if transcript:
+                    return transcript
+
+        # 자막 번인 전 결과라도 cut/merge origin이 있으면 원본 Whisper를 결과
+        # 시간축으로 재구성할 수 있다. 최종 영상을 다시 전사하지 않는다.
+        if not final_candidate.is_absolute():
+            final_candidate = agent_config.PROJECT_ROOT / final_candidate
+        try:
+            from agent.tools.subtitle import _transcript_from_origin
+
+            transcript = _transcript_from_origin(str(final_candidate.resolve()))
+            if transcript:
+                return transcript
+        except Exception:
+            logger.warning("final transcript origin reconstruction failed", exc_info=True)
+
+        # 최종 stem과 origin 모두 없으면 입력 원본 JSON을 임의로 고르지 않는다.
         return []
 
     input_stems = {Path(vp).stem for vp in session.video_paths}
@@ -1161,30 +1229,9 @@ def _load_transcript_sidecar(session: Session) -> list[dict]:
             candidates.append((mtime, sidecar))
 
     for _, sidecar in sorted(candidates, reverse=True):
-        try:
-            data = json.loads(sidecar.read_text(encoding="utf-8"))
-            # 큐 문서(<stem>.cues.json)가 자막의 진실의 원천이다. 오타 수정/타이밍
-            # 변경은 여기에만 반영되므로, 전사 사이드카(segments)보다 우선한다.
-            # 최신 mtime 우선이라 편집 직후엔 큐 문서가 먼저 잡힌다.
-            cues = data.get("cues")
-            if isinstance(cues, list) and cues:
-                return [
-                    {
-                        "start": float(c.get("start", 0)),
-                        "end": float(c.get("end", 0)),
-                        "text": str(c.get("text", "")),
-                    }
-                    for c in cues
-                    if isinstance(c, dict)
-                ]
-            segments = data.get("segments", [])
-            if segments:
-                return [
-                    {"start": float(s.get("start", 0)), "end": float(s.get("end", 0)), "text": str(s.get("text", ""))}
-                    for s in segments
-                ]
-        except Exception:
-            continue
+        transcript = _read_transcript_sidecar(sidecar)
+        if transcript:
+            return transcript
     return []
 
 
@@ -1226,7 +1273,12 @@ def _reanalyze_output_sync(final_path: str) -> Optional[dict]:
             analyze_arg = str(candidate)
 
         logger.info("reanalysis: %s (via analyze_video)", analyze_arg)
-        raw = analyze_video.invoke({"video_path": analyze_arg})
+        raw = analyze_video.invoke({
+            "video_path": analyze_arg,
+            # 최종 편집본의 자막은 원본 Whisper + origin 타임라인으로 이미
+            # 구성된다. 재분석에서 다시 전사하면 비용이 들고 TTS까지 섞인다.
+            "use_transcript": False,
+        })
         data = _json.loads(raw)
         if "error" in data:
             logger.warning("reanalysis: analyze_video 오류 - %s", data["error"])
@@ -1303,7 +1355,7 @@ async def _send_final(websocket: WebSocket, session: Session):
     if reanalyzed:
         # 사이드카 자막이 있으면 보강 (transcribe/add_auto_subtitle 산출물).
         if not reanalyzed.get("transcript"):
-            sidecar = _load_transcript_sidecar(session)
+            sidecar = _load_transcript_sidecar(session, final_path)
             if sidecar:
                 reanalyzed["transcript"] = sidecar
         video_context = reanalyzed
@@ -1327,7 +1379,7 @@ async def _send_final(websocket: WebSocket, session: Session):
     else:
         # 재분석 실패 → 기존 video_context 유지 + 사이드카 자막 보강
         if isinstance(video_context, dict) and not video_context.get("transcript"):
-            sidecar = _load_transcript_sidecar(session)
+            sidecar = _load_transcript_sidecar(session, final_path)
             if sidecar:
                 video_context = {**video_context, "transcript": sidecar}
 

@@ -15,11 +15,13 @@ import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.tools import tool
+from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(__file__)
-VIDEOS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "videos"))
+PROJECT_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+VIDEOS_DIR = os.path.join(PROJECT_ROOT, "videos")
 SUBTITLES_DIR = os.path.join(VIDEOS_DIR, "subtitles")
 FONTS_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "assets", "fonts"))
 
@@ -51,6 +53,70 @@ def _resolve_video_file(video_path: str) -> Path:
         Path(VIDEOS_DIR) / raw,
     ]
     return next((p.resolve() for p in candidates if p.exists()), candidates[1].resolve())
+
+# 반응형 자막 비율 상수 (PlayResY=288 기준 ASS 캔버스 / drawtext 는 실제 픽셀)
+_FONT_SIZE_PCT = 0.05          # 화면 높이의 5%
+_MARGIN_LANDSCAPE_PCT = 0.08   # 가로형 하단 마진 (8%)
+_MARGIN_PORTRAIT_PCT = 0.15    # 세로형 하단 마진 (15%)
+
+
+class AutoSubtitleStyle(TypedDict, total=False):
+    platform: str
+    font: str
+    font_size: int
+    size: int
+    color: str
+    stroke_color: str
+    stroke_width: float
+    position: str
+    margin_v: int
+    bold: bool
+    fade: bool
+
+
+def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
+    """ffprobe 로 영상 너비×높이 반환. 실패 시 (0, 0)."""
+    import subprocess as _sp
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=p=0",
+        video_path,
+    ]
+    result = _sp.run(cmd, capture_output=True, text=True)
+    try:
+        w, h = result.stdout.strip().split(",")
+        return int(w), int(h)
+    except (ValueError, IndexError):
+        return 0, 0
+
+
+def _resolve_video_path(video_path: str) -> str:
+    """Resolve absolute, backend-relative, then videos-relative paths."""
+    if os.path.isabs(video_path):
+        return os.path.normpath(video_path)
+    project_relative = os.path.join(PROJECT_ROOT, video_path)
+    if os.path.exists(project_relative):
+        return os.path.normpath(project_relative)
+    return os.path.normpath(os.path.join(VIDEOS_DIR, video_path))
+
+
+def _render_error(result: str) -> str | None:
+    """Normalize text_expert tool errors, including JSON-formatted errors."""
+    if not isinstance(result, str):
+        return "자막 렌더 결과 형식이 올바르지 않습니다."
+    if result.startswith("ERROR"):
+        return result.partition(":")[2].strip() or result
+    try:
+        parsed = json.loads(result)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if isinstance(parsed, dict) and (
+        parsed.get("status") == "error" or parsed.get("error")
+    ):
+        return str(parsed.get("message") or parsed.get("error"))
+    return None
 
 
 def _font_family_from_file(font_file: str) -> str:
@@ -186,13 +252,15 @@ def _default_style(platform: str = "youtube") -> dict:
     }
 
 
-def _merge_style(style_json: str, tool_defaults: dict | None = None) -> dict:
-    """style JSON 문자열을 파싱해 플랫폼 기본값에 병합. tool_defaults가 있으면 중간에 덮어씀."""
+def _merge_style(style_json: str | dict, tool_defaults: dict | None = None) -> dict:
+    """style JSON 문자열/dict를 플랫폼 기본값에 병합."""
     overrides: dict = {}
-    if style_json:
+    if isinstance(style_json, dict):
+        overrides = dict(style_json)
+    elif style_json:
         try:
             overrides = json.loads(style_json)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             logger.warning("style JSON 파싱 실패 — 기본값 사용")
 
     platform = overrides.get("platform", "youtube")
@@ -312,19 +380,28 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
                 'position':'bottom', 'margin_v':40, 'platform':'youtube'}
     """
     try:
-        input_file = _resolve_video_file(video_path)
-        input_path = str(input_file)
-        if not input_file.exists():
-            return json.dumps(
-                {"status": "error", "error": f"영상 파일 없음: {input_path}"},
-                ensure_ascii=False,
-            )
+        input_path = _resolve_video_path(video_path)
+        if not os.path.exists(input_path):
+            return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         srt_abs = srt_path if os.path.isabs(srt_path) else os.path.join(SUBTITLES_DIR, srt_path)
         if not os.path.exists(srt_abs):
             return json.dumps({"error": f"SRT 파일 없음: {srt_abs}"}, ensure_ascii=False)
 
         s = _merge_style(style)
+
+        # 영상 해상도 감지 → force_style 값 반응형 조정 (기본값인 경우에만)
+        vw, vh = _get_video_size_ffprobe(input_path)
+        if vh > 0:
+            is_portrait = vh > vw
+            default_s = _default_style(s.get("platform", "youtube"))
+            if s.get("font_size") == default_s["font_size"]:
+                # PlayResY=288 캔버스 기준 — libass 가 actual_h/288 배율로 스케일
+                s["font_size"] = max(8, round(288 * _FONT_SIZE_PCT))
+            if s.get("margin_v") == default_s["margin_v"]:
+                pct = _MARGIN_PORTRAIT_PCT if is_portrait else _MARGIN_LANDSCAPE_PCT
+                s["margin_v"] = max(4, round(288 * pct))
+
         font_path = _resolve_font(_DEFAULT_FONT_FILE)
         # SUBTITLE_FONT 로 다른 폰트를 지정해도 여기서 NotoSansKR 을 박으면
         # libass 가 그 패밀리를 못 찾아 폰트 지정이 무력화된다 — 실제 파일에서 유도.
@@ -341,9 +418,11 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
 
         vf = f"subtitles='{srt_ffmpeg}'{fonts_part}:force_style='{force_style}'"
 
-        name, ext = os.path.splitext(video_path)
-        output_name = f"{name}_subtitled{ext}"
-        output_path = os.path.join(VIDEOS_DIR, output_name)
+        name, ext = os.path.splitext(os.path.basename(input_path))
+        output_path = os.path.join(
+            os.path.dirname(input_path),
+            f"{name}_subtitled{ext or '.mp4'}",
+        )
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, output_path]
         code, stderr = _run_ffmpeg(cmd)
@@ -361,7 +440,7 @@ def add_subtitle(video_path: str, srt_path: str, style: str = "") -> str:
             logger.warning(f"큐 문서 동기화 스킵: {sync_error}")
 
         return json.dumps({
-            "output": output_name,
+            "output": output_path,
             "style": {"font": font_name, "size": s["font_size"], "color": s["color"]},
             "segments": segments,
             "status": "success",
@@ -389,16 +468,69 @@ def _source_speech(source: str) -> list[dict]:
     if os.path.exists(whisper_path):
         try:
             with open(whisper_path, encoding="utf-8") as f:
-                segs = json.load(f).get("segments", [])
-            return [
+                cache = json.load(f)
+            segs = cache.get("segments", [])
+            correction = cache.get("correction") or {}
+            saved_display = cache.get("display_segments")
+            if isinstance(saved_display, list) and saved_display:
+                display_speech = [
+                    item
+                    for item in saved_display
+                    if isinstance(item, dict) and item.get("kind") != "sound"
+                ]
+                display_edits = {
+                    index: str(item.get("text", "")).strip()
+                    for index, item in enumerate(display_speech)
+                    if str(item.get("text", "")).strip()
+                }
+            else:
+                display_edits = {
+                    item["segment_index"]: item["display_text"]
+                    for item in correction.get("display_edits", [])
+                    if (
+                        isinstance(item, dict)
+                        and isinstance(item.get("segment_index"), int)
+                        and isinstance(item.get("display_text"), str)
+                    )
+                }
+            speech = [
                 {
                     "start_ms": int(float(s.get("start", 0)) * 1000),
                     "end_ms": int(float(s.get("end", 0)) * 1000),
                     "text": str(s.get("text", "")).strip(),
+                    "display_text": display_edits.get(
+                        index,
+                        str(s.get("text", "")).strip(),
+                    ),
+                    "kind": "speech",
                 }
-                for s in segs
+                for index, s in enumerate(segs)
                 if str(s.get("text", "")).strip()
             ]
+            if isinstance(saved_display, list) and saved_display:
+                sound_items = [
+                    {
+                        "start": item.get("start"),
+                        "end": item.get("end"),
+                        "text": item.get("text"),
+                    }
+                    for item in saved_display
+                    if isinstance(item, dict) and item.get("kind") == "sound"
+                ]
+            else:
+                sound_items = correction.get("sound_captions", [])
+            for item in sound_items:
+                if not isinstance(item, dict) or not str(item.get("text", "")).strip():
+                    continue
+                speech.append({
+                    "start_ms": int(float(item.get("start", 0)) * 1000),
+                    "end_ms": int(float(item.get("end", 0)) * 1000),
+                    "text": "",
+                    "display_text": str(item["text"]).strip(),
+                    "kind": "sound",
+                })
+            speech.sort(key=lambda item: (item["start_ms"], item["end_ms"]))
+            return speech
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
             pass
 
@@ -412,6 +544,8 @@ def _source_speech(source: str) -> list[dict]:
                     "start_ms": s.get("start_ms", 0),
                     "end_ms": s.get("end_ms", 0),
                     "text": str(s.get("transcript") or "").strip(),
+                    "display_text": str(s.get("transcript") or "").strip(),
+                    "kind": "speech",
                 }
                 for s in segs
                 if str(s.get("transcript") or "").strip()
@@ -469,42 +603,120 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
                 "start": round(new_start / 1000, 2),
                 "end": round(new_end / 1000, 2),
                 "text": seg["text"],
+                "display_text": seg.get("display_text", seg["text"]),
+                "kind": seg.get("kind", "speech"),
             })
 
     out.sort(key=lambda s: s["start"])
     return out
 
 
+def _display_segments(
+    segments: list[dict],
+    correction: dict | None = None,
+) -> list[dict]:
+    """Build render-only captions while leaving canonical spoken segments untouched."""
+    correction = correction if isinstance(correction, dict) else {}
+    display_edits = {
+        item["segment_index"]: item["display_text"]
+        for item in correction.get("display_edits", [])
+        if (
+            isinstance(item, dict)
+            and isinstance(item.get("segment_index"), int)
+            and isinstance(item.get("display_text"), str)
+        )
+    }
+    rendered: list[dict] = []
+    for index, segment in enumerate(segments):
+        display_text = str(
+            segment.get("display_text")
+            or display_edits.get(index)
+            or segment.get("text", "")
+        ).strip()
+        if not display_text:
+            continue
+        item = {
+            "start": float(segment["start"]),
+            "end": float(segment["end"]),
+            "text": display_text,
+        }
+        if isinstance(segment.get("style"), dict):
+            item["style"] = segment["style"]
+        if segment.get("kind") == "sound":
+            item["style"] = {
+                "position": "top",
+                "color": "#FFE600",
+                **item.get("style", {}),
+            }
+            item["kind"] = "sound"
+        rendered.append(item)
+
+    for sound in correction.get("sound_captions", []):
+        if not isinstance(sound, dict) or not str(sound.get("text", "")).strip():
+            continue
+        rendered.append({
+            "start": float(sound["start"]),
+            "end": float(sound["end"]),
+            "text": str(sound["text"]).strip(),
+            "kind": "sound",
+            "style": {"position": "top", "color": "#FFE600"},
+        })
+    rendered.sort(key=lambda item: (item["start"], item["end"]))
+    return rendered
+
+
+def _canonical_segments(segments: list[dict]) -> list[dict]:
+    """Strip display-only annotations from a transcript sidecar."""
+    canonical = []
+    for segment in segments:
+        text = str(segment.get("text", "")).strip()
+        if not text or segment.get("kind") == "sound":
+            continue
+        item = {
+            "start": segment["start"],
+            "end": segment["end"],
+            "text": text,
+        }
+        canonical.append(item)
+    return canonical
+
+
 @tool
-def add_auto_subtitle(video_path: str, style: str = "") -> str:
+def add_auto_subtitle(
+    video_path: str,
+    style: str | AutoSubtitleStyle = "",
+    output_path: str = "",
+) -> str:
     """영상을 자동 전사(Whisper)하고 자막 큐 문서 생성 후 burn-in — one-shot 처리.
 
-    내부 흐름: Whisper 전사 → SRT/JSON 사이드카 저장(프론트 호환) →
+    내부 흐름: Whisper 전사·보수적 교정·화면용 반응/효과음 캡션 제안 →
+    SRT/JSON 사이드카 저장(프론트 호환) →
     큐 문서(videos/subtitles/<stem>.cues.json, source_video 기록) 생성 →
     render_subtitles 로 ASS 렌더 + burn-in.
+    교정된 발화 원문과 `(당황)`, `[쾅]` 같은 화면 연출은 별도로 저장되며,
+    연출은 원본 미디어 근거와 높은 신뢰도를 통과한 소수 큐에만 적용된다.
     이후 개별 수정은 update_subtitle_cues / set_subtitle_style + render_subtitles 로 처리.
     플랫폼(shorts/youtube)에 따라 줄 길이와 폰트 크기 자동 조정.
 
     Args:
         video_path: 입력 영상 파일명 (videos/ 기준, 예: sample.mp4)
         style: JSON 스타일 문자열 {'platform':'youtube'|'shorts', 'font_size':24, ...}
+        output_path: 최종 자막 번인 영상 경로. 생략 시 입력 파일 옆
+            <stem>_subtitled.mp4.
     """
     try:
         from agent.tools.transcribe import transcribe_video  # 지연 임포트 (순환 방지)
 
-        input_file = _resolve_video_file(video_path)
-        input_path = str(input_file)
-        if not input_file.exists():
-            return json.dumps(
-                {"status": "error", "error": f"영상 파일 없음: {input_path}"},
-                ensure_ascii=False,
-            )
+        input_path = _resolve_video_path(video_path)
+        if not os.path.exists(input_path):
+            return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         platform = "youtube"
         if style:
             try:
-                platform = json.loads(style).get("platform", "youtube")
-            except json.JSONDecodeError:
+                parsed_style = style if isinstance(style, dict) else json.loads(style)
+                platform = parsed_style.get("platform", "youtube")
+            except (json.JSONDecodeError, TypeError):
                 pass
 
         # 1. 자막 원천 확보
@@ -529,22 +741,47 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
             if not transcript:
                 return json.dumps({"error": "전사 결과가 비어 있습니다."}, ensure_ascii=False)
 
+        canonical_transcript = _canonical_segments(transcript)
+        display_transcript = _display_segments(
+            transcript,
+            result.get("correction"),
+        )
+        if not display_transcript:
+            return json.dumps({"error": "화면용 자막 결과가 비어 있습니다."}, ensure_ascii=False)
+        expressive_caption_count = sum(
+            1
+            for segment in transcript
+            if (
+                segment.get("kind") == "sound"
+                or str(segment.get("display_text", "")).strip()
+                not in {"", str(segment.get("text", "")).strip()}
+            )
+        )
+        correction = result.get("correction")
+        if isinstance(correction, dict):
+            expressive_caption_count += len(correction.get("display_edits", []))
+            expressive_caption_count += len(correction.get("sound_captions", []))
+
         # 2. SRT 생성 (font_size 기반 80% 줄바꿈)
         s_tmp = _merge_style(style)
         font_size = s_tmp.get("font_size", 24)
         max_len = _calc_max_chars(font_size)
 
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
-        name = input_file.stem
+        name = os.path.splitext(os.path.basename(input_path))[0]
         srt_abs = os.path.join(SUBTITLES_DIR, f"{name}.srt")
-        srt_content = _build_srt(transcript, platform, max_len=max_len)
+        srt_content = _build_srt(display_transcript, platform, max_len=max_len)
         with open(srt_abs, "w", encoding="utf-8") as f:
             f.write(srt_content)
 
         json_abs = os.path.join(SUBTITLES_DIR, f"{name}.json")
         with open(json_abs, "w", encoding="utf-8") as f:
             json.dump({
-                "segments": transcript,
+                "schema_version": 2,
+                "segments": canonical_transcript,
+                "raw_segments": result.get("raw_segments", canonical_transcript),
+                "display_segments": display_transcript,
+                "correction": result.get("correction"),
                 "language": result.get("language"),
                 "engine": result.get("engine") or "origin-reuse",
             }, f, ensure_ascii=False, indent=2)
@@ -557,28 +794,76 @@ def add_auto_subtitle(video_path: str, style: str = "") -> str:
         _, cues_doc_path = subtitle_cues.create_cues_doc(
             stem=name,
             source_video=input_path,
-            segments=transcript,
+            segments=display_transcript,
             style_defaults=defaults,
         )
 
         # 4. 큐 문서 기준 ASS 렌더 + burn-in (기존 출력 위치/이름 유지 — 프론트 호환)
-        output_file = input_file.with_name(f"{name}_subtitled{input_file.suffix}")
+        _, ext = os.path.splitext(input_path)
+        if output_path:
+            if os.path.isabs(output_path):
+                resolved_output_path = os.path.normpath(output_path)
+            elif os.path.dirname(output_path):
+                resolved_output_path = os.path.normpath(
+                    os.path.join(PROJECT_ROOT, output_path)
+                )
+            else:
+                resolved_output_path = os.path.join(
+                    os.path.dirname(input_path),
+                    output_path,
+                )
+        else:
+            resolved_output_path = os.path.join(
+                os.path.dirname(input_path),
+                f"{name}_subtitled{ext or '.mp4'}",
+            )
         rendered = subtitle_cues.render_subtitles.invoke({
-            "video_path": str(input_file),
-            "output_path": str(output_file),
+            "video_path": input_path,
+            "output_path": resolved_output_path,
         })
-        if isinstance(rendered, str) and rendered.startswith("ERROR"):
-            return json.dumps({"error": rendered}, ensure_ascii=False)
+        render_error = _render_error(rendered)
+        if render_error:
+            return json.dumps({"status": "error", "error": render_error}, ensure_ascii=False)
+        if not os.path.exists(rendered):
+            return json.dumps({
+                "status": "error",
+                "error": f"자막 렌더 결과 파일이 생성되지 않았습니다: {rendered}",
+            }, ensure_ascii=False)
+
+        # 최종 파일 stem으로도 전사/큐 문서를 남겨 server final 복구가 입력
+        # 영상의 오래된 자막을 잘못 고르지 않게 한다.
+        rendered_stem = os.path.splitext(os.path.basename(rendered))[0]
+        rendered_json = os.path.join(SUBTITLES_DIR, f"{rendered_stem}.json")
+        with open(rendered_json, "w", encoding="utf-8") as f:
+            json.dump({
+                "schema_version": 2,
+                "segments": canonical_transcript,
+                "raw_segments": result.get("raw_segments", canonical_transcript),
+                "display_segments": display_transcript,
+                "correction": result.get("correction"),
+                "language": result.get("language"),
+                "engine": result.get("engine") or "origin-reuse",
+                "source_video": input_path,
+            }, f, ensure_ascii=False, indent=2)
+        _, rendered_cues_doc = subtitle_cues.create_cues_doc(
+            stem=rendered_stem,
+            source_video=input_path,
+            segments=display_transcript,
+            style_defaults=defaults,
+        )
 
         return json.dumps({
-            "output": str(output_file),
-            "cues_doc": cues_doc_path,
+            "output": rendered,
+            "cues_doc": rendered_cues_doc,
+            "source_cues_doc": cues_doc_path,
             "style": {
                 "font": defaults["font"],
                 "size": defaults["size"],
                 "color": defaults["color"],
             },
-            "segments": len(transcript),
+            "segments": len(display_transcript),
+            "spoken_segments": len(canonical_transcript),
+            "expressive_captions": expressive_caption_count,
             "status": "success",
         }, ensure_ascii=False)
 
@@ -612,15 +897,17 @@ def add_title(
         style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':2}
     """
     try:
-        input_file = _resolve_video_file(video_path)
-        input_path = str(input_file)
-        if not input_file.exists():
-            return json.dumps(
-                {"status": "error", "error": f"영상 파일 없음: {input_path}"},
-                ensure_ascii=False,
-            )
+        input_path = _resolve_video_path(video_path)
+        if not os.path.exists(input_path):
+            return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         s = _merge_style(style, tool_defaults={"font_size": 48, "position": position})
+
+        # drawtext 는 실제 픽셀값 — 영상 높이에 비례해 폰트 크기 조정
+        vw, vh = _get_video_size_ffprobe(input_path)
+        if vh > 0 and s.get("font_size") == 48:
+            s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 1.5배
+
         font_size = s["font_size"]
         color = s["color"]
         stroke_color = s["stroke_color"]
@@ -657,7 +944,7 @@ def add_title(
 
         vf = "drawtext=" + ":".join(parts)
 
-        output_file = input_file.with_name(f"{input_file.stem}_title{input_file.suffix}")
+        output_file = Path(input_path).with_name(f"{Path(input_path).stem}_title{Path(input_path).suffix}")
         output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
@@ -705,12 +992,17 @@ def add_caption(
                'platform':'youtube'}
     """
     try:
-        input_file = _resolve_video_file(video_path)
-        input_path = str(input_file.resolve())
+        input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"status": "error", "error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         s = _merge_style(style, tool_defaults={"font_size": 32, "color": "yellow", "position": "center"})
+
+        # drawtext 는 실제 픽셀값 — 영상 높이에 비례해 폰트 크기 조정
+        vw, vh = _get_video_size_ffprobe(input_path)
+        if vh > 0 and s.get("font_size") == 32:
+            s["font_size"] = max(12, round(vh * _FONT_SIZE_PCT))
+
         font_size = s["font_size"]
         color = s["color"]
         stroke_color = s["stroke_color"]
@@ -738,8 +1030,8 @@ def add_caption(
 
         vf = "drawtext=" + ":".join(parts)
 
-        output_file = input_file.with_name(
-            f"{input_file.stem}_caption_{int(at_time)}{input_file.suffix}"
+        output_file = Path(input_path).with_name(
+            f"{Path(input_path).stem}_caption_{int(at_time)}{Path(input_path).suffix}"
         )
         output_path = str(output_file)
 
@@ -914,13 +1206,9 @@ def add_emoji_overlay(
         position: 'center'|'top'|'bottom'|'top-left'|'top-right'|'bottom-left'|'bottom-right'
     """
     try:
-        input_file = _resolve_video_file(video_path)
-        input_path = str(input_file)
-        if not input_file.exists():
-            return json.dumps(
-                {"status": "error", "error": f"영상 파일 없음: {input_path}"},
-                ensure_ascii=False,
-            )
+        input_path = _resolve_video_path(video_path)
+        if not os.path.exists(input_path):
+            return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
         emoji_font = _resolve_font(_EMOJI_FONT_FILE)
         font_used = "NotoColorEmoji" if emoji_font else "system"
@@ -942,8 +1230,8 @@ def add_emoji_overlay(
 
         vf = "drawtext=" + ":".join(parts)
 
-        output_file = input_file.with_name(
-            f"{input_file.stem}_emoji_{int(at_time)}{input_file.suffix}"
+        output_file = Path(input_path).with_name(
+            f"{Path(input_path).stem}_emoji_{int(at_time)}{Path(input_path).suffix}"
         )
         output_path = str(output_file)
 

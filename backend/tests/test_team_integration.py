@@ -142,6 +142,37 @@ class TestMultiVideoAnalysis:
         assert payload["status"] == "success"
         assert payload["matches"][0]["start_ms"] == 0
 
+    def test_analysis_context_preserves_whisper_and_rich_scene_fields(self, monkeypatch):
+        import agent.graph as g
+
+        monkeypatch.setattr(g, "_analyze_one_video", lambda p: (
+            "a.mp4",
+            {
+                "duration": 4.0,
+                "segments": [{
+                    "start_ms": 0,
+                    "end_ms": 4000,
+                    "description": "주방 설명",
+                    "transcript": "장면 요약 대사",
+                    "objects": ["접시"],
+                    "people_count": 1,
+                    "actions": ["설명한다"],
+                    "mood": "밝음",
+                }],
+                "_source_transcript": [
+                    {"start": 0.25, "end": 1.75, "text": "정확한 위스퍼 문장"},
+                ],
+            },
+        ))
+
+        ctx = g.analysis_node({"video_paths": ["videos/a.mp4"]})["video_context"]
+        assert ctx["transcript"] == [
+            {"start": 0.25, "end": 1.75, "text": "정확한 위스퍼 문장"},
+        ]
+        assert ctx["scenes"][0]["objects"] == ["접시"]
+        assert ctx["scenes"][0]["actions"] == ["설명한다"]
+        assert ctx["scenes"][0]["mood"] == "밝음"
+
 
 # =============================================================
 # PR #23 (eunseo) — 폰트
@@ -151,7 +182,18 @@ class TestSubtitleFont:
     def test_bundled_noto_uses_its_internal_family_name(self):
         from agent.tools.subtitle import _font_family_from_file
 
-        assert _font_family_from_file("NotoSansKR-Regular.ttf") == "Noto Sans KR"
+        assert (
+            _font_family_from_file("NotoSansKR-Regular.ttf")
+            == "Noto Sans KR"
+        )
+
+    def test_common_noto_cjk_alias_resolves_to_bundled_family(self):
+        from agent.tools.subtitle_cues import _resolve_font_family
+
+        assert (
+            _resolve_font_family("Noto Sans CJK KR")
+            == "Noto Sans KR"
+        )
 
     def test_family_derived_from_filename(self):
         from agent.tools.subtitle import _font_family_from_file

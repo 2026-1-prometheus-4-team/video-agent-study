@@ -217,6 +217,207 @@ class TestRouting:
 
         plan = sn._extract_json('{"mode":"edit","steps":[],"questions":[],}')
         assert plan == {"mode": "edit", "steps": [], "questions": []}
+    def test_unrequested_tts_bgm_and_captions_are_removed(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        plan = {
+            "creative_brief": {
+                "bgm_flow": "경쾌하게",
+                "storyboard": [{
+                    "narration": "자동 생성 나레이션",
+                    "on_screen_text": "자동 생성 화면 문구",
+                }],
+            },
+            "steps": [
+                {
+                    "step_id": 1, "expert": "edit_expert", "action": "cut_video",
+                    "params": {"output_path": "resized.mp4"},
+                },
+                {
+                    "step_id": 2, "expert": "audio_expert", "action": "text_to_speech",
+                    "params": {"output_path": "narration.mp3"},
+                },
+                {
+                    "step_id": 3, "expert": "audio_expert", "action": "mix_audio",
+                    "params": {
+                        "video_path": "resized.mp4",
+                        "audio_path": "narration.mp3",
+                        "output_path": "narrated.mp4",
+                    },
+                },
+                {
+                    "step_id": 4, "expert": "audio_expert", "action": "add_bgm",
+                    "params": {
+                        "video_path": "narrated.mp4",
+                        "output_path": "with_bgm.mp4",
+                    },
+                },
+                {
+                    "step_id": 5, "expert": "text_expert", "action": "add_auto_subtitle",
+                    "params": {"video_path": "narrated.mp4"},
+                },
+                {
+                    "step_id": 6, "expert": "text_expert", "action": "add_caption",
+                    "params": {
+                        "video_path": "with_bgm.mp4",
+                        "output_path": "captioned.mp4",
+                    },
+                },
+            ],
+            "questions": ["TTS 보이스?", "BGM 분위기?"],
+        }
+
+        cleaned = sn._enforce_requested_features(
+            plan,
+            "핵심 장면을 골라 한글 자막 넣어줘",
+        )
+
+        assert [s["action"] for s in cleaned["steps"]] == [
+            "cut_video",
+            "add_auto_subtitle",
+        ]
+        assert [s["step_id"] for s in cleaned["steps"]] == [1, 2]
+        assert cleaned["steps"][1]["params"]["video_path"] == "resized.mp4"
+        assert cleaned["questions"] == []
+        assert cleaned["creative_brief"]["bgm_flow"] == ""
+        assert cleaned["creative_brief"]["storyboard"][0]["narration"] == ""
+        assert cleaned["creative_brief"]["storyboard"][0]["on_screen_text"] == ""
+
+    def test_removed_bgm_repairs_nonstandard_path_and_dependencies(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        plan = {
+            "steps": [
+                {
+                    "step_id": 8,
+                    "expert": "edit_expert",
+                    "action": "resize_video",
+                    "params": {
+                        "video_path": "videos/merged.mp4",
+                        "output_path": "videos/resized.mp4",
+                    },
+                    "depends_on": [],
+                },
+                {
+                    "step_id": 17,
+                    "expert": "audio_expert",
+                    "action": "add_bgm",
+                    "params": {
+                        "input_video_path": "videos/resized.mp4",
+                        "bgm_path": "assets/bgm/energetic.mp3",
+                        "output_path": "videos/resized_with_bgm.mp4",
+                    },
+                    "depends_on": [8],
+                },
+                {
+                    "step_id": 18,
+                    "expert": "text_expert",
+                    "action": "add_auto_subtitle",
+                    "params": {
+                        "video_path": "videos/resized_with_bgm.mp4",
+                        "output_path": "videos/final.mp4",
+                    },
+                    "depends_on": [17],
+                },
+            ],
+        }
+
+        cleaned = sn._enforce_requested_features(plan, "쇼츠 만들어줘")
+
+        assert [step["action"] for step in cleaned["steps"]] == [
+            "resize_video",
+            "add_auto_subtitle",
+        ]
+        assert cleaned["steps"][1]["params"]["video_path"] == "videos/resized.mp4"
+        assert cleaned["steps"][1]["depends_on"] == [1]
+
+    def test_target_aspect_ratio_is_propagated_to_merge(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        plan = {
+            "target_aspect_ratio": "9:16",
+            "steps": [
+                {
+                    "action": "merge_video",
+                    "params": {
+                        "clip_paths": ["portrait.mp4", "landscape.mp4"],
+                        "output_path": "merged.mp4",
+                    },
+                },
+                {
+                    "action": "resize_video",
+                    "params": {
+                        "video_path": "merged.mp4",
+                        "aspect_ratio": "9:16",
+                        "mode": "crop",
+                        "output_path": "resized.mp4",
+                    },
+                },
+            ],
+        }
+
+        result = sn._propagate_target_aspect_ratio(plan)
+
+        merge_params = result["steps"][0]["params"]
+        assert merge_params["aspect_ratio"] == "9:16"
+        assert merge_params["mode"] == "crop"
+
+    def test_cut_plan_is_reduced_using_whisper_snapped_duration(self):
+        import importlib
+        sn = importlib.import_module("agent.nodes.script_node")
+
+        cuts = [
+            {
+                "step_id": i + 1,
+                "expert": "edit_expert",
+                "action": "cut_video",
+                "params": {
+                    "video_path": "videos/a.mp4" if i < 3 else "videos/b.mp4",
+                    "start_ms": i * 10_000,
+                    "end_ms": i * 10_000 + 10_000,
+                    "output_path": f"videos/clips/c{i}.mp4",
+                },
+            }
+            for i in range(4)
+        ]
+        plan = {
+            "steps": cuts + [{
+                "step_id": 5,
+                "expert": "edit_expert",
+                "action": "merge_video",
+                "params": {
+                    "clip_paths": [f"videos/clips/c{i}.mp4" for i in range(4)],
+                    "output_path": "videos/final.mp4",
+                },
+            }],
+        }
+        context = {
+            "transcript": [
+                {
+                    "video": "videos/a.mp4",
+                    "start": 0,
+                    "end": 12,
+                    "text": "긴 첫 발화",
+                },
+            ],
+        }
+
+        constrained = sn._constrain_cut_duration(
+            plan,
+            "25~35초 영상으로 만들어줘",
+            context,
+        )
+
+        remaining_cuts = [
+            s for s in constrained["steps"] if s["action"] == "cut_video"
+        ]
+        assert len(remaining_cuts) == 3
+        merge = next(s for s in constrained["steps"] if s["action"] == "merge_video")
+        assert len(merge["params"]["clip_paths"]) == 3
+        assert constrained["estimated_cut_duration_ms"] <= 35_000
 
     def test_chat_mode_routes_to_respond(self):
         state = {"script_plan": {"mode": "chat", "reply": "방금 1:23 구간을 잘랐어."}}

@@ -6,6 +6,8 @@
    임의로 다른 경로에 저장하지 않는다.
 2. **타임스탬프는 ms 단위 int** — `11분 15초 = 675000`. 초 단위 값이 오면 변환 여부를 확인하고 보고.
 3. **내용 기반 요청은 분석 JSON 우선** — "타워 브리지", "공중전화"처럼 장면 설명이면 `search_video_segments`로 구간을 확인한 뒤 `cut_by_description`을 호출한다.
+   - 필요한 장면을 **뽑아 달라/남겨 달라**는 요청은 `cut_by_description`을 사용한다.
+   - 지루한 장면을 **빼 달라/없애 달라**는 요청은 `remove_by_description` 또는 `remove_video_segments`를 사용한다.
    - **no_match / 저신뢰 시 임의로 자르지 않는다.** status=no_match 면 near_misses 와 stats 를
      그대로 요약해 보고하고 종료 — Supervisor 가 사용자 확인을 진행한다.
    - 검색 재현율이 걱정되면 queries 로 동의어 2~3개를 함께 넘긴다.

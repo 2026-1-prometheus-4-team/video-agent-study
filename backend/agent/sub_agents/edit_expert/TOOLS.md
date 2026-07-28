@@ -5,13 +5,15 @@
 ## 구현됨
 
 - `cut_video(video_path, start_ms, end_ms, output_path=None)` — ms 기준 구간 cut. 병렬 호출 가능.
-- `merge_video(clip_paths, output_path=None)` — 여러 클립 concat. stream copy 우선, 해상도/fps가 다르면 reencode fallback.
+- `merge_video(clip_paths, output_path=None)` — 여러 클립 concat. stream copy 우선, 해상도/fps가 다르면 다수 해상도 기준 reencode fallback.
 - `search_video_segments(video_path, query, analysis_path=None, max_results=5)` — 분석 JSON에서 장면 설명/객체/자막 기반 구간 검색.
 - `cut_by_description(video_path, query, analysis_path=None, merge=False, padding_ms=0, max_segments=5, output_path=None)` — 내용 검색 후 자동 cut, 필요 시 merge.
-- `cut_scene(video_path, scene_name=None, scene_index=None, analysis_path=None, output_path=None)` — 기존 scene 이름 또는 분석 JSON segment index 기반 cut.
+- `remove_video_segments(video_path, ranges, output_path=None, snap_to_speech=True)` — 지정한 불필요 구간을 제거하고 남은 구간을 연결.
+- `remove_by_description(video_path, query, analysis_path=None, padding_ms=0, max_segments=5, output_path=None, snap_to_speech=True)` — 내용 검색으로 불필요한 장면을 찾아 제거.
 - `resize_video(video_path, aspect_ratio="9:16", mode="crop", output_path=None)` — 화면비 변환.
   aspect_ratio: 9:16(쇼츠) / 16:9 / 1:1 / 4:5. mode: crop(중앙 기준 꽉 채움) / pad(검은 여백).
-  cut·merge 로 편집을 끝낸 *뒤* 마지막에 호출한다.
+  같은 방향의 소스는 cut·merge 뒤 마지막에 호출한다. 가로/세로가 섞였고 목표
+  화면비가 정해졌다면 각 클립을 먼저 같은 비율로 맞춘 뒤 merge 한다.
 
 ## TODO (owner 가 채울 것)
 

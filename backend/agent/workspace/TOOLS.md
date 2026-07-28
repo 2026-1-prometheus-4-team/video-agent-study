@@ -21,9 +21,11 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
 | tool                     | 시그니처                                                          | 설명                                  |
 |--------------------------|-------------------------------------------------------------------|---------------------------------------|
 | `cut_video`              | `(video_path, start_ms, end_ms, output_path?) -> path`            | 구간 cut. **타임스탬프는 ms 단위.** 병렬 호출 가능. |
-| `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 자동 reencode. |
+| `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 다수 해상도 기준 자동 reencode. |
 | `search_video_segments`  | `(video_path, query, queries?, max_results?, merge_gap_ms?) -> json` | 분석 JSON 에서 자연어로 장면 검색 (컷 안 함). 인접 매칭 자동 병합, stats + near_misses 포함 |
 | `cut_by_description`     | `(video_path, query, merge?, padding_ms?, max_segments?) -> json` | 자연어 장면 검색 + 자동 컷 (+선택 병합). 중첩 구간은 union 후 컷 |
+| `remove_video_segments`  | `(video_path, ranges, output_path?, snap_to_speech?) -> path` | 지정 구간을 제거하고 나머지를 발화 경계 기준으로 연결 |
+| `remove_by_description`  | `(video_path, query, padding_ms?, max_segments?, output_path?) -> json` | 자연어 검색으로 불필요한 장면을 찾아 제거 |
 | `resize_video`           | `(video_path, aspect_ratio?, mode?, output_path?) -> path`        | 화면비 변환. aspect_ratio: 9:16(쇼츠)/16:9/1:1/4:5, mode: crop(꽉채움)/pad(여백). **편집 마지막 단계에 호출** |
 
 호출 시 박을 정보: 입력/출력 경로, start_ms/end_ms (밀리초 int) 또는 자연어 query.
@@ -33,6 +35,8 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
   전체 scene 을 모두 cut 하는 것 금지 (원본 길이 그대로 나옴).
 - "입국 장면", "골 장면" 같은 내용 기반 요청은 scene_id 나열 대신
   `cut_by_description(query=...)` 을 장면당 1 회씩 쓰는 것이 정확하다.
+- "필요한 장면을 뽑아/남겨"는 `cut_by_description`, "지루한 부분을 빼/없애"는
+  `remove_by_description` 또는 `remove_video_segments`를 사용한다.
 
 
 ## audio_expert

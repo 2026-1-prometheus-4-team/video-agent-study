@@ -93,6 +93,10 @@ backend/postgres-data/
 backend/assets/fonts/*
 !backend/assets/fonts/NotoSansKR-Regular.ttf
 
+# ── 루트 레벨 로컬 테스트 파일 (구 구조 잔재) ──
+assets/
+videos/
+!backend/assets/fonts/NotoSansKR-Regular.ttf
 # ── Windows Python venv ──
 .venv-win/
 backend/.venv-win/

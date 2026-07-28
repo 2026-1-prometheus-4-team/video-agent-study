@@ -13,9 +13,130 @@ from dotenv import load_dotenv
 from langchain_core.tools import tool
 
 from agent.tools.audio_common import probe_duration, resolve_input_path, run_ffmpeg
+from agent.tools.transcript_polish import polish_transcript
 
 load_dotenv()
 logger = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+VIDEOS_DIR = PROJECT_ROOT / "videos"
+SUBTITLES_DIR = VIDEOS_DIR / "subtitles"
+
+
+def _transcript_cache_path(source: Path) -> Path:
+    """Return the canonical transcript sidecar path for a video."""
+    return SUBTITLES_DIR / f"{source.stem}.json"
+
+
+def _load_cached_transcript(source: Path) -> dict | None:
+    path = _transcript_cache_path(source)
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        logger.warning("transcript cache load failed: %s", path, exc_info=True)
+        return None
+
+    segments = data.get("segments")
+    if not isinstance(segments, list) or not segments:
+        return None
+
+    duration = max((float(segment.get("end", 0)) for segment in segments), default=0.0)
+    result = {
+        "status": "success",
+        "segments": segments,
+        "raw_segments": data.get("raw_segments", segments),
+        "segment_count": len(segments),
+        "total_duration": duration,
+        "language": data.get("language", "unknown"),
+        "engine": data.get("engine", "unknown"),
+        "chunk_count": data.get("chunk_count", 0),
+        "fallback_used": bool(data.get("fallback_used", False)),
+        "cache_hit": True,
+        "cache_path": str(path),
+        "report": f"segments: {len(segments)}, total_duration: {duration}, cache: hit",
+    }
+    if isinstance(data.get("correction"), dict):
+        result["correction"] = data["correction"]
+    return result
+
+
+def _save_transcript_cache(source: Path, payload: dict) -> Path:
+    path = _transcript_cache_path(source)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cache_payload = {
+        "schema_version": 2,
+        "segments": payload.get("segments", []),
+        "raw_segments": payload.get("raw_segments", payload.get("segments", [])),
+        "correction": payload.get("correction"),
+        "language": payload.get("language"),
+        "engine": payload.get("engine"),
+        "chunk_count": payload.get("chunk_count", 0),
+        "fallback_used": bool(payload.get("fallback_used", False)),
+        "source_path": str(source.resolve()),
+    }
+    path.write_text(
+        json.dumps(cache_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _correction_complete(correction: Any) -> bool:
+    try:
+        schema_version = int(correction.get("schema_version", 0))
+    except (AttributeError, TypeError, ValueError):
+        schema_version = 0
+    return (
+        isinstance(correction, dict)
+        and schema_version >= 2
+        and correction.get("status") in {
+            "applied",
+            "no_changes",
+            "disabled",
+            "no_segments",
+        }
+    )
+
+
+def _apply_transcript_correction(
+    payload: dict,
+    *,
+    media_path: Path | None = None,
+) -> dict:
+    """Add one correction attempt while preserving the immutable Whisper output."""
+    if _correction_complete(payload.get("correction")):
+        return payload
+
+    raw_segments = payload.get("raw_segments")
+    if not isinstance(raw_segments, list):
+        raw_segments = payload.get("segments", [])
+    current_segments = payload.get("segments")
+    if not isinstance(current_segments, list):
+        current_segments = raw_segments
+    previous_correction = payload.get("correction")
+
+    corrected, correction = polish_transcript(
+        current_segments,
+        language=str(payload.get("language") or "unknown"),
+        media_path=media_path,
+    )
+    if (
+        isinstance(previous_correction, dict)
+        and previous_correction.get("status") in {"applied", "no_changes"}
+        and previous_correction.get("schema_version") != correction.get("schema_version")
+    ):
+        correction["previous_correction"] = previous_correction
+    payload["raw_segments"] = raw_segments
+    payload["segments"] = corrected
+    payload["correction"] = correction
+    payload["segment_count"] = len(corrected)
+    payload["total_duration"] = max(
+        (float(segment.get("end", 0)) for segment in corrected),
+        default=0.0,
+    )
+    return payload
 
 
 def _normalize_audio(video_path: Path) -> Path:
@@ -146,24 +267,47 @@ def _local_whisper(audio_path: Path) -> tuple[list[dict], str]:
 
 
 @tool
-def transcribe_video(video_path: str) -> str:
+def transcribe_video(video_path: str, force: bool = False, polish: bool = True) -> str:
     """Return Whisper transcript as a clean segment list with timestamps.
 
     Args:
         video_path: Absolute path or project-root-relative video path.
+        force: True면 기존 transcript JSON 캐시를 무시하고 다시 전사.
+        polish: When True, correct only obvious ASR errors once before caching.
     """
     try:
         source = resolve_input_path(video_path)
     except FileNotFoundError as error:
         return json.dumps({"status": "error", "segments": [], "error": str(error)}, ensure_ascii=False)
 
+    if not force:
+        cached = _load_cached_transcript(source)
+        if cached:
+            if polish and not _correction_complete(cached.get("correction")):
+                cached = _apply_transcript_correction(cached, media_path=source)
+                try:
+                    cache_path = _save_transcript_cache(source, cached)
+                    cached["cache_path"] = str(cache_path)
+                except OSError:
+                    logger.warning("corrected transcript cache save failed", exc_info=True)
+            logger.info("transcript cache reused: %s", cached["cache_path"])
+            return json.dumps(cached, ensure_ascii=False)
+
     normalized_path: Path | None = None
     chunks: list[tuple[Path, float]] = []
     primary = os.getenv("WHISPER_ENGINE", "openai").strip().lower()
+    if primary not in {"openai", "faster-whisper", "gemini"}:
+        return json.dumps({
+            "status": "error",
+            "segments": [],
+            "error": f"unsupported Whisper engine: {primary}",
+        }, ensure_ascii=False)
+
     engines = [primary]
     fallback = "faster-whisper" if primary == "openai" else "openai"
     if os.getenv("WHISPER_DISABLE_FALLBACK", "").lower() not in {"1", "true", "yes"}:
-        engines.append(fallback)
+        if fallback not in engines:
+            engines.append(fallback)
 
     errors: list[str] = []
     try:
@@ -172,31 +316,44 @@ def transcribe_video(video_path: str) -> str:
         for index, engine in enumerate(engines):
             try:
                 if engine == "openai":
-                    segments, language = _gemini_transcribe(chunks)
+                    segments, language = _openai_whisper(chunks)
                 elif engine == "faster-whisper":
                     segments, language = _local_whisper(normalized_path)
+                elif engine == "gemini":
+                    segments, language = _gemini_transcribe(chunks)
                 else:
                     raise ValueError(f"unsupported Whisper engine: {engine}")
 
                 segments = [segment for segment in segments if segment["text"]]
                 duration = max((segment["end"] for segment in segments), default=0.0)
-                return json.dumps(
-                    {
-                        "status": "success",
-                        "segments": segments,
-                        "segment_count": len(segments),
-                        "total_duration": duration,
-                        "language": language,
-                        "engine": engine,
-                        "chunk_count": len(chunks),
-                        "fallback_used": index > 0,
-                        "report": (
-                            f"segments: {len(segments)}, total_duration: {duration}, "
-                            f"language: {language}"
-                        ),
-                    },
-                    ensure_ascii=False,
-                )
+                payload = {
+                    "status": "success",
+                    "segments": segments,
+                    "raw_segments": segments,
+                    "segment_count": len(segments),
+                    "total_duration": duration,
+                    "language": language,
+                    "engine": engine,
+                    "chunk_count": len(chunks),
+                    "fallback_used": index > 0,
+                    "cache_hit": False,
+                    "report": (
+                        f"segments: {len(segments)}, total_duration: {duration}, "
+                        f"language: {language}"
+                    ),
+                }
+                if polish:
+                    payload = _apply_transcript_correction(
+                        payload,
+                        media_path=source,
+                    )
+                try:
+                    cache_path = _save_transcript_cache(source, payload)
+                    payload["cache_path"] = str(cache_path)
+                    logger.info("transcript cache saved: %s", cache_path)
+                except OSError:
+                    logger.warning("transcript cache save failed", exc_info=True)
+                return json.dumps(payload, ensure_ascii=False)
             except Exception as error:
                 logger.exception("Whisper engine failed: %s", engine)
                 errors.append(f"{engine}: {error}")
