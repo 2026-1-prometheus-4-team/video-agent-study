@@ -21,12 +21,14 @@ Sub-Agent Spawn (OpenClaw ACP 패턴의 Python/LangGraph 이식)
 from __future__ import annotations
 
 import logging
+import json
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from agent import config
 from agent.llm import make_llm
@@ -241,6 +243,46 @@ def _extract_result(role: str, state: dict, started: float) -> SubAgentResult:
             duration_sec=time.monotonic() - started,
         )
 
+    tool_messages = [message for message in messages if isinstance(message, ToolMessage)]
+    if not tool_messages:
+        return SubAgentResult(
+            role=role,
+            status="error",
+            summary="sub-agent returned without calling a tool",
+            error="no_tool_call",
+            duration_sec=time.monotonic() - started,
+        )
+
+    for message in tool_messages:
+        content = getattr(message, "content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        text = str(content).strip()
+        is_error = text.startswith("ERROR")
+        if not is_error:
+            try:
+                parsed = json.loads(text)
+                is_error = (
+                    isinstance(parsed, dict)
+                    and (
+                        parsed.get("status") in {"error", "failed"}
+                        or bool(parsed.get("error"))
+                    )
+                )
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if is_error:
+            return SubAgentResult(
+                role=role,
+                status="error",
+                summary=text[:300],
+                error=text[:1000],
+                duration_sec=time.monotonic() - started,
+            )
+
     last_msg = messages[-1]
     summary = getattr(last_msg, "content", "") or ""
     if isinstance(summary, list):
@@ -251,17 +293,85 @@ def _extract_result(role: str, state: dict, started: float) -> SubAgentResult:
         )
     summary = str(summary)[:1000]
 
-    # output 경로 추출: tool 결과 메시지에서 .mp4 / .wav / .srt / .png 경로 추출
-    output_paths = _extract_paths_from_messages(messages)
+    tool_errors, output_paths = _inspect_tool_results(messages)
+    if not output_paths and not tool_errors:
+        # 구조화 JSON 에서 출력 경로를 못 찾았고 에러도 없으면, 평문 메시지에서
+        # 경로 후보를 휴리스틱으로 추출한다 (일부 tool 은 평문 경로만 반환).
+        # 에러가 있을 땐 fallback 하지 않는다 — 에러 문구에서 경로를 추론하지 않기 위해.
+        output_paths = _extract_paths_from_messages(messages)
+    status = "error" if tool_errors else "ok"
+    error = "; ".join(tool_errors)[:1000] if tool_errors else None
 
     return SubAgentResult(
         role=role,
-        status="ok",
+        status=status,
         summary=summary[:300],
         output_paths=output_paths,
         detail=summary if len(summary) > 300 else "",
+        error=error,
         duration_sec=time.monotonic() - started,
     )
+
+
+def _existing_output_path(value: object) -> Optional[str]:
+    """Return the reported path only when the file actually exists."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    path = Path(raw)
+    candidates = [path] if path.is_absolute() else [
+        config.PROJECT_ROOT / path,
+        config.VIDEOS_DIR / path,
+        config.VIDEOS_DIR / Path(*path.parts[1:])
+        if path.parts and path.parts[0].lower() == "videos"
+        else config.VIDEOS_DIR / path,
+    ]
+    return raw if any(candidate.exists() for candidate in candidates) else None
+
+
+def _inspect_tool_results(messages: list) -> tuple[list[str], list[str]]:
+    """Read structured ToolMessage JSON; never infer outputs from error prose."""
+    from langchain_core.messages import ToolMessage
+
+    errors: list[str] = []
+    outputs: list[str] = []
+    for message in messages:
+        if not isinstance(message, ToolMessage):
+            continue
+        content = getattr(message, "content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                part.get("text", "") if isinstance(part, dict) else str(part)
+                for part in content
+            )
+        text = str(content).strip()
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            # Some framework/tool errors are plain text rather than JSON.
+            lowered = text.lower()
+            if text.startswith("ERROR") or "status=error" in lowered:
+                errors.append(text[:300])
+            continue
+        if not isinstance(payload, dict):
+            continue
+        status = str(payload.get("status", "")).lower()
+        error_value = payload.get("error")
+        if status in {"error", "fail", "failed"} or (
+            error_value and status != "success"
+        ):
+            detail_parts = [str(error_value or status)]
+            if payload.get("status_code") is not None:
+                detail_parts.append(f"status_code={payload['status_code']}")
+            if payload.get("response"):
+                detail_parts.append(f"response={str(payload['response'])[:700]}")
+            errors.append("; ".join(detail_parts)[:1000])
+            continue
+        for key in ("output", "manifest"):
+            existing = _existing_output_path(payload.get(key))
+            if existing and existing not in outputs:
+                outputs.append(existing)
+    return errors, outputs
 
 
 def _extract_paths_from_messages(messages: list) -> list[str]:
@@ -274,6 +384,8 @@ def _extract_paths_from_messages(messages: list) -> list[str]:
     pattern = re.compile(r'[\w./\-]+\.(?:mp4|mov|wav|mp3|aac|srt|vtt|png|jpg|json)\b', re.I)
     seen: list[str] = []
     for m in messages:
+        if isinstance(m, HumanMessage):
+            continue
         content = getattr(m, "content", None)
         if isinstance(content, str):
             for p in pattern.findall(content):
@@ -314,17 +426,20 @@ def make_spawn_tools(
     def _make_tool(role: str):
         # closure 로 각 역할 캡처
         @tool(role.replace("_expert", ""))  # tool name: edit / audio / text / effect / research
-        def _spawn(task: str, allowed_tools: Optional[list[str]] = None) -> str:
+        def _spawn(task: str) -> str:
             """위임 도구. 자세한 task description 을 자연어로 넘기면 해당 전문가가 격리 컨텍스트에서 처리.
 
             Args:
                 task: 전문가에게 줄 작업 설명. 파일 경로, 타임스탬프, 이전 산출물 등 필요한 정보 *전부* 박을 것.
-                allowed_tools: 이 호출에서 child 가 쓸 수 있는 tool 만 좁히고 싶을 때 (선택).
+                도구 선택은 child 전문가가 수행한다. Supervisor가 allowlist를
+                추측해 넘기면 여러 도구가 필요한 작업에서 후속 도구가 사라질 수 있다.
             """
             envelope = SubAgentEnvelope(
                 role=role,
                 task=task,
-                inherited_tool_allowlist=allowed_tools,
+                # Supervisor LLM이 임의로 tool group을 축소하지 못하게 한다.
+                # 역할별 격리는 ROLE_TO_TOOL_GROUP 자체로 이미 보장된다.
+                inherited_tool_allowlist=None,
                 video_context=video_context,
                 spawn_depth=parent_depth + 1,
                 parent_session_id=parent_session_id,

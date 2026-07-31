@@ -21,10 +21,15 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
 | tool                     | 시그니처                                                          | 설명                                  |
 |--------------------------|-------------------------------------------------------------------|---------------------------------------|
 | `cut_video`              | `(video_path, start_ms, end_ms, output_path?) -> path`            | 구간 cut. **타임스탬프는 ms 단위.** 병렬 호출 가능. |
-| `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 자동 reencode. |
+| `merge_video`            | `(clip_paths: list[str], output_path?) -> path`                   | 여러 클립 concat. 스펙 다르면 다수 해상도 기준 자동 reencode. |
 | `search_video_segments`  | `(video_path, query, queries?, max_results?, merge_gap_ms?) -> json` | 분석 JSON 에서 자연어로 장면 검색 (컷 안 함). 인접 매칭 자동 병합, stats + near_misses 포함 |
 | `cut_by_description`     | `(video_path, query, merge?, padding_ms?, max_segments?) -> json` | 자연어 장면 검색 + 자동 컷 (+선택 병합). 중첩 구간은 union 후 컷 |
+| `remove_video_segments`  | `(video_path, ranges, output_path?, snap_to_speech?) -> path` | 지정 구간을 제거하고 나머지를 발화 경계 기준으로 연결 |
+| `remove_by_description`  | `(video_path, query, padding_ms?, max_segments?, output_path?) -> json` | 자연어 검색으로 불필요한 장면을 찾아 제거 |
 | `resize_video`           | `(video_path, aspect_ratio?, mode?, output_path?) -> path`        | 화면비 변환. aspect_ratio: 9:16(쇼츠)/16:9/1:1/4:5, mode: crop(꽉채움)/pad(여백). **편집 마지막 단계에 호출** |
+| `speed_video`            | `(video_path, factor, start_ms?, end_ms?, output_path?) -> path`  | 배속 0.5~4x. 구간 지정 시 그 구간만. 뻔한 이동/정리 구간을 2~4배속으로 |
+| `split_screen`           | `(video_paths[2], output_path?, layout?, duration_source?) -> path` | 두 영상 화면분할. layout: vstack(위아래·쇼츠)/hstack. 깨끗vs지저분 대비 |
+| `crossfade_video`        | `(clip_paths, duration?, output_path?) -> path`                   | 클립들 부드러운 디졸브 전환 (하드컷은 merge_video). 해상도/fps 동일 요구 |
 
 호출 시 박을 정보: 입력/출력 경로, start_ms/end_ms (밀리초 int) 또는 자연어 query.
 
@@ -33,6 +38,8 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
   전체 scene 을 모두 cut 하는 것 금지 (원본 길이 그대로 나옴).
 - "입국 장면", "골 장면" 같은 내용 기반 요청은 scene_id 나열 대신
   `cut_by_description(query=...)` 을 장면당 1 회씩 쓰는 것이 정확하다.
+- "필요한 장면을 뽑아/남겨"는 `cut_by_description`, "지루한 부분을 빼/없애"는
+  `remove_by_description` 또는 `remove_video_segments`를 사용한다.
 
 
 ## audio_expert
@@ -44,9 +51,12 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
 | `transcribe_video`   | `(video_path) -> [{start, end, text}]`                                | Whisper 자막/발화 추출 (timestamp)     |
 | `text_to_speech`     | `(text, voice?, voice_id?, stability?, style?, speed?, output_path?, model?) -> json` | TTS / 나래이션 합성. 생성 이력은 narration.json manifest 에 자동 기록 |
 | `transcribe_video_to_speech` | `(video_path, voice?, voice_id?, output_path?, model?, stability?, style?, speed?) -> json` | 영상 발화를 전사해 그대로 다른 목소리로 재생성 (더빙 / 보이스 교체) |
+| `generate_bgm`       | `(prompt?, duration_sec?, video_path?, mood?, genre?, tempo?, energy?) -> json` | ElevenLabs Music으로 영상에 맞는 새 BGM 생성 |
 | `add_bgm`            | `(video_path, bgm_path, volume, ducking, narration_path?) -> path`    | BGM 깔기 (ducking = 발화 구간 자동 감쇠) |
-| `add_sfx`            | `(video_path, sfx_path, at_time) -> path`                             | 효과음 (woosh, ding, beat 등) 삽입     |
-| `mix_audio`          | `(video_path, audio_path, mode, output_path?, at_time_ms?) -> path`   | 오디오 mix. overlay + at_time_ms 로 특정 시점 배치 |
+| `add_bgm_progression` | `(video_path, segments:[{bgm_path,start_sec,end_sec}], output_path?, target_lufs?, crossfade?) -> json` | 구간별 다른 BGM (도입 경쾌→갈등 개그→마무리 힐링). 더킹/loudnorm 포함 |
+| `generate_sfx`       | `(description, output_path?, duration_seconds?, loop?, prompt_influence?) -> json` | 자연어로 효과음 생성 ("한숨 소리", "띠로리 실패음"). 파일이 없으면 먼저 호출, 이후 add_sfx 로 삽입 |
+| `add_sfx`            | `(video_path, sfx_path, at_time) -> path`                             | 효과음 시점 삽입. generate_sfx 산출물을 여기로 |
+| `mix_audio`          | `(video_path, audio_path, mode, output_path?, at_time_ms?, original_volume?, overlay_volume?) -> path` | 오디오 mix. 나레이션은 overlay로 원본 음성을 보존하며 기본 원본 0.85 / 나레이션 1.0 |
 | `denoise`            | `(audio_path) -> path`                                                 | 노이즈 제거                            |
 | `normalize_loudness` | `(path, target_lufs) -> path`                                          | 라우드니스 정규화 (-14 LUFS 등)        |
 
@@ -54,9 +64,16 @@ TTS voice 는 assets/tts_voices.json 의 카탈로그 id (예: `male_ko_general`
 숫자 별칭 (`"2"` -> .env 의 ELEVENLABS_VOICE_2), 또는 raw ElevenLabs voice id.
 명시적 id 를 쓰려면 voice_id 파라미터 (voice 보다 우선).
 "이 영상 목소리만 바꿔줘" = transcribe_video_to_speech (전사 + 재합성 한 번에).
+요청한 BGM 파일이 없으면 `ask_user` 선택지에 반드시 "AI로 새 BGM 생성 (추천)"을
+포함한다. 사용자가 선택하면 `generate_bgm`으로 영상을 분석한 BGM을 만든 뒤 그
+출력 경로를 `add_bgm.bgm_path`에 전달한다. 파일 없음만 이유로 BGM 단계를 포기하지 않는다.
 사용자 표현 매핑: "더 차분하게" -> stability 상향(0.7~0.9)
 + speed 하향(0.9), "더 밝게/에너지있게" -> stability 하향(0.3) + style 상향.
 특정 구간 나래이션 교체 = 해당 문장만 재합성 -> mix_audio(overlay, at_time_ms).
+새 나레이션 추가는 반드시 `mode="overlay"`를 사용한다. `replace`는 사용자가
+원본 음성을 제거하거나 더빙으로 교체해 달라고 명시한 경우에만 사용한다.
+요청한 효과음 파일이 없으면 포기하지 말고 `generate_sfx`로 생성한 뒤 반환된
+실제 output을 `add_sfx.sfx_path`에 전달한다.
 나래이션 / TTS 는 같은 tool — 사용 맥락만 다르다.
 "비트", "효과음", "사운드" 같은 사용자 어휘는 모두 `add_sfx` 로 매핑.
 
@@ -75,18 +92,23 @@ TTS voice 는 assets/tts_voices.json 의 카탈로그 id (예: `male_ko_general`
 | `list_subtitle_cues`       | `(video_path) -> json`                                          | 큐 문서 조회 (없으면 사이드카에서 자동 승격) |
 | `update_subtitle_cues`     | `(video_path, updates:[{id?|index?|at_ms?, text?, start?, end?, style?, delete?}]) -> json` | 큐 배치 수정 (오타/타이밍/개별 스타일/삭제) |
 | `add_subtitle_cue`         | `(video_path, start, end, text, style?) -> json`                | 새 큐 삽입                        |
-| `set_subtitle_style`       | `(video_path, style, scope?) -> json`                           | 전역 스타일 (defaults) 또는 전체 큐 일괄 |
-| `render_subtitles`         | `(video_path, output_path?) -> path`                            | 큐 문서 -> ASS -> 번인 (per-cue 스타일 반영) |
+| `set_subtitle_style`       | `(video_path, style, scope?, preset?) -> json`                  | 전역 스타일. preset 지정 가능 (shorts_bold 등) |
+| `render_subtitles`         | `(video_path, output_path?) -> path`                            | 큐 문서 -> ASS -> 번인 (per-cue 스타일/효과 반영) |
 | `add_subtitle`             | `(video_path, srt_path, style) -> path`                         | (레거시) SRT 직접 burn-in         |
-| `add_auto_subtitle`        | `(video_path, style) -> path`                                   | STT -> 큐 문서 생성 -> 렌더 (최초 자막용) |
+| `add_auto_subtitle`        | `(video_path, style) -> path`                                   | STT -> 큐 문서 생성 -> 렌더. platform=shorts 면 자동 볼드 |
 | `add_title`                | `(video_path, text, position, duration, anim) -> path`          | 타이틀 오버레이 (애니메이션 포함) |
 | `add_caption`              | `(video_path, text, at_time, duration, style) -> path`          | 한 줄 캡션 (강조 텍스트)          |
+| `add_captions_batch`       | `(video_path, captions, output_path) -> path`                   | 여러 강조 캡션 일괄 렌더          |
 | `add_emoji_overlay`        | `(video_path, emoji, at_time, position) -> path`                | 쇼츠/릴스용 이모지 강조           |
 
-style = {font, size, color(임의 hex 가능), stroke_color, stroke_width, position, margin_v, bold, fade}.
+style = {font, size, color(임의 hex), stroke_color, stroke_width, position(9방향), margin_v, bold, fade, **effect**}.
+**effect** (per-cue 등장 애니메이션): none | fade | pop(스케일 팝) | bounce(팝+오버슈트) | slide_up(아래→제자리) | typewriter.
+**style preset** (set_subtitle_style preset=): `shorts_bold`(큰 볼드+굵은 외곽선, 쇼츠 기본), `clean`(중간·하단), `caption_point`(노란 강조).
+- 쇼츠 자막 = shorts_bold 가 기본. "이 자막만 pop 효과", "자막 위로", "노란색으로" 는
+  update_subtitle_cues(id/index/at_ms, style={effect:pop / position:top / color:'#FFE600'}) 로 자유 변경.
 개별 큐 지정: "두번째 자막" -> index=1, "0:32 자막" -> at_ms=32000.
-폰트는 assets/fonts 보유분만 — 없는 폰트 요청 시 보유 목록과 함께 사용자 안내.
-SOUL.md 의 *포맷별 default 스타일* 따름 — 쇼츠는 큰 폰트·중앙, 유튜브는 중간·하단.
+폰트는 assets/fonts 보유분만 — 없는 폰트 요청 시 보유 목록과 함께 사용자 안내
+(shorts_bold 는 BlackHanSans 있으면 그걸, 없으면 NotoSansKR 로 자동 폴백).
 
 
 ## effect_expert

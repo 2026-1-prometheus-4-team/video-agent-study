@@ -82,10 +82,9 @@ export function ClarifyCard({
         );
       return;
     }
-    const store = useAgentStore.getState();
-    if (reply) store.appendUser(reply);
-    store.markInterruptResolved("answered");
-    setText("");
+    // Keep the answer and card visible until resume_accepted arrives. This
+    // lets AgentSocket retry a transient RESUME_NOT_READY without losing the
+    // user's selection.
   };
 
   useHotkeys(

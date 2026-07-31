@@ -13,7 +13,8 @@ import re
 from typing import Optional
 
 import cv2
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 from langchain_core.tools import tool
 
@@ -23,6 +24,20 @@ logger = logging.getLogger(__name__)
 
 VIDEOS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "videos")
 SUBTITLES_DIR = os.path.join(VIDEOS_DIR, "subtitles")
+
+
+def _analysis_api_key() -> Optional[str]:
+    """Use the dedicated video-analysis key before the shared key."""
+    return os.getenv("GOOGLE_API_KEY_ANALYSIS") or os.getenv("GOOGLE_API_KEY")
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Recognize Gemini quota errors across SDK exception variants."""
+    message = str(exc).lower()
+    return any(token in message for token in (
+        "429", "resource_exhausted", "resource exhausted", "rate limit",
+        "quota exceeded", "too many requests",
+    ))
 
 
 def _load_transcript(video_path: str) -> list[dict]:
@@ -56,20 +71,7 @@ def _load_transcript(video_path: str) -> list[dict]:
         if data.get("status") == "success":
             segs = data.get("segments", [])
             logger.info(f"transcribe_video 완료 - {len(segs)}개 세그먼트")
-            # 원본 발화 경계를 보존해 저장.
-            # 분석 JSON 의 transcript 는 Gemini 가 프레임 구간에 맞춰 재가공한 것이라
-            # 실제 발화 시작/끝과 다르다. 자막 싱크와 cut 경계 스냅에는 이 원본이 필요.
-            try:
-                os.makedirs(SUBTITLES_DIR, exist_ok=True)
-                with open(cached, "w", encoding="utf-8") as f:
-                    json.dump({
-                        "segments": segs,
-                        "language": data.get("language"),
-                        "engine": data.get("engine"),
-                    }, f, ensure_ascii=False, indent=2)
-                logger.info(f"원본 전사 저장: {cached}")
-            except OSError:
-                logger.warning("전사 저장 실패 (계속 진행)", exc_info=True)
+            # transcribe_video가 canonical 캐시와 교정 감사 정보를 이미 저장한다.
             return segs
         logger.warning(f"transcribe 실패: {data.get('error')}")
     except Exception as e:
@@ -264,6 +266,151 @@ def _parse_gemini_response(text: str) -> dict:
         raise
 
 
+def detect_orientation(video_path: str) -> dict:
+    """원본 픽셀을 바르게 세우는 시계방향 회전값을 시각적으로 판정한다."""
+    input_path = (
+        video_path
+        if os.path.isabs(video_path)
+        else os.path.join(VIDEOS_DIR, video_path)
+    )
+    if not os.path.exists(input_path):
+        return {
+            "detector_version": 2,
+            "clockwise_degrees": None,
+            "confidence": 0.0,
+            "reason": "file_not_found",
+        }
+
+    cap = cv2.VideoCapture(input_path)
+    try:
+        # 컨테이너 회전값이 중복 또는 오기입됐는지 원본 픽셀로 판정한다.
+        if hasattr(cv2, "CAP_PROP_ORIENTATION_AUTO"):
+            cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 0)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        metadata_rotation = (
+            float(cap.get(cv2.CAP_PROP_ORIENTATION_META))
+            if hasattr(cv2, "CAP_PROP_ORIENTATION_META")
+            else 0.0
+        )
+        frames: list[bytes] = []
+        for ratio in (0.2, 0.5, 0.8):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(frame_count * ratio)))
+            ok, frame = cap.read()
+            if not ok:
+                continue
+
+            variants = [
+                (0, frame),
+                (90, cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)),
+                (180, cv2.rotate(frame, cv2.ROTATE_180)),
+                (270, cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)),
+            ]
+            tile_w, tile_h = 360, 280
+            grid = cv2.copyMakeBorder(
+                frame[:1, :1] * 0,
+                0,
+                tile_h * 2 - 1,
+                0,
+                tile_w * 2 - 1,
+                cv2.BORDER_CONSTANT,
+                value=(20, 20, 20),
+            )
+            for index, (degrees, variant) in enumerate(variants):
+                scale = min(
+                    tile_w / variant.shape[1],
+                    (tile_h - 40) / variant.shape[0],
+                )
+                resized = cv2.resize(
+                    variant,
+                    (
+                        max(1, int(variant.shape[1] * scale)),
+                        max(1, int(variant.shape[0] * scale)),
+                    ),
+                )
+                row, col = divmod(index, 2)
+                x0 = col * tile_w + (tile_w - resized.shape[1]) // 2
+                y0 = row * tile_h + 36 + (tile_h - 40 - resized.shape[0]) // 2
+                grid[y0:y0 + resized.shape[0], x0:x0 + resized.shape[1]] = resized
+                cv2.putText(
+                    grid,
+                    f"{degrees} deg clockwise",
+                    (col * tile_w + 10, row * tile_h + 27),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 255),
+                    2,
+                )
+
+            encoded, buffer = cv2.imencode(".jpg", grid)
+            if encoded:
+                frames.append(buffer.tobytes())
+    finally:
+        cap.release()
+
+    if not frames:
+        return {
+            "detector_version": 2,
+            "clockwise_degrees": None,
+            "confidence": 0.0,
+            "reason": "frame_extraction_failed",
+        }
+
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        return {
+            "detector_version": 2,
+            "clockwise_degrees": None,
+            "confidence": 0.0,
+            "reason": "missing_api_key",
+        }
+
+    prompt = f"""Each image is a 2x2 comparison grid made from one raw video frame.
+The four tiles are visibly labeled 0, 90, 180, and 270 degrees clockwise.
+Container rotation metadata was NOT applied; it reports {metadata_rotation} degrees.
+Choose the one label that makes the scene upright across all three grids.
+Use readable text, people, walls, furniture, and gravity. Perspective alone is not
+evidence of rotation. Do not trust the metadata if the 0-degree tiles are upright.
+
+Return JSON only:
+{{
+  "clockwise_degrees": <one of 0, 90, 180, 270>,
+  "confidence": <number from 0 to 1>,
+  "reason": "<short explanation>"
+}}"""
+    try:
+        client = genai.Client(api_key=api_key)
+        parts = [
+            types.Part.from_bytes(data=frame, mime_type="image/jpeg")
+            for frame in frames
+        ]
+        parts.append(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=parts,
+        )
+        parsed = _parse_gemini_response(response.text)
+        degrees = int(parsed.get("clockwise_degrees", -1))
+        confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
+        if degrees not in (0, 90, 180, 270):
+            raise ValueError(f"invalid rotation: {degrees}")
+        return {
+            "detector_version": 2,
+            "clockwise_degrees": degrees,
+            "confidence": confidence,
+            "metadata_rotation": metadata_rotation,
+            "reason": str(parsed.get("reason", "")).strip(),
+        }
+    except Exception as exc:
+        logger.warning("orientation 판정 실패: %s", exc)
+        return {
+            "detector_version": 2,
+            "clockwise_degrees": None,
+            "confidence": 0.0,
+            "metadata_rotation": metadata_rotation,
+            "reason": str(exc),
+        }
+
+
 # 청크당 최대 프레임 수. 이미지가 너무 많으면 Gemini가 이미지-타임스탬프
 # 정렬을 잃고 출력도 잘림 (533장 단일 호출에서 실측 확인). 청크 분할로 방지.
 CHUNK_FRAMES = int(os.getenv("ANALYZE_CHUNK_FRAMES", "100"))
@@ -351,12 +498,14 @@ def analyze_video(
             f"청크 {n_chunks}개, 대사 {len(transcript)}개"
         )
 
-        api_key = os.getenv("GOOGLE_API_KEY")
+        api_key = _analysis_api_key()
         if not api_key:
-            return json.dumps({"error": "GOOGLE_API_KEY 환경변수가 설정되지 않았습니다."}, ensure_ascii=False)
+            return json.dumps({
+                "error": "GOOGLE_API_KEY_ANALYSIS 또는 GOOGLE_API_KEY 환경변수가 설정되지 않았습니다.",
+                "error_code": "missing_api_key",
+            }, ensure_ascii=False)
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        client = genai.Client(api_key=api_key)
 
         all_segments: list = []
         chunk_summaries: list[str] = []
@@ -372,7 +521,10 @@ def analyze_video(
 
             chunk_transcript = _transcript_for_chunk(transcript, timestamps_ms[0], chunk_end_ms)
             prompt = _build_prompt(timestamps_ms, interval_sec, chunk_end_ms, chunk_transcript)
-            parts = [{"mime_type": "image/jpeg", "data": img} for _, img in chunk]
+            parts = [
+                types.Part.from_bytes(data=img, mime_type="image/jpeg")
+                for _, img in chunk
+            ]
             parts.append(prompt)
 
             chunk_no = ci // CHUNK_FRAMES + 1
@@ -382,13 +534,24 @@ def analyze_video(
             # LLM 이 JSON 문법을 깨뜨리는 경우가 있어 재시도 (복구도 실패했을 때 대비)
             for attempt in range(1, 4):
                 try:
-                    response = model.generate_content(parts)
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=parts,
+                    )
                     parsed = _parse_gemini_response(response.text)
                     all_segments.extend(parsed.get("segments", []))
                     if parsed.get("summary"):
                         chunk_summaries.append(parsed["summary"])
                     break
                 except Exception as e:
+                    if _is_rate_limit_error(e):
+                        logger.error("chunk %s analysis rate-limited: %s", chunk_no, e)
+                        return json.dumps({
+                            "error": f"Gemini 영상 분석 요청 한도 초과: {e}",
+                            "error_code": "rate_limited",
+                            "status_code": 429,
+                            "duration": round(duration_sec, 3),
+                        }, ensure_ascii=False)
                     if attempt < 3:
                         logger.warning(
                             f"청크 {chunk_no} 분석 실패 ({attempt}/3), 재시도: {e}"
@@ -407,7 +570,9 @@ def analyze_video(
             "duration": round(duration_sec, 3),
             "frame_count": len(frames),
             "interval_sec": interval_sec,
+            "orientation": detect_orientation(input_path),
             "segments": all_segments,
+            "transcript": transcript,
             "scene_changes": scene_changes,
             "summary": " / ".join(chunk_summaries),
         }

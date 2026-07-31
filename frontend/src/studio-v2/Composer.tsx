@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { motion } from "motion/react";
-import { ArrowUp, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Paperclip, Square, Type, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAgentStore } from "./state";
 import {
   ensureSessionAndConnect,
+  fetchFonts,
   tryCancel,
   tryResumeClarify,
   trySendChat,
   uploadVideos,
+  type FontInfo,
 } from "./backend";
 import styles from "./composer.module.css";
 
@@ -24,6 +26,59 @@ export function Composer() {
   const pendingInterrupt = useAgentStore((s) => s.pendingInterrupt);
   const isRunning = sessionStatus === "streaming";
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // ── 자막 폰트 드롭다운 ──
+  // 이 플랫폼은 채팅 기반이라 폰트 선택 = composer 에 지시문을 채워넣기.
+  // 사용자가 확인 후 전송하면 에이전트가 실제 적용.
+  const [fontOpen, setFontOpen] = useState(false);
+  const [fonts, setFonts] = useState<FontInfo[]>([]);
+  const [fontLoading, setFontLoading] = useState(false);
+  const fontLoadedRef = useRef(false);
+  const fontMenuRef = useRef<HTMLDivElement>(null);
+
+  // 첫 오픈 시 1회 로드 (실패 시 [] — 아래에서 "폰트 없음" 안내).
+  const loadFonts = useCallback(async () => {
+    if (fontLoadedRef.current) return;
+    fontLoadedRef.current = true;
+    setFontLoading(true);
+    try {
+      setFonts(await fetchFonts());
+    } finally {
+      setFontLoading(false);
+    }
+  }, []);
+
+  const toggleFontMenu = () => {
+    setFontOpen((open) => {
+      const next = !open;
+      if (next) void loadFonts();
+      return next;
+    });
+  };
+
+  const pickFont = (family: string) => {
+    setFontOpen(false);
+    // EmptyState 와 동일한 va:fill-composer 패턴 — 지시문을 채워넣고 focus.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("va:fill-composer", {
+          detail: `자막 폰트 ${family}로 바꿔줘`,
+        })
+      );
+    }
+  };
+
+  // 바깥 클릭 시 드롭다운 닫기.
+  useEffect(() => {
+    if (!fontOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!fontMenuRef.current?.contains(e.target as Node)) {
+        setFontOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [fontOpen]);
 
   // Auto-grow textarea (line-count 기반, max 160px)
   useEffect(() => {
@@ -86,7 +141,9 @@ export function Composer() {
       // 휴리스틱(_reply_to_resume)에 도달하지 못해 무조건 plan 이 재생성된다.
       // 서버는 interrupt 대기 중 chat 을 거부하지 않고 kind 에 맞는 resume 으로
       // 변환하므로, 승인/피드백 판정을 서버에 맡긴다.
-      const sent = isClarify ? tryResumeClarify(t, []) : trySendChat(t);
+      // Composer 메시지는 65줄에서 이미 화면에 추가했다. resume_accepted 때
+      // 다시 append 하지 않도록 false를 넘긴다. 카드 답변은 기본값 true를 사용.
+      const sent = isClarify ? tryResumeClarify(t, [], false) : trySendChat(t);
       if (!sent) {
         toast.error("전송 실패", {
           description: "WebSocket 상태를 확인해줘",
@@ -96,7 +153,6 @@ export function Composer() {
       // 전송 성공 후에만 resolved 마킹. 유저 버블은 위에서 이미 push 됨.
       // script_approval 은 서버 판정 결과(승인/수정)를 모르므로 낙관적 마킹 금지 —
       // 후속 interrupt(재생성된 plan) / final / done 이벤트로 자연 정리된다.
-      if (isClarify) store.markInterruptResolved("answered");
       store.startPhase(
         "pending",
         "에이전트 재개 중",
@@ -226,6 +282,47 @@ export function Composer() {
             />
           </label>
 
+          <div className={styles.fontMenuWrap} ref={fontMenuRef}>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={toggleFontMenu}
+              aria-label="자막 폰트 선택"
+              aria-haspopup="menu"
+              aria-expanded={fontOpen}
+              title="자막 폰트"
+            >
+              <Type size={14} />
+            </button>
+
+            {fontOpen && (
+              <div className={styles.fontMenu} role="menu">
+                <div className={styles.fontMenuLabel}>자막 폰트</div>
+                {fontLoading ? (
+                  <div className={styles.fontMenuEmpty}>불러오는 중…</div>
+                ) : fonts.length === 0 ? (
+                  <div className={styles.fontMenuEmpty}>
+                    폰트 없음 — scripts/download_fonts.py 실행
+                  </div>
+                ) : (
+                  <div className={styles.fontMenuList}>
+                    {fonts.map((f) => (
+                      <button
+                        key={f.file}
+                        type="button"
+                        role="menuitem"
+                        className={styles.fontItem}
+                        onClick={() => pickFont(f.family)}
+                      >
+                        {f.family}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className={styles.grow} />
 
           <div className={styles.shortcuts}>
@@ -282,4 +379,3 @@ export function Composer() {
     </div>
   );
 }
-

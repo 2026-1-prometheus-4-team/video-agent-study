@@ -7,6 +7,7 @@ import { Check, HelpCircle, MessageSquare, Sparkles } from "lucide-react";
 import type { StreamItem } from "../state";
 import { useAgentStore } from "../state";
 import { tryResumeInterrupt } from "../backend";
+import { Markdown } from "../Markdown";
 import styles from "./rows.module.css";
 
 const NODE_LABEL: Record<string, string> = {
@@ -22,7 +23,6 @@ export function InterruptCard({
 }: {
   item: Extract<StreamItem, { kind: "interrupt" }>;
 }) {
-  const resolve = useAgentStore((s) => s.resolveInterrupt);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState("");
   const resolved = item.resolved;
@@ -40,8 +40,7 @@ export function InterruptCard({
         );
       return;
     }
-    resolve(true);
-
+    // 카드 resolve 는 서버의 resume_accepted 가 처리한다 (전송 실패 시 재시도 유지).
     // 자막 관련 스텝이 플랜에 있으면 자막 스타일 카드 표시
     const hasSubtitleStep = item.plan.some((p) =>
       /자막|subtitle|caption/i.test(p.action + " " + p.rationale)
@@ -69,9 +68,7 @@ export function InterruptCard({
         );
       return;
     }
-    resolve(false, fb);
-    setFeedback("");
-    setShowFeedback(false);
+    // Keep the card unresolved until the backend sends resume_accepted.
   };
 
   useHotkeys(
@@ -129,33 +126,52 @@ export function InterruptCard({
         )}
       </div>
 
-      <div className={styles.interruptSub}>
-        <Sparkles size={11} className={styles.interruptSubIcon} />
-        <span>총 {item.plan.length}단계 · 예상 실행 시간 약 {estTotal(item.plan)}초</span>
-      </div>
+      {item.conceptName && (
+        <div className={styles.conceptTitle}>{item.conceptName}</div>
+      )}
 
-      <div className={styles.planList}>
-        {item.plan.map((step, idx) => (
-          <div key={step.id} className={styles.planStep}>
-            <div className={styles.planStepIdx}>{idx + 1}</div>
-            <div className={styles.planStepBody}>
-              <div className={styles.planStepTitle}>
-                <span className={styles.planStepAction}>{step.action}</span>
-                <span className={styles.planStepNode}>
-                  {NODE_LABEL[step.expert]}
-                </span>
-                {step.estimatedSec && (
-                  <span className={styles.planStepEst}>~{step.estimatedSec}s</span>
-                )}
-              </div>
-              <div className={styles.planStepReason}>{step.rationale}</div>
-              {step.parallelGroup && (
-                <div className={styles.planStepBadge}>병렬 실행</div>
-              )}
-            </div>
+      {item.creativeBrief && <CreativeBriefView brief={item.creativeBrief} />}
+
+      {item.planMarkdown ? (
+        // 기획안(마크다운)이 있으면 steps 리스트 대신 렌더. 길 수 있어 내부 스크롤.
+        <div className={styles.planMarkdown}>
+          <Markdown text={item.planMarkdown} />
+        </div>
+      ) : (
+        <>
+          <div className={styles.interruptSub}>
+            <Sparkles size={11} className={styles.interruptSubIcon} />
+            <span>
+              총 {item.plan.length}단계 · 예상 실행 시간 약 {estTotal(item.plan)}초
+            </span>
           </div>
-        ))}
-      </div>
+
+          <div className={styles.planList}>
+            {item.plan.map((step, idx) => (
+              <div key={step.id} className={styles.planStep}>
+                <div className={styles.planStepIdx}>{idx + 1}</div>
+                <div className={styles.planStepBody}>
+                  <div className={styles.planStepTitle}>
+                    <span className={styles.planStepAction}>{step.action}</span>
+                    <span className={styles.planStepNode}>
+                      {NODE_LABEL[step.expert]}
+                    </span>
+                    {step.estimatedSec && (
+                      <span className={styles.planStepEst}>
+                        ~{step.estimatedSec}s
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.planStepReason}>{step.rationale}</div>
+                  {step.parallelGroup && (
+                    <div className={styles.planStepBadge}>병렬 실행</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {item.questions.length > 0 && (
         <div className={styles.interruptQuestions}>
@@ -229,6 +245,109 @@ export function InterruptCard({
       )}
     </motion.div>
   );
+}
+
+function CreativeBriefView({
+  brief,
+}: {
+  brief: NonNullable<
+    Extract<StreamItem, { kind: "interrupt" }>["creativeBrief"]
+  >;
+}) {
+  const overview = [
+    ["예상 영상 길이", brief.targetDurationSec != null ? `${brief.targetDurationSec}초` : ""],
+    ["길이 선정 이유", brief.durationReason],
+    ["전체 콘셉트", brief.concept],
+    ["추천 BGM", brief.recommendedBgm],
+    ["BGM 흐름", brief.bgmFlow],
+    ["기획 의도", brief.intent],
+    ["초반 Hook", brief.hook],
+  ].filter(([, value]) => value);
+
+  return (
+    <section className={styles.brief}>
+      <div className={styles.briefHeading}>영상 기획안</div>
+      {brief.title && <div className={styles.briefTitle}>{brief.title}</div>}
+
+      {overview.length > 0 && (
+        <div className={styles.briefOverview}>
+          {overview.map(([label, value]) => (
+            <div key={label} className={styles.briefOverviewRow}>
+              <span>{label}</span>
+              <p>{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {brief.storyboard.length > 0 && (
+        <div className={styles.briefSection}>
+          <div className={styles.briefSectionTitle}>타임라인 기획</div>
+          <div className={styles.briefTimeline}>
+            {brief.storyboard.map((scene) => (
+              <div key={`${scene.idx}-${scene.outputStartMs}`} className={styles.briefScene}>
+                <div className={styles.briefSceneHead}>
+                  <span>{formatRange(scene.outputStartMs, scene.outputEndMs)}</span>
+                  {scene.role && <strong>{scene.role}</strong>}
+                </div>
+                {scene.source && (
+                  <div className={styles.briefSource}>
+                    {scene.source} {formatRange(scene.sourceStartMs, scene.sourceEndMs)}
+                  </div>
+                )}
+                <BriefLine label="장면 설명" value={scene.visual} />
+                <BriefLine label="선택 이유" value={scene.selectionReason} />
+                <BriefLine label="자막" value={scene.onScreenText} />
+                <BriefLine label="내레이션" value={scene.narration} />
+                <BriefLine label="편집 연출" value={scene.editDirection} />
+                <BriefLine label="효과음" value={scene.sfx} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(brief.directing.cutTempo ||
+        brief.directing.subtitleAndFont ||
+        brief.directing.visualAndSpeed) && (
+        <div className={styles.briefSection}>
+          <div className={styles.briefSectionTitle}>편집 디렉팅</div>
+          <BriefLine label="컷 길이 및 템포" value={brief.directing.cutTempo} />
+          <BriefLine label="자막 및 폰트" value={brief.directing.subtitleAndFont} />
+          <BriefLine label="화면 연출 및 배속" value={brief.directing.visualAndSpeed} />
+        </div>
+      )}
+
+      {brief.userRevisionGuide.length > 0 && (
+        <div className={styles.briefGuide}>
+          <div className={styles.briefSectionTitle}>수정 가능한 항목</div>
+          <div>{brief.userRevisionGuide.join(" · ")}</div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BriefLine({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <div className={styles.briefLine}>
+      <span>{label}</span>
+      <p>{value}</p>
+    </div>
+  );
+}
+
+function formatRange(start?: number, end?: number) {
+  if (start == null || end == null) return "";
+  return `[${formatMs(start)} ~ ${formatMs(end)}]`;
+}
+
+function formatMs(ms: number) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function estTotal(plan: { estimatedSec?: number }[]) {

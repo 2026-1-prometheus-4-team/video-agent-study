@@ -62,6 +62,7 @@ from pydantic import BaseModel, Field
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
+from langchain_core.messages import ToolMessage
 
 from agent import config as agent_config
 from agent.graph import build_graph
@@ -97,6 +98,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",  # frontend/motion-editor (video agent studio)
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -109,19 +112,22 @@ app.add_middleware(
 # -------------------------------------------------------------------
 
 OUTPUTS_DIR = agent_config.PROJECT_ROOT / "outputs"
+LEGACY_OUTPUT_DIR = agent_config.PROJECT_ROOT / "output"
 AUDIO_DIR = agent_config.PROJECT_ROOT / "audio_files"
 BGM_DIR = agent_config.PROJECT_ROOT / "bgm_files"
 
-for _dir in (OUTPUTS_DIR, AUDIO_DIR, BGM_DIR, agent_config.VIDEOS_DIR):
+for _dir in (OUTPUTS_DIR, LEGACY_OUTPUT_DIR, AUDIO_DIR, BGM_DIR, agent_config.VIDEOS_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
 
 app.mount("/files/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")
+app.mount("/files/output", StaticFiles(directory=LEGACY_OUTPUT_DIR), name="output")
 app.mount("/files/videos", StaticFiles(directory=agent_config.VIDEOS_DIR), name="videos")
 app.mount("/files/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 app.mount("/files/bgm", StaticFiles(directory=BGM_DIR), name="bgm")
 
 _FILE_URL_BASES = [
     (OUTPUTS_DIR, "/files/outputs"),
+    (LEGACY_OUTPUT_DIR, "/files/output"),
     (agent_config.VIDEOS_DIR, "/files/videos"),
     (AUDIO_DIR, "/files/audio"),
     (BGM_DIR, "/files/bgm"),
@@ -477,6 +483,39 @@ async def create_session(request: CreateSessionRequest):
     )
 
 
+@app.get("/sessions")
+async def list_sessions(limit: int = 50):
+    """지난 세션 목록 (UI 히스토리 사이드바용). DB 기반 — 서버 재시작해도 보인다.
+
+    각 항목: {session_id, title, preview, status, video_paths, message_count,
+    created_at, updated_at}. 메시지가 하나도 없는 빈 세션은 제외.
+    """
+    rows = await SessionRepo.list_sessions(limit=max(1, min(limit, 200)))
+    return {"sessions": [r for r in rows if r.get("message_count", 0) > 0]}
+
+
+@app.get("/session/{session_id}/history")
+async def session_history(session_id: str):
+    """세션의 전체 대화 로그 (시간순). UI 가 지난 대화를 재구성한다.
+
+    in-memory sessions 에 없어도 (서버 재시작 후) DB 에서 읽어 반환한다.
+    """
+    messages = await SessionRepo.get_messages(session_id)
+    live = session_id in sessions
+    result: dict = {"session_id": session_id, "live": live, "messages": messages}
+    # 살아있는 세션이면 최종 결과물/컨텍스트/pending 도 함께 (재개용)
+    if live:
+        try:
+            info = await get_session(session_id)
+            result["final_output_path"] = info.get("final_output_path")
+            result["final_output_url"] = info.get("final_output_url")
+            result["video_context"] = info.get("video_context")
+            result["pending_interrupt"] = info.get("pending_interrupt")
+        except Exception:
+            pass
+    return result
+
+
 @app.get("/session/{session_id}")
 async def get_session(session_id: str):
     """세션 정보를 조회한다. 그래프가 실행된 적 있으면 최종 상태 요약 포함."""
@@ -501,7 +540,7 @@ async def get_session(session_id: str):
         # 새로고침 복원 시 체크포인트 값을 쓰면 타임라인이 편집 전으로 되돌아간다.
         video_context = session.video_context or values.get("video_context")
         if isinstance(video_context, dict) and not video_context.get("transcript"):
-            sidecar = _load_transcript_sidecar(session)
+            sidecar = _load_transcript_sidecar(session, final_path)
             if sidecar:
                 video_context = {**video_context, "transcript": sidecar}
         if video_context:
@@ -675,6 +714,10 @@ PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
         "영상 분석 중",
         "씬 감지 · Whisper 자막 · Gemini 시각 요약 (최대 60초)",
     ),
+    "research_prepass": (
+        "트렌드 리서치 중",
+        "요즘 숏폼 트렌드 · 레퍼런스 조사 (기획에 반영)",
+    ),
     "script": (
         "편집 계획 초안 준비 중",
         "타겟 포맷 · 편집 시나리오 · TTS/BGM 옵션 검토",
@@ -696,7 +739,8 @@ PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
 # 어떤 노드가 끝나면 다음에 어떤 노드가 실행되는지. interrupt_gate 는 phase
 # 이벤트가 아니라 interrupt 이벤트로 대체하므로 매핑에서 skip.
 NEXT_PHASE: dict[str, Optional[str]] = {
-    "analysis": "script",
+    "analysis": "research_prepass",
+    "research_prepass": "script",
     "script": None,   # 다음은 interrupt_gate → interrupt 이벤트가 대체
     "supervisor": "critic",
     "critic": None,
@@ -980,7 +1024,10 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                     session.session_id, "awaiting-interrupt"
                 )
                 interrupted = True
-                continue
+                # The interrupt is checkpointed already. End this execution
+                # segment now so run_lock and session.busy are released before
+                # the user can answer the newly displayed question.
+                break
 
             for node_name, state in chunk.items():
                 if not isinstance(state, dict):
@@ -1062,6 +1109,7 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                             args = _jsonable(tc["args"])
                             await websocket.send_json({
                                 "type": "tool_call",
+                                "tool_call_id": tc.get("id"),
                                 "node": node_name,
                                 "tool_name": tc["name"],
                                 "args": args,
@@ -1073,6 +1121,23 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                                 tool_name=tc["name"],
                                 args=args if isinstance(args, dict) else {"value": args},
                             )
+
+                    if isinstance(msg, ToolMessage):
+                        result = _jsonable(getattr(msg, "content", ""))
+                        result_text = _extract_text(getattr(msg, "content", None))
+                        lowered = result_text.lower()
+                        ok = not (
+                            result_text.startswith("ERROR")
+                            or "status=error" in lowered
+                            or "status=fail" in lowered
+                        )
+                        await websocket.send_json({
+                            "type": "tool_result",
+                            "tool_call_id": getattr(msg, "tool_call_id", None),
+                            "ok": ok,
+                            "result": result,
+                            "detail": None if ok else result_text[:1200],
+                        })
     except (WebSocketDisconnect, RuntimeError):
         # 클라이언트 끊김 — push 중단 신호 후 상위로 전파 (그래프 상태는 체크포인트에 보존)
         stop.set()
@@ -1102,7 +1167,42 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
     return {"interrupted": interrupted, "cancelled": cancelled, "errored": errored}
 
 
-def _load_transcript_sidecar(session: Session) -> list[dict]:
+def _read_transcript_sidecar(sidecar: Path) -> list[dict]:
+    try:
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+    cues = data.get("cues")
+    if isinstance(cues, list) and cues:
+        return [
+            {
+                "start": float(c.get("start", 0)),
+                "end": float(c.get("end", 0)),
+                "text": str(c.get("text", "")),
+            }
+            for c in cues
+            if isinstance(c, dict)
+        ]
+
+    segments = data.get("segments")
+    if isinstance(segments, list) and segments:
+        return [
+            {
+                "start": float(s.get("start", 0)),
+                "end": float(s.get("end", 0)),
+                "text": str(s.get("text", "")),
+            }
+            for s in segments
+            if isinstance(s, dict)
+        ]
+    return []
+
+
+def _load_transcript_sidecar(
+    session: Session,
+    final_path: str = "",
+) -> list[dict]:
     """transcribe(add_auto_subtitle)가 남긴 videos/subtitles/*.json 세그먼트 회수.
 
     그래프 state 의 video_context.transcript 는 sub-agent 내부에서만 채워지고
@@ -1118,6 +1218,37 @@ def _load_transcript_sidecar(session: Session) -> list[dict]:
     """
     subtitles_dir = agent_config.VIDEOS_DIR / "subtitles"
     if not subtitles_dir.is_dir():
+        return []
+
+    # 최종 산출물이 있으면 그 stem의 큐/전사만 먼저 본다. 세션 입력 원본의
+    # 오래된 JSON을 최종 타임라인으로 오인하는 것을 막는다.
+    if final_path:
+        cleaned_final = final_path.strip().strip("`'\"*").strip()
+        final_candidate = Path(cleaned_final)
+        final_stem = final_candidate.stem
+        for exact in (
+            subtitles_dir / f"{final_stem}.cues.json",
+            subtitles_dir / f"{final_stem}.json",
+        ):
+            if exact.exists():
+                transcript = _read_transcript_sidecar(exact)
+                if transcript:
+                    return transcript
+
+        # 자막 번인 전 결과라도 cut/merge origin이 있으면 원본 Whisper를 결과
+        # 시간축으로 재구성할 수 있다. 최종 영상을 다시 전사하지 않는다.
+        if not final_candidate.is_absolute():
+            final_candidate = agent_config.PROJECT_ROOT / final_candidate
+        try:
+            from agent.tools.subtitle import _transcript_from_origin
+
+            transcript = _transcript_from_origin(str(final_candidate.resolve()))
+            if transcript:
+                return transcript
+        except Exception:
+            logger.warning("final transcript origin reconstruction failed", exc_info=True)
+
+        # 최종 stem과 origin 모두 없으면 입력 원본 JSON을 임의로 고르지 않는다.
         return []
 
     input_stems = {Path(vp).stem for vp in session.video_paths}
@@ -1136,30 +1267,9 @@ def _load_transcript_sidecar(session: Session) -> list[dict]:
             candidates.append((mtime, sidecar))
 
     for _, sidecar in sorted(candidates, reverse=True):
-        try:
-            data = json.loads(sidecar.read_text(encoding="utf-8"))
-            # 큐 문서(<stem>.cues.json)가 자막의 진실의 원천이다. 오타 수정/타이밍
-            # 변경은 여기에만 반영되므로, 전사 사이드카(segments)보다 우선한다.
-            # 최신 mtime 우선이라 편집 직후엔 큐 문서가 먼저 잡힌다.
-            cues = data.get("cues")
-            if isinstance(cues, list) and cues:
-                return [
-                    {
-                        "start": float(c.get("start", 0)),
-                        "end": float(c.get("end", 0)),
-                        "text": str(c.get("text", "")),
-                    }
-                    for c in cues
-                    if isinstance(c, dict)
-                ]
-            segments = data.get("segments", [])
-            if segments:
-                return [
-                    {"start": float(s.get("start", 0)), "end": float(s.get("end", 0)), "text": str(s.get("text", ""))}
-                    for s in segments
-                ]
-        except Exception:
-            continue
+        transcript = _read_transcript_sidecar(sidecar)
+        if transcript:
+            return transcript
     return []
 
 
@@ -1201,7 +1311,12 @@ def _reanalyze_output_sync(final_path: str) -> Optional[dict]:
             analyze_arg = str(candidate)
 
         logger.info("reanalysis: %s (via analyze_video)", analyze_arg)
-        raw = analyze_video.invoke({"video_path": analyze_arg})
+        raw = analyze_video.invoke({
+            "video_path": analyze_arg,
+            # 최종 편집본의 자막은 원본 Whisper + origin 타임라인으로 이미
+            # 구성된다. 재분석에서 다시 전사하면 비용이 들고 TTS까지 섞인다.
+            "use_transcript": False,
+        })
         data = _json.loads(raw)
         if "error" in data:
             logger.warning("reanalysis: analyze_video 오류 - %s", data["error"])
@@ -1245,6 +1360,9 @@ async def _send_final(websocket: WebSocket, session: Session):
 
     video_context = values.get("video_context")
     critic = values.get("critic_verdict")
+    final_success = bool(
+        isinstance(critic, dict) and critic.get("verdict") == "PASS"
+    )
 
     # ── 편집본 자동 재분석 ──
     # final_path 는 편집 결과 (원본 아님) 이므로 그래프 state 의 video_context
@@ -1275,7 +1393,7 @@ async def _send_final(websocket: WebSocket, session: Session):
     if reanalyzed:
         # 사이드카 자막이 있으면 보강 (transcribe/add_auto_subtitle 산출물).
         if not reanalyzed.get("transcript"):
-            sidecar = _load_transcript_sidecar(session)
+            sidecar = _load_transcript_sidecar(session, final_path)
             if sidecar:
                 reanalyzed["transcript"] = sidecar
         video_context = reanalyzed
@@ -1299,7 +1417,7 @@ async def _send_final(websocket: WebSocket, session: Session):
     else:
         # 재분석 실패 → 기존 video_context 유지 + 사이드카 자막 보강
         if isinstance(video_context, dict) and not video_context.get("transcript"):
-            sidecar = _load_transcript_sidecar(session)
+            sidecar = _load_transcript_sidecar(session, final_path)
             if sidecar:
                 video_context = {**video_context, "transcript": sidecar}
 
@@ -1325,6 +1443,7 @@ async def _send_final(websocket: WebSocket, session: Session):
     critic_json = _jsonable(critic) if critic else None
     await websocket.send_json({
         "type": "final",
+        "success": final_success,
         "output_path": final_path,
         "output_url": output_url,
         "video_context": vc_json,
@@ -1345,7 +1464,9 @@ async def _send_final(websocket: WebSocket, session: Session):
         content=final_path,
         extra={"output_url": output_url},
     )
-    await SessionRepo.set_session_status(session.session_id, "completed")
+    await SessionRepo.set_session_status(
+        session.session_id, "completed" if final_success else "error"
+    )
 
 
 async def _run_turn(websocket: WebSocket, session: Session, stream_input) -> None:
@@ -1608,23 +1729,35 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                 continue
 
             if msg_type == "resume":
-                # busy 는 동기 플래그 — 다른 접속의 turn 이 락을 잡기 전이어도 잡힌다.
-                # 이 가드가 없으면 두 탭이 같은 interrupt 에 각각 resume 을 보내
-                # 두 번째 값이 *다음* interrupt 를 잘못 소비한다.
-                if session.busy:
-                    await websocket.send_json({
-                        "type": "error",
-                        "detail": "이미 실행 중이에요. 완료 후 응답해줘.",
-                    })
-                    continue
                 # interrupt 는 체크포인트 기준으로 판단 — 재접속 후 resume 도 허용
                 if session.pending_interrupt() is None:
                     await websocket.send_json({
                         "type": "error",
+                        "code": "NO_PENDING_INTERRUPT",
                         "detail": "대기 중인 승인 요청이 없습니다.",
                     })
                     continue
+
+                # The card can be clicked just before the interrupted turn's
+                # done callback clears busy. Wait briefly instead of dropping
+                # a valid response, but keep the wait bounded to prevent two
+                # graph executions from overlapping.
+                if session.busy:
+                    deadline = asyncio.get_running_loop().time() + 1.5
+                    while session.busy and asyncio.get_running_loop().time() < deadline:
+                        await asyncio.sleep(0.05)
+
+                if session.busy:
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "RESUME_NOT_READY",
+                        "retry_after_ms": 300,
+                        "detail": "질문 상태를 정리하고 있어요. 잠시 후 자동으로 다시 시도할게요.",
+                    })
+                    continue
+
                 await _start_resume(_resume_from_payload(payload))
+                await websocket.send_json({"type": "resume_accepted"})
                 continue
 
             # 일반 채팅
@@ -1699,6 +1832,40 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                 turn_task.add_done_callback(
                     lambda t: t.exception() if not t.cancelled() else None
                 )
+
+
+# -------------------------------------------------------------------
+# 폰트 목록 (UI 자막 폰트 드롭다운용)
+# -------------------------------------------------------------------
+
+_FONT_EXTS = {".ttf", ".otf", ".ttc"}
+_FONT_WEIGHT_RE = re.compile(
+    r"-(Regular|Bold|Medium|Light|SemiBold|ExtraBold|Thin|Black)$", re.I
+)
+
+
+@app.get("/fonts")
+async def list_fonts():
+    """assets/fonts/ 에 실제로 있는 자막 폰트 목록.
+
+    각 항목 {file, family}. 스크립트(download_fonts.py) 미실행이면 기본
+    NotoSansKR 하나만 나온다. 프론트 드롭다운이 family 로 "자막 폰트 X로" 채운다.
+    """
+    fonts_dir = agent_config.PROJECT_ROOT / "assets" / "fonts"
+    out: list[dict] = []
+    seen: set[str] = set()
+    try:
+        for f in sorted(fonts_dir.iterdir()):
+            if f.suffix.lower() not in _FONT_EXTS:
+                continue
+            family = _FONT_WEIGHT_RE.sub("", f.stem)
+            if family in seen:
+                continue
+            seen.add(family)
+            out.append({"file": f.name, "family": family})
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    return {"fonts": out}
 
 
 # -------------------------------------------------------------------

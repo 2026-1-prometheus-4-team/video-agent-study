@@ -21,14 +21,32 @@ class Scene(TypedDict, total=False):
     end: float
     description: str
     video: str
+    transcript: str
+    objects: list[str]
+    people_count: int
+    people: list[str]
+    actions: list[str]
+    scene_change: bool
+    mood: str
     """다중 영상 입력 시 이 장면이 어느 영상 것인지 (예: videos/a.mp4).
     단일 영상이면 생략 — cut step 의 video_path 는 이 값을 그대로 써야 한다."""
+    # 감정/내용 메타 — 분석 세그먼트에서 실어온다. 기획 단계의 "감정 비트 선별"
+    # (렌치 실패 = 하이라이트, 먹방 = 힐링) 이 이 데이터에 의존한다.
+    mood: str
+    """calm | energetic | tense | neutral 중 하나 (analyze_video 산출)."""
+    people_count: int
+    people: list[str]
+    actions: list[str]
+    transcript: str
+    """이 구간의 핵심 대사 요약 (byungkun transcript-integrated analysis)."""
 
 
-class Transcript(TypedDict):
+class Transcript(TypedDict, total=False):
     start: float
     end: float
     text: str
+    video: str
+    """다중 영상 입력 시 발화가 속한 원본 경로."""
 
 
 class VideoContext(TypedDict, total=False):
@@ -52,8 +70,72 @@ class ExecutionStep(TypedDict, total=False):
     started_at: float
 
 
+class TimelineSection(TypedDict, total=False):
+    """기획안의 한 섹션 (Gemini 예시의 [00:00~05] 훅 같은 단위).
+
+    사람이 읽는 기획(concept/timeline)과 기계 실행(steps)을 분리한다:
+    timeline 은 사용자가 승인하는 서사, steps 는 그걸 실행하는 도구 호출.
+    """
+    index: int
+    label: str
+    """예: '훅', '플렉스 집들이', '대환장 파티 (하이라이트)'."""
+    start_ms: int
+    end_ms: int
+    source_videos: list[str]
+    """이 섹션이 쓰는 원본 영상 경로들 (교차편집이면 여러 개)."""
+    transition: str
+    """이전 섹션에서 넘어오는 전환 (hard_cut | crossfade | ...)."""
+    subtitle_text: str
+    """이 섹션에 얹을 자막 문구 (authored — 실제 한국어 라인)."""
+    narration_text: str
+    """이 섹션 나래이션/TTS 문구 (authored)."""
+    sfx: str
+    """효과음 설명 (예: '한숨 효과음', '띠로리 실패음')."""
+    emphasis_note: str
+    """왜 이 섹션이 중요한지 / 감정 포인트."""
+
+
+class ConceptSpec(TypedDict, total=False):
+    name: str
+    """컨셉 이름 (예: '우당탕탕 복층 오피스텔 현실 이사 1일차')."""
+    logline: str
+    emotional_contrast: str
+    """감정 대비 (예: '기대감 뿜뿜 새집 vs 우당탕탕 현실 이사')."""
+
+
+class BgmCue(TypedDict, total=False):
+    start_ms: int
+    end_ms: int
+    mood: str
+    cue: str
+    """왜 이 지점에서 이 음악인지 (예: '렌치 안 맞을 때 정적/개그')."""
+
+
 class ScriptPlan(TypedDict, total=False):
-    """script_node 의 산출물 (사용자가 승인한 plan)."""
+    """script_node 의 산출물 (사용자가 승인한 plan).
+
+    두 층위: (1) 사람이 읽고 승인하는 기획 — concept/timeline/bgm_progression/
+    editing_tips/plan_markdown, (2) 기계가 실행하는 steps.
+    """
+    mode: str
+    """edit | chat — chat 이면 reply 즉답."""
+    reply: str
+
+    # ── 기획 (사람이 읽는 층) ──
+    concept: Optional[ConceptSpec]
+    trend_elements: list[str]
+    """리서치에서 뽑은 트렌드 요소 (예: '빠른 호흡 컷', '현실 공감 모먼트')."""
+    timeline: list[TimelineSection]
+    bgm_progression: list[BgmCue]
+    """구간별 BGM 진행. 단일 bgm_choice 를 대체/보강."""
+    editing_tips: list[str]
+    """배속 / 화면분할 / 자막 폰트 같은 편집 팁."""
+    references: list[dict]
+    """트렌드 근거 [{title, url}]."""
+    plan_markdown: str
+    """컨셉+타임라인+스크립트+BGM+팁을 담은 한국어 마크다운 (프론트가 승인 카드에 렌더)."""
+
+    # ── 실행 (기계 층) ──
     target_format: str
     target_aspect_ratio: str
     target_duration_sec: Optional[float]
@@ -109,6 +191,12 @@ class AgentState(TypedDict, total=False):
     # ── 사전 분석 ──
     video_context: Optional[VideoContext]
     """analysis_node 가 채움. 이후 모든 노드의 stable prefix 일부."""
+
+    # ── 트렌드 리서치 (기획 이전 사전조사) ──
+    trend_brief: Optional[dict]
+    """research_prepass 가 채움. {niche, trend_elements:[..], named_concept,
+    pacing_notes, bgm_progression, references:[{title,url}]}.
+    script_node 프롬프트에 주입돼 컨셉/BGM/페이싱을 트렌드에 grounding 한다."""
 
     # ── Script ──
     script_plan: Optional[ScriptPlan]

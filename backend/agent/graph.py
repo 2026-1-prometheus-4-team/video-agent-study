@@ -70,16 +70,78 @@ def _analyze_one_video(path: str) -> tuple[str, dict]:
     import json as _json
     from pathlib import Path
     from agent import config
-    from agent.tools.video_analysis import analyze_video
+    from agent.tools.video_analysis import analyze_video, detect_orientation
 
     filename = Path(path).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
     try:
         cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
         if cached_json.exists():
             logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
-            return filename, _json.loads(cached_json.read_text(encoding="utf-8"))
-        raw = analyze_video.invoke({"video_path": filename})
-        return filename, _json.loads(raw)
+            data = _json.loads(cached_json.read_text(encoding="utf-8"))
+        else:
+            raw = analyze_video.invoke({"video_path": filename})
+            data = _json.loads(raw)
+
+        if "error" in data:
+            return filename, data
+
+        # 기존 분석 캐시에도 방향 판정을 한 번만 보강한다. confidence가 낮거나
+        # 판정에 실패하면 cut_video가 기존 FFmpeg 메타데이터 동작을 유지한다.
+        orientation_cache = data.get("orientation")
+        if (
+            not isinstance(orientation_cache, dict)
+            or orientation_cache.get("detector_version") != 2
+        ):
+            source = config.VIDEOS_DIR / filename
+            orientation = detect_orientation(str(source))
+            if orientation.get("clockwise_degrees") is not None:
+                data["orientation"] = orientation
+                try:
+                    cached_json.write_text(
+                        _json.dumps(data, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+                except OSError:
+                    logger.warning(
+                        "analysis_node: orientation 캐시 저장 실패 - %s",
+                        cached_json,
+                        exc_info=True,
+                    )
+
+        # 분석 JSON의 transcript는 오래된 요약일 수 있다. planning과 자막이
+        # 동일한 원문을 보도록 항상 canonical Whisper 캐시를 먼저 읽는다.
+        transcript = None
+        try:
+            from agent.tools.transcribe import transcribe_video
+
+            source = config.VIDEOS_DIR / filename
+            transcript_raw = transcribe_video.invoke({"video_path": str(source)})
+            transcript_data = _json.loads(transcript_raw)
+            if transcript_data.get("status") == "success":
+                transcript = transcript_data.get("segments", [])
+        except Exception:
+            logger.warning(
+                "analysis_node: %s 원본 전사 확보 실패, 분석 transcript fallback",
+                filename,
+                exc_info=True,
+            )
+
+        # 외부 전사 실패 시에도 기존 분석 JSON의 대사 요약은 planning에 전달한다.
+        if not isinstance(transcript, list) or not transcript:
+            transcript = data.get("transcript")
+            if not isinstance(transcript, list) or not transcript:
+                transcript = [
+                    {
+                        "start": float(seg.get("start_ms", 0)) / 1000,
+                        "end": float(seg.get("end_ms", 0)) / 1000,
+                        "text": str(seg.get("transcript") or "").strip(),
+                    }
+                    for seg in data.get("segments", [])
+                    if str(seg.get("transcript") or "").strip()
+                ]
+
+        data["_source_transcript"] = transcript
+        return filename, data
     except Exception as e:
         logger.exception("analysis_node: %s 분석 실패", filename)
         return filename, {"error": str(e)}
@@ -111,6 +173,7 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         results = [_analyze_one_video(video_paths[0])]
 
     scenes: list = []
+    transcript: list = []
     videos_meta: list[dict] = []
     total_duration = 0.0
 
@@ -122,25 +185,76 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         total_duration += duration
         videos_meta.append({"file_path": f"videos/{filename}", "duration": duration})
         for seg in data.get("segments", []):
+            start = seg["start_ms"] / 1000
+            end = seg["end_ms"] / 1000
+            # 감정/내용 메타를 scene 에 실어보낸다 — 기획의 "감정 비트 선별" 이
+            # 여기에 의존한다. 없는 필드는 생략 (Scene total=False).
             scene = {
-                "start": seg["start_ms"] / 1000,
-                "end": seg["end_ms"] / 1000,
+                "start": start,
+                "end": end,
                 "description": seg.get("description", ""),
             }
             if multi:
-                scene["video"] = f"videos/{filename}"  # 어느 영상의 장면인지
+                scene["video"] = f"videos/{filename}"
+            if seg.get("mood"):
+                scene["mood"] = seg["mood"]
+            if seg.get("objects"):
+                scene["objects"] = seg["objects"]
+            if seg.get("people_count") is not None:
+                scene["people_count"] = seg["people_count"]
+            if seg.get("people"):
+                scene["people"] = seg["people"]
+            if seg.get("actions"):
+                scene["actions"] = seg["actions"]
+            if seg.get("scene_change") is not None:
+                scene["scene_change"] = bool(seg["scene_change"])
+            seg_transcript = seg.get("transcript") or ""
+            if seg_transcript:
+                scene["transcript"] = seg_transcript
             scenes.append(scene)
 
+        source_transcript = [
+            item for item in data.get("_source_transcript", [])
+            if isinstance(item, dict) and str(item.get("text", "")).strip()
+        ]
+        if source_transcript:
+            # Whisper 원본 전사가 있으면 그것만 상위 transcript 로 쓴다 —
+            # 장면 요약 대사를 중복 호이스팅하지 않는다 (발화 시간축이 더 정확).
+            for item in source_transcript:
+                transcript_item = {
+                    "start": float(item.get("start", 0)),
+                    "end": float(item.get("end", 0)),
+                    "text": str(item.get("text", "")).strip(),
+                }
+                if multi:
+                    transcript_item["video"] = f"videos/{filename}"
+                transcript.append(transcript_item)
+        else:
+            # Whisper 전사가 없을 때만 장면 대사를 호이스팅 (자막/검색 blob 이 씀).
+            for seg in data.get("segments", []):
+                seg_transcript = seg.get("transcript") or ""
+                if not seg_transcript:
+                    continue
+                transcript.append({
+                    "start": seg["start_ms"] / 1000,
+                    "end": seg["end_ms"] / 1000,
+                    "text": seg_transcript,
+                    **({"video": f"videos/{filename}"} if multi else {}),
+                })
+
     if not videos_meta:
-        first = video_paths[0]
-        ctx: VideoContext = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
-        return {"video_context": ctx}
+        errors = [
+            f"{filename}: {data.get('error', 'unknown analysis error')}"
+            for filename, data in results
+        ]
+        # An analysis failure is not a valid zero-second video context.
+        raise RuntimeError("영상 분석 실패: " + "; ".join(errors))
 
     ctx = {
         "file_path": videos_meta[0]["file_path"],
         "duration": total_duration,
         "scenes": scenes,
-        "transcript": [],  # transcript 는 audio_expert 가 채움
+        "transcript": transcript,
     }
     if multi:
         ctx["videos"] = videos_meta  # 다중 영상 목록 (script 가 참조)
@@ -150,6 +264,76 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         len(videos_meta), len(scenes), total_duration,
     )
     return {"video_context": ctx}
+
+
+# =============================================================
+# research_prepass — 기획 이전 트렌드 사전조사
+# =============================================================
+
+# 트렌드 리서치를 원하는 요청인지 판별하는 신호. 이게 없으면 (예: "3초~7초 잘라줘")
+# 리서치를 건너뛰어 비용/지연을 아낀다.
+_RESEARCH_INTENT = re.compile(
+    r"트렌드|트렌디|요즘|유행|레퍼런스|참고|분석해|조사해|리서치|"
+    r"어떻게.*(만들|편집|기획)|기획(해|안|좀)|컨셉|바이럴|떡상|인기.*(영상|쇼츠)",
+    re.I,
+)
+
+
+def _extract_niche(user_request: str) -> str:
+    """요청에서 니치 키워드 대충 뽑기. 실패해도 원문 그대로 넘김."""
+    text = (user_request or "").strip()
+    return text[:80] if text else "숏폼 영상"
+
+
+def research_prepass(state: AgentState) -> dict[str, Any]:
+    """기획 전에 트렌드를 조사해 trend_brief 를 만든다.
+
+    리서치 의도가 감지될 때만 실행 (아니면 no-op). youtube_search + web_search 로
+    니치 트렌드를 긁고 trend_distill 로 증류한 뒤 state['trend_brief'] 에 넣는다.
+    script_node 가 이걸 프롬프트에 주입해 컨셉/BGM/페이싱을 트렌드에 grounding.
+
+    실패(키 없음/쿼터/파싱)해도 조용히 no-op — 기획은 계속 진행된다.
+    """
+    user_request = state.get("user_request", "")
+    if not _RESEARCH_INTENT.search(user_request):
+        return {}
+    if state.get("trend_brief"):
+        return {}  # 재진입 시 재조사 안 함
+
+    import json as _json
+    from agent.tools.research_external import web_search, youtube_search
+    from agent.tools.research_llm import trend_distill
+
+    niche = _extract_niche(user_request)
+    samples_parts: list[str] = []
+    try:
+        yt = youtube_search.invoke({"query": niche, "sort_by": "viewCount", "count": 8})
+        samples_parts.append(str(yt))
+    except Exception:
+        logger.warning("research_prepass: youtube_search 실패", exc_info=True)
+    try:
+        web = web_search.invoke({"query": f"{niche} 숏츠 트렌드", "max_results": 5})
+        samples_parts.append(str(web))
+    except Exception:
+        logger.warning("research_prepass: web_search 실패", exc_info=True)
+
+    samples = "\n\n".join(samples_parts)
+    try:
+        raw = trend_distill.invoke({
+            "niche": niche,
+            "samples": samples,
+            "target_format": "shorts",
+        })
+        brief = _json.loads(raw)
+        if isinstance(brief, dict) and not brief.get("_error"):
+            logger.info(
+                "research_prepass: trend_brief 완성 (요소 %d개)",
+                len(brief.get("trend_elements") or []),
+            )
+            return {"trend_brief": brief}
+    except Exception:
+        logger.warning("research_prepass: trend_distill 실패", exc_info=True)
+    return {}
 
 
 # =============================================================
@@ -297,7 +481,13 @@ def _tool_result_status(content: str) -> str:
     m = _STATUS_TOKEN.search(content)
     if m:
         return "error" if m.group(1) == "error" else "ok"
-    if content.startswith("ERROR") or "\nERROR:" in content:
+    lowered = content.lower()
+    if (
+        content.startswith("ERROR")
+        or "\nERROR:" in content
+        or "status=error" in lowered
+        or "status=fail" in lowered
+    ):
         return "error"
     return "ok"
 
@@ -425,10 +615,25 @@ def _make_ask_user_tool(holder: dict):
             'AWAITING_USER' 한 단어로 최종 응답을 끝내야 한다.
         """
         try:
+            normalized_options = [str(o)[:120] for o in (options or [])][:8]
+            combined = f"{question or ''} {context or ''}".lower()
+            if any(token in combined for token in ("bgm", "배경음악")) and any(
+                token in combined for token in ("없", "찾", "missing", "not found")
+            ):
+                required = [
+                    "AI로 새 BGM 생성 (추천)",
+                    "다른 파일 지정",
+                    "배경음악 없이 진행",
+                ]
+                normalized_options = required + [
+                    option for option in normalized_options if option not in required
+                ]
+                normalized_options = normalized_options[:8]
+
             holder["question"] = {
                 "question": str(question or "").strip(),
                 "candidates": _normalize_candidates(candidates),
-                "options": [str(o)[:120] for o in (options or [])][:8],
+                "options": normalized_options,
                 "context": str(context or "")[:300],
             }
             return (
@@ -496,9 +701,18 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         "# 아직 실행 안 된 step 들\n",
         f"```json\n{next_brief}\n```\n",
         "각 step 의 expert 를 *spawn tool* 로 부르고, 의존 관계에 따라 순서대로/병렬로 실행하라.",
+        "중요: TTS 생성 -> TTS 파일을 영상에 mix -> BGM/자막/효과 적용처럼 파일을 "
+        "이어받는 audio step들은 절대 같은 assistant message에서 병렬 tool call로 보내지 마라. "
+        "앞 step의 ToolMessage가 status=success이고 실제 output 파일이 존재하는 것을 확인한 "
+        "뒤, 반환된 정확한 output 경로로 다음 tool을 별도 호출하라.",
         "한 step 끝나면 결과 (특히 산출 파일 경로) 를 다음 step task 에 명시적으로 박아라.",
+        "spawn 결과가 status=error/fail 이거나 실제 output 경로가 없으면 그 산출물에 "
+        "의존하는 다음 step 을 절대 실행하지 마라. 같은 step 을 올바른 인자로 재시도하고, "
+        "복구할 수 없으면 ask_user 로 원인과 선택지를 알려라.",
         "장면 선택이 모호하면 search_video_segments 로 직접 후보를 뽑고, 확신이 없으면"
         " ask_user 로 사용자 확인을 받아라 (추측으로 자르지 말 것).",
+        "BGM 파일 누락 질문에서 사용자가 AI 생성을 선택했다면 audio_expert에게 "
+        "generate_bgm 실행 후 그 output을 add_bgm에 연결하도록 지시하라.",
         "모든 step 산출물이 나오면 마지막 영상 경로를 'FINAL_OUTPUT: <path>' 형식으로 보고하라.",
     ]
 
@@ -541,16 +755,33 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         # 429 · quota · rate limit 계열은 재시도해도 같은 결과 → 즉시 PASS 로
         # 종료해서 무한 RETRY 방지 + 사용자에게 원인 명시.
         err_text = f"{type(e).__name__}: {e}"
+        lowered_error = err_text.lower()
         is_quota = any(
             k in err_text.lower()
             for k in ("resource_exhausted", "429", "quota", "credits are depleted")
+        )
+        is_connection_error = any(
+            key in lowered_error
+            for key in (
+                "remoteprotocolerror",
+                "server disconnected",
+                "readtimeout",
+                "connecttimeout",
+                "connectionerror",
+                "connection reset",
+            )
         )
         user_msg = (
             "Gemini API 쿼터/크레딧 소진으로 실행을 중단했어. "
             ".env 의 GOOGLE_API_KEY_SUPERVISOR (또는 GOOGLE_API_KEY) 를 크레딧이 남은 "
             "키로 교체하거나 결제를 충전한 뒤 다시 요청해줘."
             if is_quota
-            else f"실행 중 오류가 발생했어: {err_text[:200]} — 다시 시도해줘."
+            else (
+                "Gemini 연결이 응답 없이 종료되어 실행을 멈췄어. 승인된 계획은 유지되어 "
+                "있으니 잠시 후 같은 계획으로 다시 실행해줘."
+                if is_connection_error
+                else f"실행 중 오류가 발생했어: {err_text[:200]} — 다시 시도해줘."
+            )
         )
         # critic 이 verdict 를 덮어써도 사용자에겐 메시지가 relay 되도록
         # messages 에도 명시적으로 남긴다 (조사에서 확인된 quota 침묵 문제 대응).
@@ -563,7 +794,9 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
                 # quota 소진은 재시도해도 같은 결과 — critic 을 아예 건너뛰고
                 # 종료한다. critic 을 태우면 verdict 가 덮여 3회 재시도 후에도
                 # 이 메시지가 사용자에게 안 가고 침묵으로 끝난다.
-                "terminal": is_quota,
+                # 연결 장애는 critic RETRY로 전체 Supervisor를 다시 돌리지 않는다.
+                # LLM 내부에서 이미 짧게 재시도했으므로 여기서 종료해야 busy가 풀린다.
+                "terminal": is_quota or is_connection_error,
             },
         }
 
@@ -673,6 +906,7 @@ def build_graph(checkpointer=None):
     g = StateGraph(AgentState)
 
     g.add_node("analysis", analysis_node)
+    g.add_node("research_prepass", research_prepass)
     g.add_node("script", script_node)
     g.add_node("interrupt_gate", interrupt_gate)
     g.add_node("clarify", clarify_gate)
@@ -682,7 +916,9 @@ def build_graph(checkpointer=None):
     g.add_node("summary", summary_node)
 
     g.add_edge(START, "analysis")
-    g.add_edge("analysis", "script")
+    # 기획 이전 트렌드 사전조사 (리서치 의도 없으면 no-op 통과)
+    g.add_edge("analysis", "research_prepass")
+    g.add_edge("research_prepass", "script")
 
     g.add_conditional_edges(
         "script",

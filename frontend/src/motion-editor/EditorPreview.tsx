@@ -26,18 +26,21 @@ export function EditorPreview() {
   const [muted, setMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // 소스: 편집중 = 원본 (다듬기 목적), fallback = 결과물
+  // Prefer the agent result. The upload is only a fallback before a result exists.
   const src = useMemo(() => {
-    if (uploadedUrl) return uploadedUrl;
     if (lastFinal?.outputUrl) return lastFinal.outputUrl;
     if (lastFinal?.outputPath?.startsWith("/"))
       return `${API_BASE}${lastFinal.outputPath}`;
-    return null;
+    const match = lastFinal?.outputPath?.match(
+      /^(?:.*[/\\])?(output|outputs|videos)\/(.+)$/
+    );
+    if (match) return `${API_BASE}/files/${match[1]}/${match[2]}`;
+    return uploadedUrl || null;
   }, [uploadedUrl, lastFinal]);
 
-  const transcript = videoContext?.transcript ?? lastFinal?.transcript ?? [];
+  const transcript = lastFinal?.transcript ?? videoContext?.transcript ?? [];
   const duration =
-    videoContext?.duration ?? lastFinal?.duration ?? 0;
+    lastFinal?.duration ?? videoContext?.duration ?? 0;
 
   // 재생/일시정지 sync
   useEffect(() => {

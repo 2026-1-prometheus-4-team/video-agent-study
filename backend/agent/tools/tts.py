@@ -14,13 +14,20 @@ from typing import Optional
 import requests
 from dotenv import load_dotenv
 from langchain_core.tools import tool
+from agent.tools.audio_common import probe_duration
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-ENV_PATH = BASE_DIR / ".env"
+ROOT_ENV_PATH = BASE_DIR.parent / ".env"
+BACKEND_ENV_PATH = BASE_DIR / ".env"
 
-load_dotenv(ENV_PATH)
+# The project currently keeps secrets in the repository-root .env, while some
+# deployments use backend/.env. Load both explicitly so behavior does not depend
+# on the PowerShell working directory or import order. Existing process values
+# keep precedence (override=False is python-dotenv's default).
+load_dotenv(ROOT_ENV_PATH)
+load_dotenv(BACKEND_ENV_PATH)
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 ELEVENLABS_DEFAULT_VOICE_ID = os.getenv("ELEVENLABS_DEFAULT_VOICE_ID")
@@ -67,7 +74,16 @@ def _resolve_voice(
     5. Anything else: treated as a raw ElevenLabs voice ID.
     """
     if voice_id:
-        return voice_id, None, None
+        # Backward compatibility: older plans put catalog ids or numeric aliases
+        # in `voice_id`, although that parameter is documented for raw ElevenLabs
+        # ids. Resolve recognizable aliases through the catalog instead of sending
+        # strings such as "female_ko_general" to ElevenLabs as if they were ids.
+        explicit = str(voice_id).strip()
+        catalog_ids = {str(v.get("id", "")) for v in _load_voice_catalog()}
+        if explicit.isdigit() or explicit in catalog_ids or explicit == "default":
+            voice = explicit
+        else:
+            return explicit, None, None
 
     if not voice or voice == "default":
         return (ELEVENLABS_DEFAULT_VOICE_ID or None), None, None
@@ -244,6 +260,15 @@ def text_to_speech(
         response = requests.post(url, headers=headers, json=data, timeout=60)
 
         if response.status_code == 200:
+            if not response.content:
+                return _json_response(
+                    text=text,
+                    voice=resolved_voice,
+                    model=model_id,
+                    output=None,
+                    status="error",
+                    error="ElevenLabs가 빈 TTS 응답을 반환했습니다.",
+                )
             resolved_output.write_bytes(response.content)
             manifest = _append_narration_manifest(
                 manifest_key, resolved_output, text,
@@ -256,6 +281,7 @@ def text_to_speech(
                 model=model_id,
                 voice_settings=voice_settings,
                 output=str(resolved_output),
+                duration_sec=probe_duration(resolved_output),
                 manifest=manifest,
                 status="success",
             )

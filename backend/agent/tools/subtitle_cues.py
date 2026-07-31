@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import uuid
 
@@ -35,6 +36,7 @@ from agent.tools.subtitle import (
     SUBTITLES_DIR,
     VIDEOS_DIR,
     _color_to_ass,
+    _ffmpeg_env,
     _ffmpeg_filter_path,
     _hex_to_rgb,
 )
@@ -127,6 +129,36 @@ def _apply_responsive_style(
     return result
 
 
+def _fit_portrait_font_size(
+    requested_size: float,
+    texts: list[str],
+    play_res_x: int,
+) -> float:
+    """세로 영상에서 긴 문장이 세 줄 안팎으로 들어오도록 폰트 상한을 계산."""
+    if not texts:
+        return requested_size
+
+    def _text_units(text: str) -> float:
+        # 한글/전각 문자는 거의 1em, ASCII와 공백은 더 좁게 잡는다.
+        return sum(1.0 if ord(char) > 127 else 0.55 for char in text)
+
+    longest = max(_text_units(text.replace("\n", " ")) for text in texts)
+    if longest <= 0:
+        return requested_size
+
+    usable_width = play_res_x - 20
+    max_lines = 3
+    width_limit = usable_width * max_lines / (longest * 0.9)
+    height_limit = PLAY_RES_Y * 0.24 / max_lines
+    responsive_cap = PLAY_RES_Y * 0.06
+    return max(10.0, min(
+        float(requested_size),
+        responsive_cap,
+        width_limit,
+        height_limit,
+    ))
+
+
 # subtitle.py 의 SUBTITLE_FONT (파일명 기반) 와 같은 기본값을 쓴다 — 두 렌더
 # 경로(add_subtitle 번인 / 큐 문서 렌더)가 서로 다른 폰트를 쓰면 사용자가
 # 같은 영상에서 다른 자막 폰트를 보게 된다.
@@ -145,6 +177,55 @@ DEFAULT_STYLE = {
     "position": "bottom",
     "margin_v": 40,
     "bold": False,
+}
+
+# 이름 있는 스타일 프리셋 — set_subtitle_style(preset=...) 의 베이스.
+# 여기 값은 "기본값일 뿐" 이며 style(JSON) 오버라이드로 위치/색/크기/폰트/효과를
+# 언제든 자유롭게 덮어쓸 수 있다 (프롬프트 자유도 유지). font 는 여기 넣지 않고
+# resolve_style_preset() 이 assets/fonts 보유분 기준으로 동적 해석한다.
+#
+# 좌표계는 PLAY_RES_Y 288 기준 (DEFAULT_STYLE 과 동일). size 24 = 기본,
+# 그보다 크면 화면에서 더 큼직하게 보인다 (1080p 에서 288→1080 = 3.75배 확대).
+STYLE_PRESETS: dict[str, dict] = {
+    # 기존 기본값 그대로 — 중간 크기, 화면 하단, 얇은 외곽선
+    "clean": {
+        "size": 24,
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 1.5,
+        "position": "bottom",
+        "margin_v": 40,
+        "bold": False,
+    },
+    # 인스타/틱톡 쇼츠 스타일 — 큰 볼드 한글, 굵은 검은 외곽선, 흰색, 상단
+    "shorts_bold": {
+        "size": 36,
+        "color": "#FFFFFF",
+        "stroke_color": "#000000",
+        "stroke_width": 3,
+        "position": "top",
+        "margin_v": 60,
+        "bold": True,
+    },
+    # 노란색 강조 캡션 — 핵심 문장 포인트용
+    "caption_point": {
+        "size": 30,
+        "color": "#FFE600",
+        "stroke_color": "#000000",
+        "stroke_width": 2.5,
+        "position": "middle",
+        "margin_v": 40,
+        "bold": True,
+    },
+}
+
+# 프리셋별 선호 폰트 후보 — assets/fonts 에 있는 첫 번째를 쓰고, 없으면 다음 후보,
+# 끝까지 없으면 기본 폰트(NotoSansKR)로 폴백. 쇼츠 볼드는 검은고딕(BlackHanSans)/
+# 배민 주아(BMJUA) 같은 두꺼운 디스플레이 폰트가 있으면 우선 사용.
+_PRESET_FONT_CANDIDATES: dict[str, list[str]] = {
+    "shorts_bold": ["BlackHanSans", "BMJUA", "BMDoHyeon", "GmarketSansBold", "NotoSansKR"],
+    "caption_point": ["BlackHanSans", "BMJUA", "NotoSansKR"],
+    "clean": ["NotoSansKR"],
 }
 
 # ASS 가상 캔버스 — libass 는 size/margin_v/stroke_width 를 이 좌표계로 해석하고
@@ -175,8 +256,23 @@ _AN_MAP = {
 
 _ALLOWED_STYLE_KEYS = {
     "font", "size", "color", "stroke_color", "stroke_width",
-    "position", "margin_v", "bold", "fade",
+    "position", "margin_v", "bold", "fade", "effect",
 }
+
+# 자막 등장 효과 (per-cue "effect" 필드). ASS 인라인 애니메이션 태그로 변환된다.
+# 시간 단위는 ms (ASS \t / \fad / \move 모두 ms). slide_up 은 좌표 계산이 필요해
+# _slide_up_tag() 에서 별도 생성. typewriter 는 ASS 단독으로 글자별 등장 구현이
+# 복잡해 fade 로 폴백 (Remotion 렌더 경로에서 정식 지원 예정).
+_EFFECT_TAGS: dict[str, str] = {
+    "none": "",
+    "fade": "\\fad(150,150)",
+    "pop": "\\fscx60\\fscy60\\t(0,180,\\fscx100\\fscy100)",
+    "bounce": "\\fscx50\\fscy50\\t(0,120,\\fscx110\\fscy110)\\t(120,240,\\fscx100\\fscy100)",
+    "typewriter": "\\fad(150,150)",
+}
+# \fad 를 이미 포함하는 효과 — fade 불리언과 겹칠 때 \fad 중복 방지("통합")
+_FADE_EFFECTS = {"fade", "slide_up", "typewriter"}
+_KNOWN_EFFECTS = set(_EFFECT_TAGS) | {"slide_up"}
 
 _FONT_EXTS = {".ttf", ".otf", ".ttc"}
 _FONT_WEIGHT_SUFFIX = re.compile(
@@ -303,8 +399,10 @@ def style_defaults_from_legacy(style: dict) -> dict:
         except ValueError:
             return fallback
 
+    requested_font = str(style.get("font", _default_font_family()))
+    resolved_font = _resolve_font_family(requested_font) or requested_font
     return {
-        "font": style.get("font", _default_font_family()),
+        "font": resolved_font,
         "size": style.get("font_size", 24),
         "color": to_hex(style.get("color", "white"), "#FFFFFF"),
         "stroke_color": to_hex(style.get("stroke_color", "black"), "#000000"),
@@ -313,6 +411,48 @@ def style_defaults_from_legacy(style: dict) -> dict:
         "margin_v": style.get("margin_v", 40),
         "bold": bool(style.get("bold", False)),
     }
+
+
+# legacy 스타일 키(subtitle.py) → 큐 스타일 키 매핑 (platform 등 비스타일 키는 제외)
+_LEGACY_STYLE_KEY_MAP = {
+    "font": "font",
+    "font_size": "size",
+    "size": "size",
+    "color": "color",
+    "stroke_color": "stroke_color",
+    "stroke_width": "stroke_width",
+    "position": "position",
+    "margin_v": "margin_v",
+    "bold": "bold",
+    "effect": "effect",
+    "fade": "fade",
+}
+
+
+def explicit_style_from_legacy(style_json) -> dict:
+    """사용자가 legacy style JSON 에 '명시적으로' 준 키만 큐 스타일 키로 변환.
+
+    style_defaults_from_legacy 와 달리 기본값을 채우지 않는다 — 프리셋을 베이스로
+    깔 때(add_auto_subtitle 의 쇼츠 경로) 사용자가 실제 지정한 값만 위에 얹기 위함.
+    platform 같은 비스타일 키는 무시하고, 색은 hex 로 정규화한다.
+    """
+    try:
+        raw = _parse_style_arg(style_json)
+    except (ValueError, json.JSONDecodeError, TypeError):
+        return {}
+    out: dict = {}
+    for key, value in raw.items():
+        cue_key = _LEGACY_STYLE_KEY_MAP.get(key)
+        if not cue_key:
+            continue
+        if cue_key in ("color", "stroke_color"):
+            try:
+                r, g, b = _hex_to_rgb(str(value))
+                value = f"#{r:02X}{g:02X}{b:02X}"
+            except ValueError:
+                continue
+        out[cue_key] = value
+    return out
 
 
 def _parse_srt_time(ts: str) -> float:
@@ -388,6 +528,11 @@ def _validate_style(style: dict) -> str | None:
     pos = style.get("position")
     if pos is not None and pos not in _AN_MAP:
         return f"position 값이 잘못됨: {pos} (허용: {sorted(set(_AN_MAP))})"
+    eff = style.get("effect")
+    if eff is not None and not isinstance(eff, str):
+        return f"effect 는 문자열이어야 합니다: {eff}"
+    # effect 값 자체는 여기서 막지 않는다 — 모르는 값은 렌더 시 무시 + 경고
+    # (프롬프트 자유도: 신규 효과명을 실험적으로 넣어도 파이프라인이 죽지 않게).
     for key in ("color", "stroke_color"):
         if style.get(key) is not None:
             try:
@@ -410,6 +555,10 @@ def _scan_fonts() -> dict[str, str]:
     'NotoSansKR-Regular.ttf' → 패밀리 'NotoSansKR' (weight 접미사 제거).
     대소문자 무시, 하이픈/언더스코어/공백 허용.
     """
+    # 파일명 stem("NotoSansKR")이 아니라 폰트 내부 family 명("Noto Sans KR")으로
+    # 매핑 — 파일명 기반 이름은 libass 가 Arial 로 조용히 폴백해 한글이 두부가 된다.
+    from agent.tools.subtitle import _font_family_from_file  # 지연 임포트 (순환 방지)
+
     families: dict[str, str] = {}
     if not os.path.isdir(FONTS_DIR):
         return families
@@ -417,8 +566,10 @@ def _scan_fonts() -> dict[str, str]:
         base, ext = os.path.splitext(fname)
         if ext.lower() not in _FONT_EXTS:
             continue
-        family = _FONT_WEIGHT_SUFFIX.sub("", base)
+        family = _font_family_from_file(fname)
+        stem = _FONT_WEIGHT_SUFFIX.sub("", base)
         families.setdefault(_normalize_font_key(family), family)
+        families.setdefault(_normalize_font_key(stem), family)
         families.setdefault(_normalize_font_key(base), family)
     return families
 
@@ -426,6 +577,12 @@ def _scan_fonts() -> dict[str, str]:
 def _resolve_font_family(requested: str) -> str | None:
     families = _scan_fonts()
     key = _normalize_font_key(requested)
+    aliases = {
+        "notosanscjkkr": "notosanskr",
+        "notosanscjk": "notosanskr",
+        "notosanskorean": "notosanskr",
+    }
+    key = aliases.get(key, key)
     if key in families:
         return families[key]
     for k, family in families.items():
@@ -436,6 +593,30 @@ def _resolve_font_family(requested: str) -> str | None:
 
 def _available_families() -> list[str]:
     return sorted(set(_scan_fonts().values()))
+
+
+def _preferred_font(candidates: list) -> str:
+    """후보 폰트 중 assets/fonts 에 실제 있는 첫 번째 패밀리, 없으면 기본 폰트."""
+    for name in candidates:
+        family = _resolve_font_family(str(name))
+        if family:
+            return family
+    return _default_font_family()
+
+
+def resolve_style_preset(name: str) -> dict | None:
+    """프리셋 이름 → 폰트가 보유분 기준으로 해석된 style dict. 모르는 이름이면 None.
+
+    STYLE_PRESETS 의 값(폰트 제외)을 복사하고, _PRESET_FONT_CANDIDATES 후보 중
+    실제 보유한 폰트를 font 로 채운다. 이 dict 를 베이스로 깔고 사용자 style 로
+    오버라이드하면 프리셋 + 자유 커스터마이즈가 함께 동작한다.
+    """
+    preset = STYLE_PRESETS.get(name)
+    if preset is None:
+        return None
+    resolved = dict(preset)
+    resolved["font"] = _preferred_font(_PRESET_FONT_CANDIDATES.get(name) or [])
+    return resolved
 
 
 def _font_error(requested: str) -> str:
@@ -465,8 +646,83 @@ def _num(value) -> str:
     return f"{float(value):g}"
 
 
-def _cue_override_tags(style: dict) -> str:
-    """큐 style 오버라이드 → ASS 인라인 태그 문자열."""
+# 이모지(그림문자) 감지 — 렌더 시 컬러 이모지 폰트 폴백 경고용. 텍스트 자체는
+# 절대 건드리지 않고(그대로 보존), 폰트가 없을 때 두부(□) 렌더 가능성만 알린다.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F000-\U0001FAFF"   # 그림문자/이모지/확장 블록
+    "\U00002600-\U000027BF"   # 기타 기호 + dingbats
+    "\U00002B00-\U00002BFF"   # 추가 기호/화살표
+    "\U0000FE00-\U0000FE0F"   # variation selectors (이모지 표현)
+    "\U0001F1E6-\U0001F1FF"   # regional indicator (국기)
+    "\U000024C2\U00002122\U00002139"
+    "]",
+    flags=re.UNICODE,
+)
+
+
+def _has_emoji(text: str) -> bool:
+    """텍스트에 이모지/그림문자가 포함됐는지."""
+    return bool(_EMOJI_RE.search(str(text)))
+
+
+def _emoji_font_available() -> bool:
+    """assets/fonts 에 컬러 이모지 폰트(NotoColorEmoji.ttf)가 있는지."""
+    from agent.tools.subtitle import _EMOJI_FONT_FILE
+
+    return os.path.exists(os.path.join(FONTS_DIR, _EMOJI_FONT_FILE))
+
+
+def _slide_up_tag(style: dict) -> str:
+    """아래에서 위로 슬라이드 등장.
+
+    ASS \\move 는 절대좌표라 position/margin_v 기준 도착 지점을 캔버스(384x288)
+    좌표로 계산하고, 그보다 20px 아래에서 250ms 동안 제자리로 올라오게 한다.
+    \\an 정렬(도착점 기준)은 _cue_override_tags 또는 Default 스타일에서 이미 적용됨.
+    """
+    an = _AN_MAP.get(str(style.get("position", "bottom")), 2)
+    try:
+        margin_v = max(0, int(style.get("margin_v", 40)))
+    except (TypeError, ValueError):
+        margin_v = 40
+    if an in (1, 4, 7):        # 좌측 정렬
+        x = 10
+    elif an in (3, 6, 9):      # 우측 정렬
+        x = PLAY_RES_X - 10
+    else:                      # 중앙
+        x = PLAY_RES_X / 2
+    if an in (7, 8, 9):        # 상단 — 위 여백에서
+        y = margin_v
+    elif an in (1, 2, 3):      # 하단 — 아래 여백에서
+        y = PLAY_RES_Y - margin_v
+    else:                      # 중앙
+        y = PLAY_RES_Y / 2
+    return (
+        f"\\move({_num(x)},{_num(y + 20)},{_num(x)},{_num(y)},0,250)"
+        "\\fad(150,0)"
+    )
+
+
+def _effect_tag(effect: str, style: dict) -> str:
+    """effect 값 → ASS 인라인 애니메이션 태그. 모르는 값은 무시 + 경고."""
+    effect = str(effect or "none")
+    if effect == "slide_up":
+        return _slide_up_tag(style)
+    if effect in _EFFECT_TAGS:
+        return _EFFECT_TAGS[effect]
+    if effect != "none":
+        logger.warning(
+            f"알 수 없는 effect: {effect} (허용: {sorted(_KNOWN_EFFECTS)}) — 무시"
+        )
+    return ""
+
+
+def _cue_override_tags(style: dict, effective: dict | None = None) -> str:
+    """큐 style 오버라이드 → ASS 인라인 태그 문자열.
+
+    effective 는 defaults 병합본 — slide_up 등 위치 기반 효과의 좌표 계산에 쓴다
+    (position/margin_v 가 큐에 없고 defaults 에만 있을 때도 정확히 계산되도록).
+    """
     tags = []
     if style.get("position") and style["position"] in _AN_MAP:
         tags.append(f"\\an{_AN_MAP[style['position']]}")
@@ -483,8 +739,15 @@ def _cue_override_tags(style: dict) -> str:
         tags.append(f"\\3c{_color_to_ass(style['stroke_color'])}&")
     if style.get("stroke_width") is not None:
         tags.append(f"\\bord{_num(style['stroke_width'])}")
-    if style.get("fade"):
+
+    effect = str(style.get("effect", "none") or "none")
+    # fade 불리언: 효과가 이미 \fad 를 넣는 경우엔 생략 (중복 \fad 방지 = "통합")
+    if style.get("fade") and effect not in _FADE_EFFECTS:
         tags.append("\\fad(200,200)")
+    effect_tag = _effect_tag(effect, effective or style)
+    if effect_tag:
+        tags.append(effect_tag)
+
     return "{" + "".join(tags) + "}" if tags else ""
 
 
@@ -499,9 +762,19 @@ def _build_ass(
     margin_v 를 비율 기반으로 자동 조정. content_area 가 주어지면 pad 모드 검은
     여백을 피해 자막이 콘텐츠 영역 안에 위치하도록 margin_v 를 재계산.
     """
+    play_res_x = PLAY_RES_X
+    if video_size and video_size[0] > 0 and video_size[1] > 0:
+        play_res_x = max(1, round(PLAY_RES_Y * video_size[0] / video_size[1]))
+
     defaults = {**DEFAULT_STYLE, **(doc.get("style_defaults") or {})}
     if video_size:
         defaults = _apply_responsive_style(defaults, video_size[0], video_size[1], content_area)
+        if video_size[1] > video_size[0]:
+            defaults["size"] = _fit_portrait_font_size(
+                defaults["size"],
+                [str(cue.get("text", "")) for cue in doc.get("cues", [])],
+                play_res_x,
+            )
     family = _resolve_font_family(str(defaults["font"])) or str(defaults["font"])
     primary = _color_to_ass(defaults["color"], alpha="00")
     outline = _color_to_ass(defaults["stroke_color"], alpha="00")
@@ -511,11 +784,13 @@ def _build_ass(
     # fade 는 [V4+ Styles] 로 표현할 수 없는 인라인 전용 태그 → scope="defaults" 로
     # 저장된 fade 는 per-cue 오버라이드가 없는 큐에 주입해야 실제로 반영된다.
     default_fade = bool(defaults.get("fade"))
+    # effect 도 인라인 전용 → 오버라이드 없는 큐에 default effect 주입 (fade 와 동일 패턴).
+    default_effect = str(defaults.get("effect", "none") or "none")
 
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
-        f"PlayResX: {PLAY_RES_X}",
+        f"PlayResX: {play_res_x}",
         f"PlayResY: {PLAY_RES_Y}",
         "WrapStyle: 0",
         "ScaledBorderAndShadow: yes",
@@ -534,12 +809,27 @@ def _build_ass(
     ]
 
     for cue in doc.get("cues", []):
-        style = cue.get("style") or {}
+        style = dict(cue.get("style") or {})
+        if (
+            video_size
+            and video_size[1] > video_size[0]
+            and style.get("size") is not None
+        ):
+            style["size"] = _fit_portrait_font_size(
+                style["size"],
+                [str(cue.get("text", ""))],
+                play_res_x,
+            )
         # 큐가 fade 를 명시하지 않은 경우에만 defaults 의 fade 적용
         # ("fade": false 로 끈 큐는 존중 — get() 이 아니라 키 존재로 판정).
         if default_fade and "fade" not in style:
             style = {**style, "fade": True}
-        tags = _cue_override_tags(style)
+        # effect 도 동일 — 큐가 effect 를 명시하지 않으면 defaults 의 effect 적용.
+        if default_effect != "none" and "effect" not in style:
+            style = {**style, "effect": default_effect}
+        # slide_up 등 위치 기반 효과는 defaults 병합본으로 좌표 계산.
+        effective = {**defaults, **style}
+        tags = _cue_override_tags(style, effective)
         # ASS Dialogue 의 MarginV=0 은 "스타일 기본값 사용" 을 뜻해서 오버라이드 없음과
         # 명시적 margin_v=0 을 구분할 수 없다. 명시적 0 은 1 로 클램프해 사용자 의도
         # (화면 끝에 붙임)를 살린다 — 그대로 0 을 쓰면 조용히 기본 마진으로 되돌아감.
@@ -558,7 +848,12 @@ def _build_ass(
 
 def _run_ffmpeg(cmd: list) -> tuple[int, str]:
     result = subprocess.run(
-        cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore"
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+        env=_ffmpeg_env(),
     )
     return result.returncode, result.stderr
 
@@ -773,8 +1068,17 @@ def add_subtitle_cue(video_path: str, start: float, end: float, text: str, style
 
 
 @tool
-def set_subtitle_style(video_path: str, style: str, scope: str = "defaults") -> str:
-    """자막 전체 스타일 변경 — "전부 위로", "다 크게", "폰트 바꿔줘" 류 요청 처리.
+def set_subtitle_style(video_path: str, style: str = "", scope: str = "defaults", preset: str = "") -> str:
+    """자막 전체 스타일 변경 — "쇼츠 볼드로", "전부 위로", "다 크게", "폰트 바꿔줘" 류 처리.
+
+    preset 을 주면 STYLE_PRESETS[preset] 을 베이스로 깔고 그 위에 style(JSON) 을
+    오버라이드한다 — 프리셋의 큰 틀은 유지하면서 색/위치/크기 등을 자유롭게 바꿀 수 있다.
+    style 만 주면 기존처럼 개별 키만 병합, preset 만 주면 프리셋 전체 적용.
+
+    사용 가능한 preset:
+    - shorts_bold: 인스타/틱톡 쇼츠 스타일 — 큰 볼드 한글, 굵은 검은 외곽선, 흰색, 상단
+    - clean: 기본 — 중간 크기, 하단, 얇은 외곽선
+    - caption_point: 노란색 강조 캡션
 
     scope="defaults" (기본): style_defaults 에 병합 — 오버라이드 없는 큐 전체에 적용.
     scope="all_cues": 모든 큐의 개별 style 오버라이드에 병합 — 기존 per-cue 스타일 위에 강제.
@@ -782,24 +1086,42 @@ def set_subtitle_style(video_path: str, style: str, scope: str = "defaults") -> 
     Args:
         video_path: 영상 파일명 또는 경로 (videos/ 기준 상대 경로 허용)
         style: JSON 스타일 {'font':'NotoSansKR','size':30,'color':'#FFE600',
-               'position':'top','margin_v':60,'bold':true}
+               'position':'top','margin_v':60,'bold':true,'effect':'pop'} (선택)
         scope: 'defaults' | 'all_cues'
+        preset: 'shorts_bold' | 'clean' | 'caption_point' (선택, 베이스 스타일)
     """
     try:
         doc, doc_path = _load_or_promote(video_path)
         if doc is None:
             return _no_cues_error()
 
+        base: dict = {}
+        if preset:
+            base = resolve_style_preset(preset)
+            if base is None:
+                return json.dumps({
+                    "status": "error",
+                    "error": f"알 수 없는 preset: {preset} (허용: {sorted(STYLE_PRESETS)})",
+                }, ensure_ascii=False)
+
         style_dict = _parse_style_arg(style)
-        if not style_dict:
+        merged = {**base, **style_dict}  # 프리셋 위에 style 오버라이드
+        if not merged:
             return json.dumps(
-                {"status": "error", "error": "style 이 비어 있습니다."}, ensure_ascii=False
+                {"status": "error", "error": "style 또는 preset 중 하나는 필요합니다."},
+                ensure_ascii=False,
             )
-        error = _validate_style(style_dict)
+        error = _validate_style(merged)
         if error:
             return json.dumps({"status": "error", "error": error}, ensure_ascii=False)
-        if style_dict.get("font") and not _resolve_font_family(str(style_dict["font"])):
-            return _font_error(str(style_dict["font"]))
+        if merged.get("font"):
+            requested_font = str(merged["font"])
+            resolved_font = _resolve_font_family(requested_font)
+            if not resolved_font:
+                return _font_error(requested_font)
+            # 파일명 stem("NotoSansKR")이 아니라 폰트 내부 family 명("Noto Sans KR")
+            # 으로 정규화해 저장 — libass 가 Arial 로 조용히 폴백하는 것을 방지.
+            merged["font"] = resolved_font
         if scope not in ("defaults", "all_cues"):
             return json.dumps(
                 {"status": "error", "error": f"scope 값이 잘못됨: {scope} (defaults | all_cues)"},
@@ -807,17 +1129,18 @@ def set_subtitle_style(video_path: str, style: str, scope: str = "defaults") -> 
             )
 
         if scope == "defaults":
-            doc["style_defaults"] = {**DEFAULT_STYLE, **doc.get("style_defaults", {}), **style_dict}
+            doc["style_defaults"] = {**DEFAULT_STYLE, **doc.get("style_defaults", {}), **merged}
             applied = len(doc.get("cues", []))
         else:
             for cue in doc.get("cues", []):
-                cue["style"] = {**cue.get("style", {}), **style_dict}
+                cue["style"] = {**cue.get("style", {}), **merged}
             applied = len(doc.get("cues", []))
 
         _save_cues_doc(doc)
         return json.dumps({
             "status": "success",
             "scope": scope,
+            "preset": preset or None,
             "applied_cues": applied,
             "style_defaults": doc["style_defaults"],
             "cues_doc": doc_path,
@@ -864,6 +1187,20 @@ def render_subtitles(video_path: str, output_path: str = "") -> str:
             if not _resolve_font_family(font):
                 return _font_error(font)
 
+        # 이모지 폰트 폴백 경고 — 텍스트는 그대로 두되(강제 변형 X), 컬러 이모지
+        # 폰트가 없으면 이모지가 □(두부)로 렌더될 수 있음을 알린다. libass 는
+        # fontsdir 의 폰트로 폴백하므로 assets/fonts 에 NotoColorEmoji.ttf 를 두면 해결.
+        from agent.tools.subtitle import _EMOJI_FONT_FILE
+
+        emoji_cues = [
+            c.get("id") for c in doc.get("cues", []) if _has_emoji(c.get("text", ""))
+        ]
+        if emoji_cues and not _emoji_font_available():
+            logger.warning(
+                f"이모지 폰트({_EMOJI_FONT_FILE}) 없음 — 큐 {emoji_cues} 의 이모지가 "
+                f"□ 로 렌더될 수 있습니다. assets/fonts 에 {_EMOJI_FONT_FILE} 추가 권장."
+            )
+
         # 영상 실제 해상도 + 콘텐츠 영역 감지 → 반응형 font_size / margin_v 계산
         video_size = _get_video_size(source)
         content_area = None
@@ -909,6 +1246,16 @@ def render_subtitles(video_path: str, output_path: str = "") -> str:
         code, stderr = _run_ffmpeg(cmd)
         if code != 0:
             return f"ERROR: FFmpeg 렌더 실패 (rc={code}): {stderr[-800:]}"
+
+        # 자막 번인은 시간축/콘텐츠 영역을 바꾸지 않는다. 이후 재편집과
+        # 자막 재사용이 이어지도록 edit origin 및 pad 메타를 승계한다.
+        for suffix in (".origin.json", ".pad.json"):
+            source_sidecar = source + suffix
+            if os.path.exists(source_sidecar):
+                try:
+                    shutil.copy2(source_sidecar, resolved + suffix)
+                except OSError:
+                    logger.warning("subtitle sidecar copy failed: %s", source_sidecar)
 
         logger.info(f"render_subtitles 완료: {resolved} ({len(doc.get('cues', []))}개 큐)")
         return resolved

@@ -83,7 +83,7 @@ export function Stage() {
       process.env.NEXT_PUBLIC_AGENT_API || "http://localhost:8000"
     ).replace(/\/+$/, "");
     // 상대경로 videos/... outputs/... audio_files/... bgm_files/... → /files/<sub>/...
-    const m = p.match(/^(?:.*[/\\])?(videos|outputs|audio_files|bgm_files)\/(.+)$/);
+    const m = p.match(/^(?:.*[/\\])?(videos|output|outputs|audio_files|bgm_files)\/(.+)$/);
     if (m) {
       const sub =
         m[1] === "audio_files" ? "audio" : m[1] === "bgm_files" ? "bgm" : m[1];
