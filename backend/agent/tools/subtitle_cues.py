@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import uuid
 
@@ -35,6 +36,7 @@ from agent.tools.subtitle import (
     SUBTITLES_DIR,
     VIDEOS_DIR,
     _color_to_ass,
+    _ffmpeg_env,
     _ffmpeg_filter_path,
     _hex_to_rgb,
 )
@@ -45,6 +47,117 @@ _PROJECT_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 OUTPUTS_DIR = os.path.join(_PROJECT_ROOT, "outputs")
+
+# 반응형 자막 비율 상수 — PlayResY=288 기준 ASS 캔버스에서 비율로 표현.
+# libass 가 actual_height/PlayResY 배율로 스케일링하므로
+# canvas_val = PlayResY * PCT 로 설정하면 실제 영상에서 항상 화면 높이의 PCT% 로 렌더됨.
+_FONT_SIZE_PCT = 0.05          # 화면 높이 대비 폰트 비율 (5%)
+_MARGIN_LANDSCAPE_PCT = 0.08   # 가로형: 하단 마진 비율 (8%)
+_MARGIN_PORTRAIT_PCT = 0.15    # 세로형: 하단 마진 비율 (15%, shorts UI 위)
+
+
+def _get_video_size(video_path: str) -> tuple[int, int]:
+    """ffprobe 로 영상 너비×높이 반환. 실패 시 (0, 0)."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=width,height",
+        "-of", "csv=p=0",
+        video_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        w, h = result.stdout.strip().split(",")
+        return int(w), int(h)
+    except (ValueError, IndexError):
+        return 0, 0
+
+
+def _detect_content_area(video_path: str) -> tuple[int, int, int, int]:
+    """pad 사이드카(.pad.json) 우선 읽기 → 없으면 (0, 0, 0, 0) 반환.
+
+    resize_video pad 모드가 수학적으로 정확한 콘텐츠 영역을 사이드카에 저장.
+    h264 압축 아티팩트로 cropdetect 가 검은 여백을 잘못 감지하는 문제를 피하기 위해
+    cropdetect 방식을 제거하고 사이드카 방식으로 대체.
+
+    Returns: (x_offset, y_offset, content_w, content_h)
+    """
+    sidecar = video_path + ".pad.json"
+    if os.path.exists(sidecar):
+        try:
+            with open(sidecar, encoding="utf-8") as f:
+                d = json.load(f)
+            return int(d["x"]), int(d["y"]), int(d["w"]), int(d["h"])
+        except (KeyError, ValueError, json.JSONDecodeError):
+            pass
+    return 0, 0, 0, 0
+
+
+def _apply_responsive_style(
+    defaults: dict,
+    video_w: int,
+    video_h: int,
+    content_area: tuple[int, int, int, int] | None = None,
+) -> dict:
+    """실제 영상 크기 + 콘텐츠 영역 기반으로 font_size, margin_v 를 자동 조정.
+
+    pad 모드 영상(검은 여백 포함)의 경우 content_area 로 실제 콘텐츠 경계를 받아
+    자막이 콘텐츠 영역 안에 위치하도록 margin_v 재계산.
+    기본값인 경우에만 덮어씀 — 사용자가 명시 설정한 값은 유지.
+    """
+    if video_h <= 0:
+        return defaults
+
+    result = dict(defaults)
+    is_portrait = video_h > video_w
+
+    if result.get("size") == DEFAULT_STYLE["size"]:
+        result["size"] = max(8, round(PLAY_RES_Y * _FONT_SIZE_PCT))
+
+    if result.get("margin_v") == DEFAULT_STYLE["margin_v"]:
+        cx, cy, cw, ch = content_area if content_area else (0, 0, 0, 0)
+        pad_bottom = video_h - (cy + ch) if ch > 0 else 0
+
+        if pad_bottom > video_h * 0.05:
+            # 검은 여백 5% 이상 → 콘텐츠 하단 기준으로 5% 안쪽에 자막 배치
+            margin_v_px = pad_bottom + ch * 0.05
+            result["margin_v"] = max(4, round(margin_v_px * PLAY_RES_Y / video_h))
+        else:
+            pct = _MARGIN_PORTRAIT_PCT if is_portrait else _MARGIN_LANDSCAPE_PCT
+            result["margin_v"] = max(4, round(PLAY_RES_Y * pct))
+
+    return result
+
+
+def _fit_portrait_font_size(
+    requested_size: float,
+    texts: list[str],
+    play_res_x: int,
+) -> float:
+    """세로 영상에서 긴 문장이 세 줄 안팎으로 들어오도록 폰트 상한을 계산."""
+    if not texts:
+        return requested_size
+
+    def _text_units(text: str) -> float:
+        # 한글/전각 문자는 거의 1em, ASCII와 공백은 더 좁게 잡는다.
+        return sum(1.0 if ord(char) > 127 else 0.55 for char in text)
+
+    longest = max(_text_units(text.replace("\n", " ")) for text in texts)
+    if longest <= 0:
+        return requested_size
+
+    usable_width = play_res_x - 20
+    max_lines = 3
+    width_limit = usable_width * max_lines / (longest * 0.9)
+    height_limit = PLAY_RES_Y * 0.24 / max_lines
+    responsive_cap = PLAY_RES_Y * 0.06
+    return max(10.0, min(
+        float(requested_size),
+        responsive_cap,
+        width_limit,
+        height_limit,
+    ))
+
 
 # subtitle.py 의 SUBTITLE_FONT (파일명 기반) 와 같은 기본값을 쓴다 — 두 렌더
 # 경로(add_subtitle 번인 / 큐 문서 렌더)가 서로 다른 폰트를 쓰면 사용자가
@@ -286,8 +399,10 @@ def style_defaults_from_legacy(style: dict) -> dict:
         except ValueError:
             return fallback
 
+    requested_font = str(style.get("font", _default_font_family()))
+    resolved_font = _resolve_font_family(requested_font) or requested_font
     return {
-        "font": style.get("font", _default_font_family()),
+        "font": resolved_font,
         "size": style.get("font_size", 24),
         "color": to_hex(style.get("color", "white"), "#FFFFFF"),
         "stroke_color": to_hex(style.get("stroke_color", "black"), "#000000"),
@@ -440,6 +555,10 @@ def _scan_fonts() -> dict[str, str]:
     'NotoSansKR-Regular.ttf' → 패밀리 'NotoSansKR' (weight 접미사 제거).
     대소문자 무시, 하이픈/언더스코어/공백 허용.
     """
+    # 파일명 stem("NotoSansKR")이 아니라 폰트 내부 family 명("Noto Sans KR")으로
+    # 매핑 — 파일명 기반 이름은 libass 가 Arial 로 조용히 폴백해 한글이 두부가 된다.
+    from agent.tools.subtitle import _font_family_from_file  # 지연 임포트 (순환 방지)
+
     families: dict[str, str] = {}
     if not os.path.isdir(FONTS_DIR):
         return families
@@ -447,8 +566,10 @@ def _scan_fonts() -> dict[str, str]:
         base, ext = os.path.splitext(fname)
         if ext.lower() not in _FONT_EXTS:
             continue
-        family = _FONT_WEIGHT_SUFFIX.sub("", base)
+        family = _font_family_from_file(fname)
+        stem = _FONT_WEIGHT_SUFFIX.sub("", base)
         families.setdefault(_normalize_font_key(family), family)
+        families.setdefault(_normalize_font_key(stem), family)
         families.setdefault(_normalize_font_key(base), family)
     return families
 
@@ -456,6 +577,12 @@ def _scan_fonts() -> dict[str, str]:
 def _resolve_font_family(requested: str) -> str | None:
     families = _scan_fonts()
     key = _normalize_font_key(requested)
+    aliases = {
+        "notosanscjkkr": "notosanskr",
+        "notosanscjk": "notosanskr",
+        "notosanskorean": "notosanskr",
+    }
+    key = aliases.get(key, key)
     if key in families:
         return families[key]
     for k, family in families.items():
@@ -624,12 +751,30 @@ def _cue_override_tags(style: dict, effective: dict | None = None) -> str:
     return "{" + "".join(tags) + "}" if tags else ""
 
 
-def _build_ass(doc: dict) -> str:
+def _build_ass(
+    doc: dict,
+    video_size: tuple[int, int] | None = None,
+    content_area: tuple[int, int, int, int] | None = None,
+) -> str:
     """큐 문서 → ASS 파일 내용. Default 스타일 = style_defaults, 큐별 인라인 태그.
 
-    PlayRes 는 실제 해상도가 아니라 고정 384x288 (PLAY_RES_X/Y 주석 참고).
+    video_size 가 주어지면 영상 방향(portrait/landscape)을 감지해 font_size,
+    margin_v 를 비율 기반으로 자동 조정. content_area 가 주어지면 pad 모드 검은
+    여백을 피해 자막이 콘텐츠 영역 안에 위치하도록 margin_v 를 재계산.
     """
+    play_res_x = PLAY_RES_X
+    if video_size and video_size[0] > 0 and video_size[1] > 0:
+        play_res_x = max(1, round(PLAY_RES_Y * video_size[0] / video_size[1]))
+
     defaults = {**DEFAULT_STYLE, **(doc.get("style_defaults") or {})}
+    if video_size:
+        defaults = _apply_responsive_style(defaults, video_size[0], video_size[1], content_area)
+        if video_size[1] > video_size[0]:
+            defaults["size"] = _fit_portrait_font_size(
+                defaults["size"],
+                [str(cue.get("text", "")) for cue in doc.get("cues", [])],
+                play_res_x,
+            )
     family = _resolve_font_family(str(defaults["font"])) or str(defaults["font"])
     primary = _color_to_ass(defaults["color"], alpha="00")
     outline = _color_to_ass(defaults["stroke_color"], alpha="00")
@@ -645,7 +790,7 @@ def _build_ass(doc: dict) -> str:
     lines = [
         "[Script Info]",
         "ScriptType: v4.00+",
-        f"PlayResX: {PLAY_RES_X}",
+        f"PlayResX: {play_res_x}",
         f"PlayResY: {PLAY_RES_Y}",
         "WrapStyle: 0",
         "ScaledBorderAndShadow: yes",
@@ -664,7 +809,17 @@ def _build_ass(doc: dict) -> str:
     ]
 
     for cue in doc.get("cues", []):
-        style = cue.get("style") or {}
+        style = dict(cue.get("style") or {})
+        if (
+            video_size
+            and video_size[1] > video_size[0]
+            and style.get("size") is not None
+        ):
+            style["size"] = _fit_portrait_font_size(
+                style["size"],
+                [str(cue.get("text", ""))],
+                play_res_x,
+            )
         # 큐가 fade 를 명시하지 않은 경우에만 defaults 의 fade 적용
         # ("fade": false 로 끈 큐는 존중 — get() 이 아니라 키 존재로 판정).
         if default_fade and "fade" not in style:
@@ -693,7 +848,12 @@ def _build_ass(doc: dict) -> str:
 
 def _run_ffmpeg(cmd: list) -> tuple[int, str]:
     result = subprocess.run(
-        cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore"
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="ignore",
+        env=_ffmpeg_env(),
     )
     return result.returncode, result.stderr
 
@@ -954,8 +1114,14 @@ def set_subtitle_style(video_path: str, style: str = "", scope: str = "defaults"
         error = _validate_style(merged)
         if error:
             return json.dumps({"status": "error", "error": error}, ensure_ascii=False)
-        if merged.get("font") and not _resolve_font_family(str(merged["font"])):
-            return _font_error(str(merged["font"]))
+        if merged.get("font"):
+            requested_font = str(merged["font"])
+            resolved_font = _resolve_font_family(requested_font)
+            if not resolved_font:
+                return _font_error(requested_font)
+            # 파일명 stem("NotoSansKR")이 아니라 폰트 내부 family 명("Noto Sans KR")
+            # 으로 정규화해 저장 — libass 가 Arial 로 조용히 폴백하는 것을 방지.
+            merged["font"] = resolved_font
         if scope not in ("defaults", "all_cues"):
             return json.dumps(
                 {"status": "error", "error": f"scope 값이 잘못됨: {scope} (defaults | all_cues)"},
@@ -1035,8 +1201,22 @@ def render_subtitles(video_path: str, output_path: str = "") -> str:
                 f"□ 로 렌더될 수 있습니다. assets/fonts 에 {_EMOJI_FONT_FILE} 추가 권장."
             )
 
+        # 영상 실제 해상도 + 콘텐츠 영역 감지 → 반응형 font_size / margin_v 계산
+        video_size = _get_video_size(source)
+        content_area = None
+        if video_size[0] > 0:
+            orientation = "portrait" if video_size[1] > video_size[0] else "landscape"
+            content_area = _detect_content_area(source)
+            cx, cy, cw, ch = content_area
+            has_pad = ch > 0 and (video_size[1] - (cy + ch)) > video_size[1] * 0.05
+            logger.info(
+                "render_subtitles: %dx%d (%s)%s",
+                video_size[0], video_size[1], orientation,
+                f" pad_bottom={video_size[1]-(cy+ch)}px" if has_pad else "",
+            )
+
         # ASS 생성 (고정 PlayRes — libass 가 프레임 높이에 맞춰 확대)
-        ass_content = _build_ass(doc)
+        ass_content = _build_ass(doc, video_size=video_size, content_area=content_area)
         os.makedirs(SUBTITLES_DIR, exist_ok=True)
         ass_path = os.path.join(SUBTITLES_DIR, f"{stem}.ass")
         with open(ass_path, "w", encoding="utf-8") as f:
@@ -1066,6 +1246,16 @@ def render_subtitles(video_path: str, output_path: str = "") -> str:
         code, stderr = _run_ffmpeg(cmd)
         if code != 0:
             return f"ERROR: FFmpeg 렌더 실패 (rc={code}): {stderr[-800:]}"
+
+        # 자막 번인은 시간축/콘텐츠 영역을 바꾸지 않는다. 이후 재편집과
+        # 자막 재사용이 이어지도록 edit origin 및 pad 메타를 승계한다.
+        for suffix in (".origin.json", ".pad.json"):
+            source_sidecar = source + suffix
+            if os.path.exists(source_sidecar):
+                try:
+                    shutil.copy2(source_sidecar, resolved + suffix)
+                except OSError:
+                    logger.warning("subtitle sidecar copy failed: %s", source_sidecar)
 
         logger.info(f"render_subtitles 완료: {resolved} ({len(doc.get('cues', []))}개 큐)")
         return resolved

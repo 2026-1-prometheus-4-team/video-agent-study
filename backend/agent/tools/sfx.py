@@ -18,17 +18,16 @@ from dotenv import load_dotenv
 from langchain_core.tools import tool
 
 from agent.tools.audio_common import (
+    copy_video_sidecars,
     ensure_parent,
     resolve_input_path,
     resolve_output_path,
     run_ffmpeg,
 )
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ENV_PATH = PROJECT_ROOT / ".env"
-load_dotenv(ENV_PATH)
-
+load_dotenv(PROJECT_ROOT.parent / ".env")
+load_dotenv(PROJECT_ROOT / ".env")
 ELEVENLABS_SFX_URL = "https://api.elevenlabs.io/v1/sound-generation"
 _SFX_TIMEOUT_SEC = 120
 
@@ -80,6 +79,7 @@ def add_sfx(
             "-map", "0:v?", "-map", "[mix]",
             "-c:v", "copy", "-y", str(output),
         )
+        copy_video_sidecars(video, output)
         return json.dumps(
             {"status": "success", "output": str(output), "at_time": at_time},
             ensure_ascii=False,
@@ -93,6 +93,8 @@ def generate_sfx(
     description: str,
     output_path: str = "",
     duration_seconds: float | None = None,
+    loop: bool = False,
+    prompt_influence: float = 0.5,
 ) -> str:
     """자연어 설명으로 효과음 mp3 를 생성한다 (ElevenLabs Sound Effects API).
 
@@ -103,6 +105,8 @@ def generate_sfx(
         description: 만들 효과음의 자연어 설명.
         output_path: 선택. 결과 mp3 경로. 비우면 bgm_files 아래 sfx_<ts>.mp3 로 저장.
         duration_seconds: 선택. 효과음 길이(초). None 이면 API 가 자동 결정.
+        loop: 선택. 루프 가능한 효과음으로 생성.
+        prompt_influence: 선택. 0~1. 높을수록 설명을 문자 그대로 따른다.
     """
     api_key = os.getenv("ELEVENLABS_API_KEY")
     if not api_key:
@@ -114,9 +118,14 @@ def generate_sfx(
 
     output = _resolve_sfx_output_path(output_path)
     headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
-    payload: dict[str, Any] = {"text": text}
+    payload: dict[str, Any] = {
+        "text": text,
+        "loop": bool(loop),
+        "prompt_influence": min(1.0, max(0.0, float(prompt_influence))),
+        "model_id": "eleven_text_to_sound_v2",
+    }
     if duration_seconds is not None:
-        payload["duration_seconds"] = float(duration_seconds)
+        payload["duration_seconds"] = min(30.0, max(0.5, float(duration_seconds)))
 
     try:
         response = requests.post(

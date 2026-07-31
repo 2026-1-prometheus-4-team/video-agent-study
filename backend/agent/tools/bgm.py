@@ -7,6 +7,7 @@ import json
 from langchain_core.tools import tool
 
 from agent.tools.audio_common import (
+    copy_video_sidecars,
     ensure_parent,
     measure_lufs,
     resolve_input_path,
@@ -145,6 +146,7 @@ def add_bgm(
         )
 
         run_ffmpeg(*ffmpeg_args)
+        copy_video_sidecars(video, output)
         lufs = measure_lufs(output)
         return json.dumps(
             {

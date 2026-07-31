@@ -322,7 +322,7 @@ class TestSetStyle:
         })
         assert result.startswith("ERROR")
         assert "ComicSans" in result
-        assert "NotoSansKR" in result  # 현재 보유 목록
+        assert "Noto Sans KR" in result  # 현재 보유 목록 (폰트 내부 family 명)
 
 
 # =============================================================
@@ -356,7 +356,7 @@ class TestAssBuilder:
         # PlayRes 는 실제 해상도가 아니라 고정 384x288 (레거시 force_style 경로와 동일)
         assert "PlayResX: 384" in ass
         assert "PlayResY: 288" in ass
-        assert "Style: Default,NotoSansKR,24," in ass
+        assert "Style: Default,Noto Sans KR,24," in ass
         # per-cue 인라인 태그
         assert "\\an8" in ass          # top
         assert "\\fs30" in ass
@@ -388,8 +388,32 @@ class TestAssBuilder:
         assert f"PlayResY: {subtitle_cues.PLAY_RES_Y}" in ass
         assert (subtitle_cues.PLAY_RES_X, subtitle_cues.PLAY_RES_Y) == (384, 288)
         # 스타일 값은 288 기준 그대로 (스케일 보정 없음)
-        assert "Style: Default,NotoSansKR,24," in ass
+        assert "Style: Default,Noto Sans KR,24," in ass
         assert ",1.5,0,2,10,10,40,1" in ass  # stroke_width / alignment / margin_v
+
+    def test_portrait_long_text_clamps_oversized_font(self, cue_env):
+        """LLM이 48을 지정해도 긴 세로 자막이 화면 대부분을 가리면 안 된다."""
+        doc = {
+            "version": 1,
+            "video_stem": "sample",
+            "source_video": str(cue_env["video"]),
+            "style_defaults": {**subtitle_cues.DEFAULT_STYLE, "size": 48},
+            "cues": [{
+                "id": "c001",
+                "start": 0.0,
+                "end": 4.0,
+                "text": "오늘 이걸 분해하고 자려고 했는데 내일 가야겠군요.",
+            }],
+        }
+
+        ass = subtitle_cues._build_ass(doc, video_size=(720, 1280))
+        style_line = next(
+            line for line in ass.splitlines() if line.startswith("Style: Default")
+        )
+        rendered_size = float(style_line.split(",")[2])
+
+        assert "PlayResX: 162" in ass
+        assert 10 <= rendered_size <= 18
 
     def test_defaults_fade_applies_to_cues_without_override(self, cue_env):
         """[회귀] scope='defaults' 의 fade 가 렌더에서 무시되면 안 됨."""
@@ -461,6 +485,30 @@ def _fake_subprocess_run(cmd, *args, **kwargs):
 
 
 class TestRenderSubtitles:
+    def test_origin_and_pad_sidecars_are_preserved(self, cue_env):
+        """자막 번인 뒤에도 원본 시간축과 letterbox 메타가 이어져야 한다."""
+        source = cue_env["tmp"] / "source.mp4"
+        source.write_bytes(b"original")
+        (Path(str(source) + ".origin.json")).write_text(
+            json.dumps({"clips": [{"source": "a.mp4"}]}), encoding="utf-8"
+        )
+        (Path(str(source) + ".pad.json")).write_text(
+            json.dumps({"content_area": [0, 10, 100, 80]}), encoding="utf-8"
+        )
+        _make_doc(cue_env, source=source)
+        output = cue_env["outputs"] / "final.mp4"
+
+        with patch("agent.tools.subtitle_cues.subprocess.run") as mock_run:
+            mock_run.side_effect = _fake_subprocess_run
+            result = render_subtitles.invoke({
+                "video_path": str(cue_env["video"]),
+                "output_path": str(output),
+            })
+
+        assert result == str(output)
+        assert Path(str(output) + ".origin.json").exists()
+        assert Path(str(output) + ".pad.json").exists()
+
     def test_renders_from_source_video_not_input(self, cue_env):
         """이미 번인된 파일이 아니라 문서의 source_video 로 렌더해야 함."""
         source = cue_env["tmp"] / "sample_source.mp4"
@@ -650,6 +698,26 @@ class TestTextToSpeech:
 # =============================================================
 
 class TestMixAudioOffset:
+    def test_audio_mix_preserves_origin_and_pad_sidecars(self, tmp_path):
+        video = tmp_path / "v.mp4"
+        audio = tmp_path / "a.mp3"
+        output = tmp_path / "o.mp4"
+        video.write_bytes(b"v")
+        audio.write_bytes(b"a")
+        Path(f"{video}.origin.json").write_text('{"clips":[]}', encoding="utf-8")
+        Path(f"{video}.pad.json").write_text('{"x":0}', encoding="utf-8")
+
+        with patch("agent.tools.audio_mix.run_ffmpeg"):
+            result = json.loads(mix_audio.invoke({
+                "video_path": str(video),
+                "audio_path": str(audio),
+                "output_path": str(output),
+            }))
+
+        assert result["status"] == "success"
+        assert Path(f"{output}.origin.json").exists()
+        assert Path(f"{output}.pad.json").exists()
+
     def test_overlay_with_offset_uses_adelay(self, tmp_path):
         video = tmp_path / "v.mp4"
         audio = tmp_path / "a.mp3"
@@ -692,8 +760,13 @@ class TestMixAudioOffset:
         assert result["status"] == "success"
         cmd = mock_run.call_args[0]
         audio_filter = cmd[cmd.index("-filter_complex") + 1]
+        # 오프셋이 없어도 나레이션 볼륨 밸런싱(원본 0.85 / 오버레이 1.0) + 리미터가
+        # 걸린다. adelay 만 없다.
         assert "adelay" not in audio_filter
-        assert audio_filter == "[0:a][1:a]amix=inputs=2:duration=first:normalize=0[mix]"
+        assert audio_filter == (
+            "[0:a]volume=0.85[src];[1:a]volume=1.0[ovl];"
+            "[src][ovl]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[mix]"
+        )
 
 
 # =============================================================
@@ -717,7 +790,7 @@ class TestStylePresets:
         assert d["color"] == "#FFFFFF"
         assert d["position"] == "top"
         # BlackHanSans/BMJUA 없으면 NotoSansKR 로 폴백
-        assert d["font"] == "NotoSansKR"
+        assert d["font"] == "Noto Sans KR"
 
     def test_preset_base_then_style_override(self, cue_env):
         """preset 을 베이스로 깔고 style JSON 으로 자유 오버라이드 (프롬프트 자유도)."""

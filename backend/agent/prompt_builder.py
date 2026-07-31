@@ -85,7 +85,9 @@ def _load_tts_voices() -> str:
     return "\n".join(lines)
 
 
-def _format_video_context(ctx: Optional[VideoContext]) -> str:
+def _format_video_context(
+    ctx: Optional[VideoContext], *, compact: bool = False, ultra_compact: bool = False
+) -> str:
     """video_context -> 모델이 읽기 좋은 요약 + 전체 JSON."""
     if not ctx:
         return "(영상 분석 아직 안 됨)"
@@ -96,13 +98,84 @@ def _format_video_context(ctx: Optional[VideoContext]) -> str:
         f"장면 수: {len(ctx.get('scenes', []))}",
         f"자막 수: {len(ctx.get('transcript', []))}",
     ]
+    if compact:
+        # Script는 장면 선택에 필요한 필드만 있으면 된다. objects/people/actions 등
+        # 분석 부가정보와 중복 메타데이터까지 모두 보내면 긴 영상에서 Gemini의
+        # 서버 처리 제한(504 DEADLINE_EXCEEDED)에 걸리기 쉽다.
+        source_scenes = list(ctx.get("scenes", []))
+        # 긴 영상은 모든 장면을 버리지 않고 인접 장면을 연속 구간으로 묶는다.
+        # 균등 샘플링처럼 중간 사건을 누락하지 않으면서 JSON 크기를 제한한다.
+        if ultra_compact and len(source_scenes) > 40:
+            group_size = (len(source_scenes) + 39) // 40
+            grouped = []
+            for offset in range(0, len(source_scenes), group_size):
+                chunk = source_scenes[offset : offset + group_size]
+                # 한 묶음이 서로 다른 원본 영상의 경계를 넘지 않게 다시 나눈다.
+                runs = []
+                for item in chunk:
+                    video = item.get("video") or ctx.get("file_path")
+                    if not runs or runs[-1][0] != video:
+                        runs.append((video, [item]))
+                    else:
+                        runs[-1][1].append(item)
+                for video, run in runs:
+                    grouped.append({
+                        "video": video,
+                        "start_ms": run[0].get("start_ms", run[0].get("start")),
+                        "end_ms": run[-1].get("end_ms", run[-1].get("end")),
+                        "description": " / ".join(
+                            str(item.get("description") or "") for item in run
+                        )[:320],
+                        "transcript": " ".join(
+                            str(item.get("transcript") or "") for item in run
+                        )[:220],
+                    })
+            source_scenes = grouped
+
+        compact_scenes = []
+        for scene in source_scenes:
+            compact_scenes.append({
+                "video": scene.get("video") or ctx.get("file_path"),
+                "start_ms": scene.get("start_ms", scene.get("start")),
+                "end_ms": scene.get("end_ms", scene.get("end")),
+                "description": str(scene.get("description") or "")[:260],
+                "transcript": str(scene.get("transcript") or "")[:180],
+            })
+        compact_transcript = []
+        for segment in ctx.get("transcript", []):
+            compact_transcript.append({
+                "start": segment.get("start"),
+                "end": segment.get("end"),
+                "text": str(segment.get("text") or "")[:180],
+            })
+        compact_ctx = {
+            "file_path": ctx.get("file_path"),
+            "duration": ctx.get("duration"),
+            "scenes": compact_scenes,
+            "transcript": compact_transcript,
+        }
+        payload = json.dumps(compact_ctx, ensure_ascii=False, separators=(",", ":"))
+        label = "## Compact scene data"
+    else:
+        payload = json.dumps(ctx, ensure_ascii=False, indent=2)
+        label = "## Full analysis.json"
+
     return (
         "## Video Analysis 요약\n"
         + "\n".join(summary)
-        + "\n\n## Full analysis.json\n```json\n"
-        + json.dumps(ctx, ensure_ascii=False, indent=2)
+        + f"\n\n{label}\n```json\n"
+        + payload
         + "\n```"
     )
+
+
+def _script_governance_excerpt(text: str) -> str:
+    """AGENTS.md에서 Script 기획에 필요한 4.8~4.10만 추출한다."""
+    start = text.find("### 4.8")
+    if start < 0:
+        return ""
+    end = text.find("\n## 5.", start)
+    return text[start : end if end >= 0 else None].strip()
 
 
 # =============================================================
@@ -202,6 +275,15 @@ SCRIPT_NODE_INSTRUCTION = """\
 너는 영상 편집 Supervisor 의 *Script 작성* 단계다.
 
 사용자의 자연어 요청 + 사전 영상 분석을 보고, **편집 plan** 을 JSON 으로 출력한다.
+
+## 출력 크기 제한 (반드시 준수)
+
+- target_duration_sec가 60초 이하이면 creative_brief.storyboard는 최대 8개,
+  steps는 최대 12개만 만든다.
+- 같은 도구로 처리할 수 있는 인접 장면은 하나의 연속 구간/step으로 합친다.
+- 입력 scene 수만큼 자막·효과·편집 step을 만들지 않는다.
+- creative_brief와 steps에 같은 설명을 장문으로 반복하지 않는다.
+- 제한을 넘길 것 같으면 중요도가 낮은 연출을 생략한다. 빈 계획을 반환하지 않는다.
 모호한 부분은 *추측하지 말고* `questions` 필드에 사용자 확인이 필요한 항목으로 적는다.
 
 이 플랫폼은 종합 영상 편집 플랫폼이다 — 컷, 자막, TTS/나래이션, BGM, 효과음,
@@ -261,6 +343,50 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
   "target_format": "shorts" | "youtube" | "reels" | "general",
   "target_aspect_ratio": "9:16" | "16:9" | "1:1" | "original",
   "target_duration_sec": <number or null>,
+
+  "creative_brief": {
+    "title": "<영상 내용을 반영한 직관적이고 흥미로운 기획 제목>",
+    "concept": "<한 줄 컨셉. 예: 우당탕탕 복층 오피스텔 현실 이사 1일차>",
+    "intent": "<전체적인 구성과 기획 방향>",
+    "hook": "<첫 3초 안에 시선을 잡는 장면 또는 메시지>",
+    "target_duration_sec": <number or null>,
+    "duration_reason": "<타겟 플랫폼과 몰입도를 고려한 길이 선정 이유>",
+    "recommended_bgm": "<음원명이 아닌 BGM 장르와 분위기>",
+    "bgm_flow": "<BGM 흐름. 예: 경쾌한 브이로그 -> 실패 순간 정적/개그 -> 마무리 따뜻한>",
+    "storyboard": [
+      {
+        "idx": 1,
+        "output_start_ms": <결과 영상 시작 ms>,
+        "output_end_ms": <결과 영상 종료 ms>,
+        "role": "<Hook | Context | Build-up | Highlight | Payoff | Ending>",
+        "source": "videos/<실제 영상 파일>",
+        "source_start_ms": <원본 시작 ms — scenes 의 실제 경계값>,
+        "source_end_ms": <원본 끝 ms>,
+        "visual": "<이 구간에 무엇이 보이는지 (scenes 의 description 기반)>",
+        "selection_reason": "<이 장면을 선택하고 해당 위치에 배치한 기획적 이유>",
+        "narration": "<이 구간에 얹을 나레이션 대본. 없으면 빈 문자열>",
+        "narration_start_ms": <나레이션 시작 ms — output 구간 내부>,
+        "narration_end_ms": <나레이션 종료 목표 ms — output 구간 내부>,
+        "on_screen_text": "<화면에 띄울 자막/캡션. 없으면 빈 문자열>",
+        "edit_direction": "<화면 확대, 컷 전환, 배속 등의 편집 연출>",
+        "sfx": "<Pop, Whoosh, 없음 등>"
+      }
+    ],
+    "directing": {
+      "cut_tempo": "<컷 길이와 전체 편집 템포>",
+      "subtitle_and_font": "<자막과 폰트 스타일>",
+      "visual_and_speed": "<화면 연출과 배속 방향>"
+    },
+    "user_revision_guide": [
+      "영상 길이 변경",
+      "특정 장면 교체 및 삭제",
+      "전체적인 분위기 및 콘셉트 수정",
+      "BGM 스타일 변경",
+      "자막 및 내레이션 톤 수정",
+      "전개 순서 변경"
+    ]
+  },
+
   "steps": [
     {
       "step_id": 1,
@@ -273,7 +399,7 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
     },
     ...
   ],
-  "tts_choice": { "voice_id": "...", "alternatives": ["...", "..."] } | null,
+  "tts_choice": { "voice": "1", "alternatives": ["2", "3"] } | null,
   "subtitle_style": { "font": "...", "size": ..., "color": "...", "position": "..." } | null,
   "bgm_choice": { "mood": "...", "ducking": true|false } | null,
   "color_grade": "warm" | "cool" | "cinematic" | "vivid" | "none",
@@ -298,14 +424,15 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 
 action 종류 (TOOLS.md 참조):
 - **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments,
-  cut_by_description(자연어 장면 검색+자동 컷), resize_video(화면비 변환: 9:16 쇼츠 등),
+  cut_by_description(자연어 장면 검색+자동 컷), remove_video_segments(명시 구간 제거),
+  remove_by_description(불필요 장면 검색+제거), resize_video(화면비 변환: 9:16 쇼츠 등),
   speed_video(구간 배속 0.5~4x — 뻔한 이동/정리 구간용), split_screen(두 영상 화면분할 vstack/hstack — 대비용),
   crossfade_video(클립들 부드러운 디졸브 전환)
 - **audio_expert**: transcribe_video, text_to_speech, transcribe_video_to_speech(영상 발화를 다른 목소리로 더빙),
-  add_bgm, add_bgm_progression(구간별 다른 BGM — 도입 경쾌→갈등 개그→마무리 힐링),
+  generate_bgm, add_bgm, add_bgm_progression(구간별 다른 BGM — 도입 경쾌→갈등 개그→마무리 힐링),
   generate_sfx(자연어로 효과음 생성: "한숨 소리", "띠로리 실패음"), add_sfx(효과음 시점 삽입),
   mix_audio, denoise, normalize_loudness
-- **text_expert**: add_auto_subtitle, add_subtitle, add_title, add_caption, add_emoji_overlay,
+- **text_expert**: add_auto_subtitle, add_subtitle, add_title, add_caption, add_captions_batch, add_emoji_overlay,
   list_subtitle_cues, update_subtitle_cues, set_subtitle_style(preset 지정 가능), add_subtitle_cue, render_subtitles
 - **effect_expert**: apply_remotion_effect, query_effect_catalog
 - **research_expert**: web_search, youtube_search(니치 검색 — youtube_trend 보다 우선),
@@ -313,19 +440,113 @@ action 종류 (TOOLS.md 참조):
   cta_suggest, music_mood_recommend, trend_distill
 
 원칙:
-- **위 목록에 없는 action 은 절대 plan 에 넣지 말 것** (미구현 실행 실패).
+
+## 기획 먼저, 도구는 그 다음 (mode=edit 일 때)
+
+너는 단순히 도구를 나열하는 기계가 아니라 **쇼츠 편집자**다.
+`steps` 를 쓰기 전에 반드시 `creative_brief` 를 먼저 채운다.
+
+- **storyboard 는 video_context.scenes 의 실제 내용에 근거해야 한다.**
+  "Video 4 의 비닐봉지에 싸인 산더미 같은 짐" 처럼 그 영상에 진짜 있는 것을 써라.
+  scenes 에 없는 장면을 지어내면 안 된다.
+- **hook 은 첫 3초용 멘트다.** 시청자가 스크롤을 멈출 이유를 만든다.
+  예) "이사 끝! 인 줄 알았죠? 현실은 쓰레기장(?) 아닙니다..."
+- **narration 은 네가 직접 쓰는 대본이다.**
+  원본 대사를 그대로 옮기지 마라 (그건 자막이 이미 담당한다).
+  구어체로, 상황에 대한 코멘트/리액션/공감을 쓴다.
+  나레이션이 필요 없는 구간은 빈 문자열로 둔다.
+- **on_screen_text 는 강조 캡션이다.** 짧고 임팩트 있게 쓰되 대부분의 storyboard
+  항목은 빈 문자열이어야 한다. 장면 설명을 매 항목마다 화면에 반복하지 마라.
+- TTS 보이스 선택은 `voice` 필드와 text_to_speech의 `voice` 인자를 사용한다.
+  이 프로젝트에 설정된 숫자 별칭 `"1"`~`"7"` 중 하나를 고른다.
+  `voice_id`는 사용자가 실제 ElevenLabs 원본 voice ID를 직접 제공한 경우에만 쓴다.
+- 각 storyboard 항목에는 결과 영상 배치 시간(`output_start_ms` / `output_end_ms`),
+  장면 선택 이유(`selection_reason`), 편집 연출(`edit_direction`), 효과음(`sfx`)을
+  빠짐없이 작성한다.
+- `creative_brief`에는 기획 제목, 예상 길이와 선정 이유, 전체 콘셉트, 기획 의도,
+  추천 BGM, 전체 편집 디렉팅을 포함한다.
+- 실패·어색함·현실적인 순간을 살려라. 완벽한 장면만 나열하면 재미가 없다.
+- 구성은 훅 -> 전개 -> 하이라이트 -> 마무리 흐름을 갖춘다.
+
+## storyboard -> steps 연결
+
+- 각 storyboard 항목의 `source` / `source_start_ms` / `source_end_ms` 를 그대로
+  cut_video 의 파라미터로 쓴다. 임의의 값을 다시 만들지 마라.
+- **나레이션은 storyboard 시간에 맞춰 구간별로 배치한다.**
+  모든 narration을 하나의 TTS로 합쳐 쉬지 않고 읽게 하지 마라. narration이 있는
+  storyboard 항목마다 별도 TTS를 만들고, 해당 항목의 `narration_start_ms`에
+  `mix_audio(mode="overlay", at_time_ms=...)`로 배치한다. narration_start_ms가
+  없으면 output_start_ms를 사용한다.
+- 각 TTS의 실제 `duration_sec`은 `narration_end_ms - narration_start_ms` 안에
+  들어와야 한다. 길면 음성 속도를 바꾸지 말고 문장을 짧게 다시 써서 재생성한다.
+  다음 장면의 문장을 앞당겨 읽지 말고, 장면 사이의 무음 간격을 그대로 보존한다.
+- 모든 장면에 나레이션을 넣지 않는다. 원본 대사·현장음만으로 전달되는 장면은
+  narration을 빈 문자열로 둔다. 45초 영상 기준 핵심 나레이션은 보통 3~5개로
+  제한하고, 각 문장 뒤에 최소 0.5초 이상의 여백을 확보한다.
+- 구간별 mix는 직전 mix의 실제 output을 다음 mix의 video_path로 연결한다.
+  나레이션은 원본 영상 소리를 보존하도록 `original_volume=0.85,
+  overlay_volume=1.0`을 사용한다. `replace`는 명시적인 더빙 교체에만 쓴다.
+- `text_to_speech`의 text는 해당 storyboard 항목의 narration 문구여야 한다.
+  사용자가 입력한 문장이나 원본 대사를 임의로 넣지 마라.
+
+## step 은 최대한 적게, 경로 연결은 정확하게
+
+- 같은 도구를 15번 부르는 plan 이 나왔다면 묶을 방법을 다시 생각하라.
+  전체 step 은 20개 이내를 목표로 한다.
+- 앞 step 의 산출물을 다음 step 이 받을 때, **파일 경로를 정확히 이어라.**
+  오타 하나로 뒤 단계가 전부 무너진다. 여러 step 이 같은 입력 파일을 쓰면서
+  각자 다른 출력을 내면 누적되지 않고 마지막 하나만 남는다는 점도 주의.
+- 가로/세로 클립이 섞였고 최종 화면비가 명확하면 각 클립을 먼저 같은 화면비로
+  맞춘 뒤 merge_video 하라. 병합 뒤에는 이미 생긴 letterbox를 복구할 수 없다.
+- 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다. storyboard 항목마다
+  발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본 발화를
+  자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
+- 제목·챕터·핵심 강조처럼 꼭 필요한 `on_screen_text`만 선별한다. 일반 브이로그/쇼츠는
+  보통 3~6개, 최대 8개만 허용한다. 사용자가 장면별 화면 텍스트를 명시적으로 요구한
+  경우에만 이 제한을 넘을 수 있다.
+- 강조 캡션이 2개 이상이면 개별 `add_caption` step 여러 개를 만들지 말고 모든 항목을
+  하나의 `add_captions_batch` step에 담아 FFmpeg 한 번으로 렌더한다.
+
+- **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
+  미구현이라 실행이 실패한다.) 화면비 변환은 `resize_video` 로 처리하고,
+  subject-aware 리프레임처럼 아직 없는 기능만 step 대신
+  `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
 - **쇼츠 창작 편집 조합** (참고): search/cut_by_description 으로 감정 비트 선별 → speed_video 로
   뻔한 구간 배속 → resize_video 9:16 → add_auto_subtitle(쇼츠 볼드 자막) → add_bgm_progression →
   generate_sfx+add_sfx 로 포인트 효과음. 필요한 것만 골라 쓴다.
-- step 수 제한 없음. 사용자 요청에 필요한 모든 작업 다 plan 에 박는다.
-- *사용자가 명시적으로 요청하지 않은* 자막 / BGM / 효과음 / transcribe step 은 추가하지 않는다.
+- 사용자 요청에 필요한 작업은 빠뜨리지 않되, 같은 expert의 연속 작업은 가능한 한 묶는다.
+  전체 step은 보통 15개 이내, 최대 20개로 제한하고, 같은 종류의 반복 작업은
+  배치 도구 또는 한 expert 호출로 묶는다. 숫자를 맞추려고 명시된 요구를 누락하지는
+  말고, 묶을 수 없는 작업만 예외로 둔다.
+- *사용자가 명시적으로 요청하지 않은* TTS/나레이션 / 자막 / BGM / 효과음 /
+  transcribe step 은 추가하지 않는다. creative_brief 에 narration/bgm_flow 를 썼다는
+  이유만으로 실행 step 을 만들지 마라.
+- 사용자가 BGM을 요청했는데 지정 파일이 없거나 찾을 수 없으면 선택지에 반드시
+  "AI로 새 BGM 생성 (추천)", "다른 파일 지정", "배경음악 없이 진행"을 포함한다.
+  생성 선택 시 audio_expert.generate_bgm을 먼저 실행하고, 반환된 output을
+  add_bgm.bgm_path로 연결한다. 파일 누락만으로 BGM 작업을 포기하지 않는다.
+- 자동 자막 폰트는 설치된 `NotoSansKR` 을 사용한다.
 - 목표 길이가 있으면 (예: 1분) 그 길이에 맞게 video_context.scenes 에서 필요한 장면 *몇 개만 선별*한다.
   전체 장면을 모두 cut 하는 plan 은 금지 (결과가 원본 길이 그대로 나옴).
 - **cut 타임스탬프는 반드시 video_context.scenes 항목의 start/end 경계를 그대로 사용한다.**
   임의의 반올림 값이나 장면 중간 지점 사용 금지 — 말하는 도중에 잘려서 결과물이 어색해짐.
+  `0~1000ms`, `15000~16000ms` 처럼 딱 떨어지는 값이 나왔다면 scenes 를 안 보고
+  지어낸 것이다. 반드시 scenes 의 실제 경계값(예: 4523~9871)을 써라.
+- **클립 하나의 길이는 최소 4초 이상.** 1~2 초짜리 컷을 여러 개 나열하면 정신없고
+  무슨 장면인지 알아볼 수 없는 결과물이 된다.
+  - 목표 길이 60초라면 4~10 초짜리 클립 6~12 개 정도가 적절하다.
+  - scene 이 4초보다 짧으면 인접한 연속 scene 을 합쳐서 한 클립으로 만든다
+    (앞 scene 의 start ~ 뒤 scene 의 end).
+  - 클립 개수를 늘리는 것보다 각 클립이 충분히 길어 내용이 전달되는 것이 우선이다.
   장면이 목표 길이 대비 너무 길면 그 장면의 start 부터 시작하는 앞부분을 쓴다 (중간 발췌 금지).
 - 내용 기반 장면 요청 ("입국 장면", "골 장면" 등) 은 scenes 의 description 을 보고 *가장 잘 맞는 장면*을
   고르되, 확신이 없으면 edit_expert 의 cut_by_description(query=...) 을 사용 (시맨틱 검색으로 정확 매칭).
+- **컷 편집에는 서로 반대인 두 모드가 있다. 절대 혼동하지 마라.**
+  - keep/extract: "가족 장면만", "필요한 부분만", "하이라이트만"은
+    `cut_by_description`으로 매칭 장면을 결과에 *남긴다*.
+  - remove/exclude: "지루한 부분 빼줘", "침묵 삭제", "반복 장면 없애줘"는
+    `remove_by_description` 또는 `remove_video_segments`로 매칭 장면을 결과에서 *제외한다*.
+    이 요청에 `cut_by_description`만 호출하면 불필요 장면만 남는 반대 결과가 되므로 금지한다.
 - **주관/추상 선별 요청 ("지루한 부분 빼줘", "가족 장면만", "하이라이트만") 은 plan 에서
   타임스탬프를 확정하지 마라.** 이런 요청은 supervisor 가 실행 중에 search_video_segments 로
   후보를 뽑고 ask_user 로 사용자 확인 후 자를 수 있다 — step 의 params 에는 확정 구간 대신
@@ -335,9 +556,14 @@ action 종류 (TOOLS.md 참조):
   삭제 규모를 명시하고 확인받는다 (예: "3분 중 2분 10초가 제거됩니다. 진행할까요?").
 - **원본 vs 편집본**: 직전 편집본이 있어도 사용자 표현에 "원본에서/처음부터/원래 영상" 이
   있거나 편집본에서 이미 잘린 장면을 참조하면, 원본 기준인지 questions 로 확인.
-- **"자막" 요청의 default 는 발화 전사(STT)다**: audio_expert transcribe_video → text_expert
-  add_auto_subtitle 경로를 쓴다. video_context.scenes 의 *장면 묘사 텍스트를 자막으로 쓰지 않는다* —
-  장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로.
+- **"자막" 요청의 default 는 발화 전사(STT)다**: text_expert의
+  `add_auto_subtitle`을 쓴다. 이 도구는 편집본의 origin 메타를 따라 원본 Whisper 캐시를
+  결과 시간축으로 재구성하므로, 편집본을 `transcribe_video`로 다시 전사하는 step을 넣지 않는다.
+  원본 미디어로 검증된 소수의 반응 괄호/효과음 표기도 자동 포함하므로 이를 위해 별도
+  add_caption step을 만들지 않는다.
+  video_context.scenes 의 *장면 묘사 텍스트를 자막으로 쓰지 않는다* —
+  장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로 하되,
+  2개 이상이면 `add_captions_batch` 한 step으로 묶는다.
   영상에 음성이 없다고 판단되면 questions 로 사용자에게 확인 (묘사 캡션 대체 여부).
 - **자막 수정 요청 ("두번째 자막 오타", "이 자막만 노란색/위로/pop 효과", "폰트 검은고딕으로") 은
   재전사가 아니라 큐 수정이다**: text_expert 의 list_subtitle_cues → update_subtitle_cues /
@@ -361,18 +587,36 @@ action 종류 (TOOLS.md 참조):
 
 def build_script_node_system_prompt(
     video_context: Optional[VideoContext] = None,
+    *,
+    ultra_compact: bool = False,
 ) -> str:
-    """Script 생성 노드용 system prompt."""
+    """Script 생성 노드용 system prompt.
+
+    Supervisor용 전체 거버넌스/도구 문서를 중복 주입하지 않는다. Script에 필요한
+    4.8~4.10, few-shot, 압축 장면 데이터와 전용 출력 지시만 포함한다.
+    """
     workspace = config.WORKSPACE_DIR
+
+    shorts_fewshots = _read_cached(workspace / "SHORTS_FEWSHOTS.md")
+    governance = _script_governance_excerpt(_read_cached(workspace / "AGENTS.md"))
 
     sections = [
         "# Identity & Voice\n\n" + _read_cached(workspace / "SOUL.md"),
-        "# Governance & Routing\n\n" + _read_cached(workspace / "AGENTS.md"),
-        "# Tool Catalog\n\n" + _read_cached(workspace / "TOOLS.md"),
-        "# TTS Voice Library\n\n" + _load_tts_voices(),
     ]
+    if governance and not ultra_compact:
+        sections.append("# Script Governance (AGENTS.md 4.8~4.10)\n\n" + governance)
+    if shorts_fewshots and not ultra_compact:
+        sections.append("# Shorts Editing Few-shot Examples\n\n" + shorts_fewshots)
+    sections.append("# TTS Voice Library\n\n" + _load_tts_voices())
     if video_context:
-        sections.append("# Pre-computed Video Analysis\n\n" + _format_video_context(video_context))
+        sections.append(
+            "# Pre-computed Video Analysis\n\n"
+            + _format_video_context(
+                video_context,
+                compact=True,
+                ultra_compact=ultra_compact,
+            )
+        )
 
     stable_prefix = "\n\n---\n\n".join(sections)
     dynamic_suffix = "# Script Node Instructions\n\n" + SCRIPT_NODE_INSTRUCTION
@@ -443,6 +687,13 @@ def build_sub_agent_system_prompt(
     stable_prefix = "\n\n---\n\n".join(sections_stable)
 
     sections_dynamic: list[str] = []
+    sections_dynamic.append(
+        "# Execution Contract\n\n"
+        "You must call at least one provided tool to execute the parent task. "
+        "Never report success from the task text or from an output file that already exists. "
+        "Existing output paths must be overwritten by the requested tool call. "
+        "If no tool can perform the task, return `ERROR: no applicable tool`."
+    )
     if parent_task_summary:
         sections_dynamic.append("# Parent Supervisor Task\n\n" + parent_task_summary)
 
@@ -466,6 +717,14 @@ Supervisor 가 모든 step 을 끝냈다고 알렸을 때 호출된다.
 2. script_plan 의 모든 step 산출물이 누락 없이 통합됐는가?
 3. 사용자 요청의 핵심 요소 (TTS, 자막, 자른 구간, 포맷 등) 가 다 들어갔는가?
 4. 타겟 포맷의 컨벤션을 위반하지 않는가? (쇼츠인데 60 초 넘음 / 9:16 아님 등)
+
+평가 원칙:
+- **실행 step과 사용자 원문에 있는 기능만 필수**다. creative_brief의 narration,
+  on_screen_text, bgm_flow가 비어 있거나 실행 step에 없으면 누락으로 판정하지 마라.
+- 발화가 중간에 잘리지 않게 경계를 스냅하면 목표 길이에서 최대 5초 벗어날 수 있다.
+  파일이 정상이고 그 범위 안이면 길이만으로 RETRY 하지 마라.
+- 반응형 자막은 실제 해상도에 맞춰 size를 조정할 수 있다. 렌더 성공 여부와 가독성을
+  보고 판단하고 계획 숫자와 다르다는 이유만으로 RETRY 하지 마라.
 
 출력 스키마 (JSON):
 ```json

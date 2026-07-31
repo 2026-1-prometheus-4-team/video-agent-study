@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import "./globals.css";
@@ -16,12 +15,6 @@ const pretendard = localFont({
   weight: "45 920",
   style: "normal",
   preload: true,
-});
-
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -46,7 +39,7 @@ export default function RootLayout({
     <html
       lang="ko"
       suppressHydrationWarning
-      className={`${pretendard.variable} ${geistMono.variable}`}
+      className={pretendard.variable}
     >
       <body>
         <ThemeProvider>

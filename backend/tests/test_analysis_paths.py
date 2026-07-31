@@ -15,7 +15,27 @@ from unittest.mock import patch
 import pytest
 
 from agent.tools.edit import _find_analysis_path
-from agent.tools.video_analysis import analysis_stem
+from agent.tools.video_analysis import analysis_stem, _analysis_api_key, _is_rate_limit_error
+
+
+class TestAnalysisApiKey:
+    def test_dedicated_analysis_key_wins(self, monkeypatch):
+        monkeypatch.setenv("GOOGLE_API_KEY_ANALYSIS", "analysis-key")
+        monkeypatch.setenv("GOOGLE_API_KEY", "shared-key")
+        assert _analysis_api_key() == "analysis-key"
+
+    def test_shared_key_is_fallback(self, monkeypatch):
+        monkeypatch.delenv("GOOGLE_API_KEY_ANALYSIS", raising=False)
+        monkeypatch.setenv("GOOGLE_API_KEY", "shared-key")
+        assert _analysis_api_key() == "shared-key"
+
+    @pytest.mark.parametrize("message", [
+        "429 Too Many Requests",
+        "RESOURCE_EXHAUSTED: quota exceeded",
+        "rate limit reached",
+    ])
+    def test_rate_limit_detection(self, message):
+        assert _is_rate_limit_error(RuntimeError(message))
 
 
 @pytest.fixture
@@ -132,3 +152,49 @@ class TestFindAnalysisPath:
     def test_missing_analysis_returns_none(self, dirs):
         with patch("agent.tools.edit.VIDEOS_DIR", str(dirs["videos"])):
             assert _find_analysis_path("ghost.mp4") is None
+
+
+# =============================================================
+# 샘플링 간격 자동 선택
+# =============================================================
+
+class TestAutoInterval:
+    """영상 길이 -> 샘플링 간격 매핑.
+
+    프레임 수를 100~200 장 안팎으로 유지해 토큰 비용과 Gemini 정렬 정확도를
+    동시에 잡는 것이 목적.
+    """
+
+    @pytest.mark.parametrize("duration_sec,expected", [
+        (10, 1.0),      # 아주 짧음
+        (60, 1.0),      # 경계: 1분
+        (61, 3.0),      # 1분 초과
+        (300, 3.0),     # 경계: 5분
+        (301, 5.0),     # 5분 초과
+        (900, 5.0),     # 경계: 15분
+        (901, 10.0),    # 15분 초과
+        (1582, 10.0),   # worldcup 26분
+        (7200, 10.0),   # 2시간도 상한 유지
+    ])
+    def test_interval_by_duration(self, duration_sec, expected):
+        from agent.tools.video_analysis import _auto_interval_sec
+        assert _auto_interval_sec(duration_sec) == expected
+
+    def test_frame_count_stays_bounded(self):
+        """긴 영상에서도 프레임 수가 폭증하지 않는지."""
+        from agent.tools.video_analysis import _auto_interval_sec
+        for duration in (600, 1582, 3600):
+            frames = duration / _auto_interval_sec(duration)
+            assert frames <= 400, f"{duration}s -> {frames:.0f} 장 (과다)"
+
+    def test_explicit_interval_overrides_auto(self, tmp_path):
+        """interval_sec 을 명시하면 자동 선택을 쓰지 않는다."""
+        from agent.tools.video_analysis import analyze_video
+
+        fake = tmp_path / "clip.mp4"
+        fake.write_bytes(b"fake")
+
+        with patch("agent.tools.video_analysis._probe_duration_sec") as probe, \
+             patch("agent.tools.video_analysis._extract_frames", return_value=(20.0, [])):
+            analyze_video.invoke({"video_path": str(fake), "interval_sec": 7.0})
+            probe.assert_not_called()   # 명시했으므로 길이 조회 자체를 안 함

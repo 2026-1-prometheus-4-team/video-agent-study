@@ -141,7 +141,9 @@ export function Composer() {
       // 휴리스틱(_reply_to_resume)에 도달하지 못해 무조건 plan 이 재생성된다.
       // 서버는 interrupt 대기 중 chat 을 거부하지 않고 kind 에 맞는 resume 으로
       // 변환하므로, 승인/피드백 판정을 서버에 맡긴다.
-      const sent = isClarify ? tryResumeClarify(t, []) : trySendChat(t);
+      // Composer 메시지는 65줄에서 이미 화면에 추가했다. resume_accepted 때
+      // 다시 append 하지 않도록 false를 넘긴다. 카드 답변은 기본값 true를 사용.
+      const sent = isClarify ? tryResumeClarify(t, [], false) : trySendChat(t);
       if (!sent) {
         toast.error("전송 실패", {
           description: "WebSocket 상태를 확인해줘",
@@ -151,7 +153,6 @@ export function Composer() {
       // 전송 성공 후에만 resolved 마킹. 유저 버블은 위에서 이미 push 됨.
       // script_approval 은 서버 판정 결과(승인/수정)를 모르므로 낙관적 마킹 금지 —
       // 후속 interrupt(재생성된 plan) / final / done 이벤트로 자연 정리된다.
-      if (isClarify) store.markInterruptResolved("answered");
       store.startPhase(
         "pending",
         "에이전트 재개 중",
@@ -378,4 +379,3 @@ export function Composer() {
     </div>
   );
 }
-

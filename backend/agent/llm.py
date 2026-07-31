@@ -25,6 +25,8 @@ def make_llm(
     *,
     cached_content: Optional[str] = None,
     temperature: Optional[float] = None,
+    max_retries: Optional[int] = None,
+    timeout: Optional[int] = None,
 ) -> ChatGoogleGenerativeAI:
     """역할별 ChatGoogleGenerativeAI 인스턴스 생성.
 
@@ -54,8 +56,10 @@ def make_llm(
         "temperature": temperature if temperature is not None else default_temp,
         # 일시적 서버 오류(503, RemoteProtocolError 등) 자동 재시도.
         # 서버가 응답 없이 끊는 경우가 있어 파이프라인 안정성을 위해 필수.
-        "max_retries": 5,
-        "timeout": 120,
+        # 짧은 일시 장애는 자동 복구하되, 한 요청이 수 분간 재시도되며 UI를
+        # busy 상태로 붙잡지 않도록 제한한다.
+        "max_retries": 2 if max_retries is None else max_retries,
+        "timeout": 60 if timeout is None else timeout,
     }
     if cached_content:
         kwargs["cached_content"] = cached_content
@@ -87,6 +91,8 @@ def system_user_invoke(
     user_text: str,
     *,
     temperature: Optional[float] = None,
+    max_retries: Optional[int] = None,
+    timeout: Optional[int] = None,
 ):
     """system + user 한 쌍 호출. 안정 prefix 를 Gemini explicit cache 로 재사용.
 
@@ -106,14 +112,17 @@ def system_user_invoke(
     if cache_name:
         try:
             cached_llm = make_llm(
-                role, cached_content=cache_name, temperature=temperature
+                role, cached_content=cache_name, temperature=temperature,
+                max_retries=max_retries, timeout=timeout,
             )
             return cached_llm.invoke([HumanMessage(content=user_text)])
         except Exception:
             # 만료/무효 캐시 — 레지스트리에서 빼고 비캐시 경로로 폴백
             gemini_cache.invalidate(cache_name)
 
-    return make_llm(role, temperature=temperature).invoke(
+    return make_llm(
+        role, temperature=temperature, max_retries=max_retries, timeout=timeout,
+    ).invoke(
         [SystemMessage(content=system_text), HumanMessage(content=user_text)]
     )
 

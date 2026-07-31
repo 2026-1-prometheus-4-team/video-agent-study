@@ -41,6 +41,40 @@ export interface ClarifyCandidate {
   score?: number;
 }
 
+export interface StoryboardItem {
+  idx: number;
+  outputStartMs?: number;
+  outputEndMs?: number;
+  role: string;
+  source: string;
+  sourceStartMs?: number;
+  sourceEndMs?: number;
+  visual: string;
+  selectionReason: string;
+  onScreenText: string;
+  narration: string;
+  editDirection: string;
+  sfx: string;
+}
+
+export interface CreativeBrief {
+  title: string;
+  concept: string;
+  intent: string;
+  hook: string;
+  targetDurationSec?: number;
+  durationReason: string;
+  recommendedBgm: string;
+  bgmFlow: string;
+  storyboard: StoryboardItem[];
+  directing: {
+    cutTempo: string;
+    subtitleAndFont: string;
+    visualAndSpeed: string;
+  };
+  userRevisionGuide: string[];
+}
+
 export type StreamItem =
   | { kind: "user"; id: string; text: string; createdAt: number; files?: string[] }
   | {
@@ -69,6 +103,7 @@ export type StreamItem =
       createdAt: number;
       plan: PlanStep[];
       questions: string[];
+      creativeBrief?: CreativeBrief;
       resolved?: "approved" | "revised" | "answered";
       // interrupt 종류. 미지정이면 script_approval (하위호환).
       interruptKind?: "script_approval" | "clarify";
@@ -91,6 +126,7 @@ export type StreamItem =
       outputUrl?: string;
       duration: number;
       criticNote?: string;
+      success?: boolean;
       transcript?: TranscriptSeg[];
       scenes?: SceneSeg[];
     }
@@ -195,7 +231,11 @@ export interface AgentState {
   pushInterrupt: (
     plan: PlanStep[],
     questions: string[],
-    opts?: { planMarkdown?: string; conceptName?: string }
+    opts?: {
+      planMarkdown?: string;
+      conceptName?: string;
+      creativeBrief?: CreativeBrief;
+    }
   ) => void;
   /** clarify interrupt 카드 push. 미해결 카드가 있으면 갱신 (dedupe). */
   pushClarify: (
@@ -219,6 +259,7 @@ export interface AgentState {
     duration: number,
     opts?: {
       criticNote?: string;
+      success?: boolean;
       outputUrl?: string;
       transcript?: TranscriptSeg[];
       scenes?: SceneSeg[];
@@ -440,6 +481,7 @@ export const useAgentStore = create<AgentState>()(
           existing.questions = questions;
           existing.planMarkdown = opts?.planMarkdown;
           existing.conceptName = opts?.conceptName;
+          existing.creativeBrief = opts?.creativeBrief;
           existing.question = undefined;
           existing.candidates = undefined;
           existing.options = undefined;
@@ -457,6 +499,7 @@ export const useAgentStore = create<AgentState>()(
           questions,
           planMarkdown: opts?.planMarkdown,
           conceptName: opts?.conceptName,
+          creativeBrief: opts?.creativeBrief,
         };
         s.stream.push(item);
         s.pendingInterrupt = item;
@@ -565,12 +608,13 @@ export const useAgentStore = create<AgentState>()(
           outputUrl: opts?.outputUrl,
           duration,
           criticNote: opts?.criticNote,
+          success: opts?.success,
           transcript: opts?.transcript,
           scenes: opts?.scenes,
         };
         s.stream.push(item);
         s.lastFinal = item;
-        s.sessionStatus = "completed";
+        s.sessionStatus = opts?.success === false ? "error" : "completed";
         // 세션 완료 시 파이프라인 배지 초기화 + 남아있는 running phase 마감.
         s.activeNode = null;
         s.nodeToolCount = { ...initialNodeCount };

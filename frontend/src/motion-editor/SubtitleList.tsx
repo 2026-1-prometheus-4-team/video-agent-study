@@ -18,7 +18,7 @@ export function SubtitleList() {
   const setPlayhead = useEditorStore((s) => s.setPlayhead);
 
   const transcript = useMemo(() => {
-    const src = videoContext?.transcript ?? lastFinal?.transcript ?? [];
+    const src = lastFinal?.transcript ?? videoContext?.transcript ?? [];
     return src;
   }, [videoContext, lastFinal]);
 
