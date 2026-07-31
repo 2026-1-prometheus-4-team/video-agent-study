@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { useAgentStore } from "../state";
+import { fetchFonts } from "../backend";
 import {
   DEFAULT_STYLE,
   FONT_OPTIONS,
   getSubtitleStyle,
+  pathStem,
   renderSubtitles,
   type SubtitleStyle,
 } from "./subtitleApi";
@@ -21,10 +23,16 @@ interface Props {
 
 export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
   const uploadedUrl   = useAgentStore((s) => s.uploadedUrl);
+  const lastFinal     = useAgentStore((s) => s.lastFinal);
   const applySubtitle = useAgentStore((s) => s.applySubtitleStyle);
   const pushFinal     = useAgentStore((s) => s.pushFinal);
 
+  // 자막 큐 문서는 자막을 입힌 *편집 결과물* stem 으로 키가 잡힌다. 카드는 계획
+  // 승인 시점(원본 stem)에 만들어지므로, 결과물이 도착하면 그 stem 을 우선한다.
+  const effectiveStem = pathStem(lastFinal?.outputPath) || stem;
+
   const [style, setStyle]     = useState<SubtitleStyle>(DEFAULT_STYLE);
+  const [fontOptions, setFontOptions] = useState(FONT_OPTIONS);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [saving, setSaving]   = useState(false);
@@ -40,34 +48,49 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
     return () => v.removeEventListener("loadedmetadata", fix);
   }, [uploadedUrl]);
 
+  // 보유 폰트 목록 — 백엔드가 폰트 내부 family 명으로 내려줌 (없으면 폴백 유지)
+  useEffect(() => {
+    let alive = true;
+    fetchFonts().then((fonts) => {
+      if (!alive || !fonts.length) return;
+      setFontOptions(fonts.map((f) => ({ label: f.family, value: f.family })));
+    });
+    return () => { alive = false; };
+  }, []);
+
   // 현재 스타일 로드
   useEffect(() => {
-    if (!stem) return;
+    if (!effectiveStem) return;
     setLoading(true);
     setError(null);
-    getSubtitleStyle(stem)
+    getSubtitleStyle(effectiveStem)
       .then(setStyle)
       .catch(() => {
         // 백엔드 미연결 or cues.json 없음 → 기본값으로 폴백
         setStyle(DEFAULT_STYLE);
       })
       .finally(() => setLoading(false));
-  }, [stem]);
+  }, [effectiveStem]);
 
   const update = <K extends keyof SubtitleStyle>(key: K, val: SubtitleStyle[K]) =>
     setStyle((prev) => ({ ...prev, [key]: val }));
 
   const handleRender = async () => {
-    if (saving || !stem) return;
+    if (saving || !effectiveStem) return;
     setSaving(true);
+    setError(null);
     try {
-      const result = await renderSubtitles(stem, style);
+      const result = await renderSubtitles(effectiveStem, style);
       applySubtitle(id, result.output_path);
       pushFinal(result.output_path, result.duration_sec, {
         outputUrl: undefined,
       });
-    } catch {
-      setError("백엔드 연결 필요 — 실제 렌더링은 백엔드 연결 후 가능해요");
+    } catch (e) {
+      // 404(no_cues) = 아직 자막 큐가 없음 — 편집이 끝난 뒤 다시 시도 안내.
+      const msg = e instanceof Error && /404/.test(e.message)
+        ? "아직 자막 데이터가 없어요 — 편집이 끝난 뒤 다시 적용해줘"
+        : "백엔드 연결 필요 — 실제 렌더링은 백엔드 연결 후 가능해요";
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -102,7 +125,7 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
         <div className={styles.headerIcon}>T</div>
         <div className={styles.headerText}>
           <div className={styles.headerTitle}>자막 스타일</div>
-          <div className={styles.headerSub}>{stem}.cues.json</div>
+          <div className={styles.headerSub}>{effectiveStem}.cues.json</div>
         </div>
         {isApplied && (
           <span className={styles.headerBadge} data-status="applied">
@@ -149,10 +172,6 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
           <div className={styles.spinner} />
           <span>스타일 불러오는 중…</span>
         </div>
-      ) : error ? (
-        <div className={styles.stateWrap}>
-          <span>오류: {error}</span>
-        </div>
       ) : (
         <div className={styles.body}>
 
@@ -168,7 +187,10 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
                 onChange={(e) => update("font", e.target.value)}
                 disabled={isApplied}
               >
-                {FONT_OPTIONS.map((f) => (
+                {!fontOptions.some((f) => f.value === style.font) && (
+                  <option value={style.font}>{style.font}</option>
+                )}
+                {fontOptions.map((f) => (
                   <option key={f.value} value={f.value}>{f.label}</option>
                 ))}
               </select>
@@ -317,24 +339,31 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
           </span>
         </div>
       ) : (
-        <div className={styles.footer}>
-          <button
-            type="button"
-            className={styles.btnGhost}
-            onClick={() => setStyle(DEFAULT_STYLE)}
-            disabled={saving}
-          >
-            기본값
-          </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleRender}
-            disabled={saving || loading || !!error}
-          >
-            {saving ? "렌더링 중…" : "적용하고 제작 시작 →"}
-          </button>
-        </div>
+        <>
+          {error && (
+            <div className={styles.stateWrap}>
+              <span>{error}</span>
+            </div>
+          )}
+          <div className={styles.footer}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => setStyle(DEFAULT_STYLE)}
+              disabled={saving}
+            >
+              기본값
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleRender}
+              disabled={saving || loading}
+            >
+              {saving ? "렌더링 중…" : error ? "다시 시도 →" : "적용하고 제작 시작 →"}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
