@@ -1869,6 +1869,99 @@ async def list_fonts():
 
 
 # -------------------------------------------------------------------
+# 자막 스타일 REST (studio-v2 SubtitleStyleCard)
+# -------------------------------------------------------------------
+
+_SUBTITLE_STYLE_KEYS = (
+    "font", "size", "margin_v", "color",
+    "stroke_color", "stroke_width", "bold", "fade",
+)
+
+
+class SubtitleStyleBody(BaseModel):
+    font: Optional[str] = None
+    size: Optional[float] = None
+    margin_v: Optional[float] = None
+    color: Optional[str] = None
+    stroke_color: Optional[str] = None
+    stroke_width: Optional[float] = None
+    bold: Optional[bool] = None
+    fade: Optional[bool] = None
+
+
+class RenderSubtitlesBody(BaseModel):
+    style: Optional[SubtitleStyleBody] = None
+
+
+def _current_subtitle_style(stem: str) -> dict:
+    """큐 문서의 style_defaults + 백엔드 기본값 → 카드 표시용 스타일."""
+    from agent.tools.subtitle_cues import DEFAULT_STYLE, _load_or_promote
+
+    doc, _ = _load_or_promote(stem)
+    merged = {**DEFAULT_STYLE, **((doc or {}).get("style_defaults") or {})}
+    style = {k: merged.get(k) for k in _SUBTITLE_STYLE_KEYS}
+    style["bold"] = bool(style.get("bold"))
+    style["fade"] = bool(style.get("fade"))
+    return style
+
+
+def _apply_subtitle_style(stem: str, style: dict) -> None:
+    """set_subtitle_style tool 로 defaults 병합. 실패 시 HTTPException."""
+    from agent.tools.subtitle_cues import set_subtitle_style
+
+    patch = {k: v for k, v in style.items() if v is not None}
+    if not patch:
+        return
+    result = set_subtitle_style.invoke(
+        {"video_path": stem, "style": json.dumps(patch, ensure_ascii=False)}
+    )
+    if isinstance(result, str) and result.startswith("ERROR"):
+        raise HTTPException(status_code=400, detail=result)
+    data = json.loads(result)
+    if data.get("status") == "error":
+        code = 404 if data.get("error") == "no_cues" else 400
+        raise HTTPException(status_code=code, detail=data.get("error"))
+
+
+@app.get("/api/subtitles/{stem}/style")
+def get_subtitle_style(stem: str):
+    """현재 자막 기본 스타일. 큐 문서가 없으면 백엔드 기본값을 반환."""
+    return _current_subtitle_style(stem)
+
+
+@app.patch("/api/subtitles/{stem}/style")
+def patch_subtitle_style(stem: str, body: SubtitleStyleBody):
+    """스타일 부분 갱신 (style_defaults 병합). 영상 반영은 render 호출."""
+    _apply_subtitle_style(stem, body.model_dump())
+    return _current_subtitle_style(stem)
+
+
+# sync def — 렌더는 FFmpeg 블로킹 호출이라 threadpool 에서 실행돼야 한다.
+@app.post("/api/subtitles/{stem}/render")
+def render_subtitles_endpoint(stem: str, body: RenderSubtitlesBody | None = None):
+    """스타일 적용(선택) 후 자막 번인 렌더 → {status, output_path, duration_sec}."""
+    from agent.tools.edit import _ffprobe_duration_sec
+    from agent.tools.subtitle_cues import render_subtitles
+
+    if body and body.style:
+        _apply_subtitle_style(stem, body.style.model_dump())
+
+    result = render_subtitles.invoke({"video_path": stem})
+    if isinstance(result, str) and result.startswith("ERROR"):
+        raise HTTPException(status_code=400, detail=result)
+    if not isinstance(result, str) or not result.strip():
+        raise HTTPException(status_code=500, detail=f"렌더 결과가 비어 있음: {result!r}")
+    # render_subtitles 는 JSON 에러(no_cues 등)를 반환할 수도 있다.
+    if result.lstrip().startswith("{"):
+        data = json.loads(result)
+        code = 404 if data.get("error") == "no_cues" else 400
+        raise HTTPException(status_code=code, detail=data.get("error", result))
+
+    duration = _ffprobe_duration_sec(result) or 0.0
+    return {"status": "success", "output_path": result, "duration_sec": duration}
+
+
+# -------------------------------------------------------------------
 # Health check
 # -------------------------------------------------------------------
 

@@ -40,6 +40,19 @@ export function InterruptCard({
         );
       return;
     }
+    // 카드 resolve 는 서버의 resume_accepted 가 처리한다 (전송 실패 시 재시도 유지).
+    // 자막 관련 스텝이 플랜에 있으면 자막 스타일 카드 표시
+    const hasSubtitleStep = item.plan.some((p) =>
+      /자막|subtitle|caption/i.test(p.action + " " + p.rationale)
+    );
+    if (hasSubtitleStep) {
+      const store = useAgentStore.getState();
+      const serverPath = store.serverVideoPath;
+      const stem = serverPath
+        ? serverPath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? ""
+        : "";
+      if (stem) store.pushSubtitleStyle(stem);
+    }
   };
 
   const submitFeedback = () => {

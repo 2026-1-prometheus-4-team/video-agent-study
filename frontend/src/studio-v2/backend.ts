@@ -43,9 +43,11 @@ export async function checkHealth(): Promise<boolean> {
     const res = await fetch(`${API_BASE}/health`, {
       method: "GET",
       cache: "no-store",
+      signal: AbortSignal.timeout(3000),
     });
     return res.ok;
   } catch {
+    // backend offline — suppressed intentionally
     return false;
   }
 }
