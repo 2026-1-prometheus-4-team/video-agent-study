@@ -797,6 +797,13 @@
     0 8px 24px -8px rgba(0, 0, 0, 0.4);
 }
 
+.finalCardFailed {
+  background: linear-gradient(180deg, rgba(239, 95, 95, 0.08), rgba(239, 95, 95, 0.02));
+  box-shadow:
+    0 0 0 1px rgba(239, 95, 95, 0.28),
+    0 8px 24px -8px rgba(0, 0, 0, 0.4);
+}
+
 .finalHeader {
   display: flex;
   align-items: center;
@@ -806,6 +813,10 @@
 
 .finalCheck {
   color: var(--ok);
+}
+
+.finalFailed {
+  color: #ef5f5f;
 }
 
 .finalTitle {

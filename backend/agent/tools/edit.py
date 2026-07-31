@@ -32,6 +32,7 @@ _PROJECT_ROOT = os.path.dirname(
 )
 VIDEOS_DIR = os.path.join(_PROJECT_ROOT, "videos")
 OUTPUTS_DIR = os.path.join(_PROJECT_ROOT, "outputs")
+LEGACY_OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "output")
 
 
 def _ensure_outputs() -> None:
@@ -120,11 +121,21 @@ def _resolve_video_path(video_path: str) -> str:
     if os.path.isabs(video_path):
         return os.path.normpath(video_path)
 
-    direct = os.path.join(_PROJECT_ROOT, video_path)
-    if os.path.exists(direct):
-        return os.path.normpath(direct)
+    # Bare filenames returned by cut_video are written to outputs/, while
+    # source uploads live in videos/. Search both instead of silently forcing
+    # every unresolved relative input into videos/.
+    candidates = [
+        os.path.join(_PROJECT_ROOT, video_path),
+        os.path.join(OUTPUTS_DIR, video_path),
+        os.path.join(LEGACY_OUTPUT_DIR, video_path),
+        os.path.join(VIDEOS_DIR, video_path),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return os.path.normpath(candidate)
 
-    return os.path.normpath(os.path.join(VIDEOS_DIR, video_path))
+    # Preserve the legacy missing-file error location for source filenames.
+    return os.path.normpath(candidates[-1])
 
 
 def _resolve_output_path(output_path: Optional[str], prefix: str, source_path: str) -> str:

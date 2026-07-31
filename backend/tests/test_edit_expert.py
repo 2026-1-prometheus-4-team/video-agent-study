@@ -202,6 +202,29 @@ class TestCutVideo:
 # =============================================================
 
 class TestMergeVideo:
+    def test_bare_cut_outputs_are_resolved_from_outputs_dir(self, tmp_path):
+        """cut_video의 bare output 이름을 merge_video가 outputs/에서 다시 찾는다."""
+        outputs = tmp_path / "outputs"
+        videos = tmp_path / "videos"
+        legacy = tmp_path / "output"
+        outputs.mkdir()
+        videos.mkdir()
+        legacy.mkdir()
+        (outputs / "cut_clip_1.mp4").write_bytes(b"clip1")
+        (outputs / "cut_clip_2.mp4").write_bytes(b"clip2")
+
+        with patch("agent.tools.edit._PROJECT_ROOT", str(tmp_path)), \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(outputs)), \
+             patch("agent.tools.edit.LEGACY_OUTPUT_DIR", str(legacy)), \
+             patch("agent.tools.edit.VIDEOS_DIR", str(videos)), \
+             patch("agent.tools.edit.subprocess.run") as mock_run:
+            _mock_ffmpeg_success(mock_run)
+            result = merge_video.invoke({
+                "clip_paths": ["cut_clip_1.mp4", "cut_clip_2.mp4"],
+                "output_path": "merged.mp4",
+            })
+
+        assert result == str(outputs / "merged.mp4")
     def test_target_aspect_ratio_crops_each_clip_before_concat(self, tmp_path):
         clips = [tmp_path / "portrait.mp4", tmp_path / "landscape.mp4"]
         for clip in clips:

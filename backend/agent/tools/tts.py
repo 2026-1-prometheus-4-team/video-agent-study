@@ -260,6 +260,15 @@ def text_to_speech(
         response = requests.post(url, headers=headers, json=data, timeout=60)
 
         if response.status_code == 200:
+            if not response.content:
+                return _json_response(
+                    text=text,
+                    voice=resolved_voice,
+                    model=model_id,
+                    output=None,
+                    status="error",
+                    error="ElevenLabs가 빈 TTS 응답을 반환했습니다.",
+                )
             resolved_output.write_bytes(response.content)
             manifest = _append_narration_manifest(
                 manifest_key, resolved_output, text,

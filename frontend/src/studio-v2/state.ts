@@ -121,6 +121,7 @@ export type StreamItem =
       outputUrl?: string;
       duration: number;
       criticNote?: string;
+      success?: boolean;
       transcript?: TranscriptSeg[];
       scenes?: SceneSeg[];
     }
@@ -249,6 +250,7 @@ export interface AgentState {
     duration: number,
     opts?: {
       criticNote?: string;
+      success?: boolean;
       outputUrl?: string;
       transcript?: TranscriptSeg[];
       scenes?: SceneSeg[];
@@ -582,12 +584,13 @@ export const useAgentStore = create<AgentState>()(
           outputUrl: opts?.outputUrl,
           duration,
           criticNote: opts?.criticNote,
+          success: opts?.success,
           transcript: opts?.transcript,
           scenes: opts?.scenes,
         };
         s.stream.push(item);
         s.lastFinal = item;
-        s.sessionStatus = "completed";
+        s.sessionStatus = opts?.success === false ? "error" : "completed";
         // 세션 완료 시 파이프라인 배지 초기화 + 남아있는 running phase 마감.
         s.activeNode = null;
         s.nodeToolCount = { ...initialNodeCount };

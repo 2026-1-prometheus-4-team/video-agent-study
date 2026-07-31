@@ -22,7 +22,7 @@ export function EditorInspector() {
   const overrides = useEditorStore((s) => s.subtitleOverrides);
   const updateSubtitle = useEditorStore((s) => s.updateSubtitle);
 
-  const transcript = videoContext?.transcript ?? lastFinal?.transcript ?? [];
+  const transcript = lastFinal?.transcript ?? videoContext?.transcript ?? [];
   const isSubtitle = selectionKind === "subtitle" && selectionIndex !== null;
   const seg = isSubtitle ? transcript[selectionIndex!] : undefined;
   const override = isSubtitle ? overrides[selectionIndex!] : undefined;

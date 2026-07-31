@@ -58,6 +58,14 @@ def _extract_json(text: str) -> dict[str, Any]:
     try:
         return json.loads(payload)
     except json.JSONDecodeError as e:
+        # Gemini occasionally leaves a trailing comma before a closing bracket.
+        # This is unambiguous to repair and avoids an unnecessary second call.
+        repaired = re.sub(r",\s*([}\]])", r"\1", payload)
+        if repaired != payload:
+            try:
+                return json.loads(repaired)
+            except json.JSONDecodeError:
+                pass
         logger.error("script JSON parse failed: %s\n%s", e, payload[:500])
         return {
             "_parse_error": str(e),
@@ -66,6 +74,30 @@ def _extract_json(text: str) -> dict[str, Any]:
                 "script 생성 중 JSON 파싱 오류. 사용자 요청을 다시 한 번 명확히 말씀해 주세요."
             ],
         }
+
+
+def _message_text(content: Any) -> str:
+    if isinstance(content, list):
+        return " ".join(
+            (part.get("text", "") if isinstance(part, dict) else str(part))
+            for part in content
+        )
+    return str(content)
+
+
+def _parse_failure_plan(error: object) -> dict[str, Any]:
+    """End cleanly instead of presenting a zero-step approval card."""
+    return {
+        "mode": "chat",
+        "reply": (
+            "편집 계획 JSON 생성이 두 번 모두 올바른 형식으로 끝나지 않았어. "
+            "빈 계획을 승인 화면에 표시하지 않고 이번 실행을 종료했어. "
+            "같은 요청을 다시 보내면 새 계획을 생성할게."
+        ),
+        "steps": [],
+        "questions": [],
+        "_script_error": str(error)[:1000],
+    }
 
 
 def _enforce_requested_features(plan: dict[str, Any], user_request: str) -> dict[str, Any]:
@@ -503,8 +535,25 @@ def script_node(state: AgentState) -> dict[str, Any]:
             "script_revision": revision,
         }
 
-    # system prompt (캐시 친화)
-    sys_text = build_script_node_system_prompt(video_context=video_context)
+    # 긴 영상/다중 영상은 최초 호출부터 초압축 컨텍스트를 사용한다. 일반
+    # 프롬프트가 deadline에 걸린 뒤 같은 크기의 요청을 반복하는 일을 막는다.
+    scenes = video_context.get("scenes") if isinstance(video_context, dict) else []
+    scene_count = len(scenes) if isinstance(scenes, list) else 0
+    try:
+        source_duration_sec = float(
+            (video_context or {}).get("duration_sec")
+            or (video_context or {}).get("duration")
+            or 0
+        )
+    except (TypeError, ValueError):
+        source_duration_sec = 0.0
+    large_context = scene_count > 50 or source_duration_sec > 120
+
+    # Script 전용 압축 프롬프트. Supervisor용 전체 문서를 중복 주입하지 않는다.
+    sys_text = build_script_node_system_prompt(
+        video_context=video_context,
+        ultra_compact=large_context,
+    )
 
     # user prompt
     user_parts: list[str] = [
@@ -547,7 +596,10 @@ def script_node(state: AgentState) -> dict[str, Any]:
     user_text = "\n".join(user_parts)
 
     # LLM 호출
-    llm = make_llm("script")
+    # Script 노드는 아래에서 명시적으로 한 번만 축약 재시도한다. SDK 내부
+    # 재시도까지 겹치면 한 요청이 수 분 동안 UI의 busy 상태를 점유한다.
+    llm = make_llm("script", max_retries=0, timeout=90, temperature=0.1)
+    compact_attempted = False
     try:
         ai_msg = llm.invoke(
             [
@@ -556,22 +608,72 @@ def script_node(state: AgentState) -> dict[str, Any]:
             ]
         )
     except Exception as e:
-        logger.exception("script LLM invoke failed")
-        return {
-            "script_plan": {
-                "questions": [f"script 생성 중 LLM 오류: {type(e).__name__}: {e}"]
-            },
-            "script_revision": revision + 1,
-        }
-
-    raw = ai_msg.content
-    if isinstance(raw, list):
-        raw = " ".join(
-            (p.get("text", "") if isinstance(p, dict) else str(p))
-            for p in raw
+        # 긴 프롬프트가 Gemini 서버 deadline에 걸리면 거버넌스/few-shot까지
+        # 제외한 초압축 프롬프트로 한 번만 자동 복구한다. 실패를 questions로
+        # 포장하면 0-step 승인 카드가 뜨므로 최종 실패는 chat 응답으로 종료한다.
+        logger.warning("script LLM first attempt failed; retry compact: %s", e)
+        compact_sys_text = build_script_node_system_prompt(
+            video_context=video_context,
+            ultra_compact=True,
         )
+        compact_attempted = True
+        try:
+            retry_llm = make_llm(
+                "script", max_retries=0, timeout=90, temperature=0.1
+            )
+            ai_msg = retry_llm.invoke(
+                [
+                    SystemMessage(content=compact_sys_text),
+                    HumanMessage(content=user_text),
+                ]
+            )
+        except Exception as retry_error:
+            logger.exception("script LLM compact retry failed")
+            return {
+                "script_plan": {
+                    **_parse_failure_plan(
+                        f"{type(retry_error).__name__}: {retry_error}"
+                    ),
+                },
+                "script_revision": revision + 1,
+            }
 
-    plan = _extract_json(str(raw))
+    raw = _message_text(ai_msg.content)
+    plan = _extract_json(raw)
+
+    # A malformed/truncated response is much more common than an invoke
+    # exception. Retry it once with the compact prompt and an explicit no-fence
+    # JSON reminder instead of surfacing a zero-step approval card.
+    if plan.get("_parse_error") and not compact_attempted:
+        logger.warning("script JSON malformed; retry compact JSON generation")
+        compact_sys_text = build_script_node_system_prompt(
+            video_context=video_context,
+            ultra_compact=True,
+        )
+        retry_user_text = (
+            user_text
+            + "\n\n# 출력 형식 재확인\n"
+            + "설명이나 마크다운 코드펜스 없이, 완결된 JSON 객체 하나만 출력하라. "
+            + "문자열 안의 줄바꿈은 \\n으로 이스케이프하고 마지막 항목 뒤 쉼표를 쓰지 마라."
+        )
+        try:
+            retry_llm = make_llm(
+                "script", max_retries=0, timeout=90, temperature=0.1
+            )
+            retry_msg = retry_llm.invoke([
+                SystemMessage(content=compact_sys_text),
+                HumanMessage(content=retry_user_text),
+            ])
+            raw = _message_text(retry_msg.content)
+            plan = _extract_json(raw)
+        except Exception as retry_error:
+            logger.exception("script malformed-JSON retry failed")
+            plan = _parse_failure_plan(
+                f"{type(retry_error).__name__}: {retry_error}"
+            )
+
+    if plan.get("_parse_error"):
+        plan = _parse_failure_plan(plan.get("_parse_error"))
 
     # 기본 필드 보강 (LLM 이 누락한 경우)
     plan.setdefault("steps", [])

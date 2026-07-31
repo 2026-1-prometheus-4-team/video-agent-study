@@ -100,6 +100,8 @@ videos/
 # ── Windows Python venv ──
 .venv-win/
 backend/.venv-win/
+backend/.venv-win-broken/
+backend/.venv-*/
 
 # Python cache
 __pycache__/
@@ -111,6 +113,11 @@ backend/.runtime/
 backend/video_files/**
 !backend/video_files/
 !backend/video_files/.gitkeep
+backend/output/
+backend/temp/
+backend/generated_bgm.mp3
+backend/narration_*.mp3
+backend/video_with_bgm*.mp4
 
 audio_files/**
 bgm_files/**

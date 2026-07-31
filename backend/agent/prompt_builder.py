@@ -85,7 +85,9 @@ def _load_tts_voices() -> str:
     return "\n".join(lines)
 
 
-def _format_video_context(ctx: Optional[VideoContext]) -> str:
+def _format_video_context(
+    ctx: Optional[VideoContext], *, compact: bool = False, ultra_compact: bool = False
+) -> str:
     """video_context -> 모델이 읽기 좋은 요약 + 전체 JSON."""
     if not ctx:
         return "(영상 분석 아직 안 됨)"
@@ -96,13 +98,84 @@ def _format_video_context(ctx: Optional[VideoContext]) -> str:
         f"장면 수: {len(ctx.get('scenes', []))}",
         f"자막 수: {len(ctx.get('transcript', []))}",
     ]
+    if compact:
+        # Script는 장면 선택에 필요한 필드만 있으면 된다. objects/people/actions 등
+        # 분석 부가정보와 중복 메타데이터까지 모두 보내면 긴 영상에서 Gemini의
+        # 서버 처리 제한(504 DEADLINE_EXCEEDED)에 걸리기 쉽다.
+        source_scenes = list(ctx.get("scenes", []))
+        # 긴 영상은 모든 장면을 버리지 않고 인접 장면을 연속 구간으로 묶는다.
+        # 균등 샘플링처럼 중간 사건을 누락하지 않으면서 JSON 크기를 제한한다.
+        if ultra_compact and len(source_scenes) > 40:
+            group_size = (len(source_scenes) + 39) // 40
+            grouped = []
+            for offset in range(0, len(source_scenes), group_size):
+                chunk = source_scenes[offset : offset + group_size]
+                # 한 묶음이 서로 다른 원본 영상의 경계를 넘지 않게 다시 나눈다.
+                runs = []
+                for item in chunk:
+                    video = item.get("video") or ctx.get("file_path")
+                    if not runs or runs[-1][0] != video:
+                        runs.append((video, [item]))
+                    else:
+                        runs[-1][1].append(item)
+                for video, run in runs:
+                    grouped.append({
+                        "video": video,
+                        "start_ms": run[0].get("start_ms", run[0].get("start")),
+                        "end_ms": run[-1].get("end_ms", run[-1].get("end")),
+                        "description": " / ".join(
+                            str(item.get("description") or "") for item in run
+                        )[:320],
+                        "transcript": " ".join(
+                            str(item.get("transcript") or "") for item in run
+                        )[:220],
+                    })
+            source_scenes = grouped
+
+        compact_scenes = []
+        for scene in source_scenes:
+            compact_scenes.append({
+                "video": scene.get("video") or ctx.get("file_path"),
+                "start_ms": scene.get("start_ms", scene.get("start")),
+                "end_ms": scene.get("end_ms", scene.get("end")),
+                "description": str(scene.get("description") or "")[:260],
+                "transcript": str(scene.get("transcript") or "")[:180],
+            })
+        compact_transcript = []
+        for segment in ctx.get("transcript", []):
+            compact_transcript.append({
+                "start": segment.get("start"),
+                "end": segment.get("end"),
+                "text": str(segment.get("text") or "")[:180],
+            })
+        compact_ctx = {
+            "file_path": ctx.get("file_path"),
+            "duration": ctx.get("duration"),
+            "scenes": compact_scenes,
+            "transcript": compact_transcript,
+        }
+        payload = json.dumps(compact_ctx, ensure_ascii=False, separators=(",", ":"))
+        label = "## Compact scene data"
+    else:
+        payload = json.dumps(ctx, ensure_ascii=False, indent=2)
+        label = "## Full analysis.json"
+
     return (
         "## Video Analysis 요약\n"
         + "\n".join(summary)
-        + "\n\n## Full analysis.json\n```json\n"
-        + json.dumps(ctx, ensure_ascii=False, indent=2)
+        + f"\n\n{label}\n```json\n"
+        + payload
         + "\n```"
     )
+
+
+def _script_governance_excerpt(text: str) -> str:
+    """AGENTS.md에서 Script 기획에 필요한 4.8~4.10만 추출한다."""
+    start = text.find("### 4.8")
+    if start < 0:
+        return ""
+    end = text.find("\n## 5.", start)
+    return text[start : end if end >= 0 else None].strip()
 
 
 # =============================================================
@@ -202,6 +275,15 @@ SCRIPT_NODE_INSTRUCTION = """\
 너는 영상 편집 Supervisor 의 *Script 작성* 단계다.
 
 사용자의 자연어 요청 + 사전 영상 분석을 보고, **편집 plan** 을 JSON 으로 출력한다.
+
+## 출력 크기 제한 (반드시 준수)
+
+- target_duration_sec가 60초 이하이면 creative_brief.storyboard는 최대 8개,
+  steps는 최대 12개만 만든다.
+- 같은 도구로 처리할 수 있는 인접 장면은 하나의 연속 구간/step으로 합친다.
+- 입력 scene 수만큼 자막·효과·편집 step을 만들지 않는다.
+- creative_brief와 steps에 같은 설명을 장문으로 반복하지 않는다.
+- 제한을 넘길 것 같으면 중요도가 낮은 연출을 생략한다. 빈 계획을 반환하지 않는다.
 모호한 부분은 *추측하지 말고* `questions` 필드에 사용자 확인이 필요한 항목으로 적는다.
 
 이 플랫폼은 종합 영상 편집 플랫폼이다 — 컷, 자막, TTS/나래이션, BGM, 효과음,
@@ -442,22 +524,36 @@ action 종류 (TOOLS.md 참조):
 
 def build_script_node_system_prompt(
     video_context: Optional[VideoContext] = None,
+    *,
+    ultra_compact: bool = False,
 ) -> str:
-    """Script 생성 노드용 system prompt."""
+    """Script 생성 노드용 system prompt.
+
+    Supervisor용 전체 거버넌스/도구 문서를 중복 주입하지 않는다. Script에 필요한
+    4.8~4.10, few-shot, 압축 장면 데이터와 전용 출력 지시만 포함한다.
+    """
     workspace = config.WORKSPACE_DIR
 
     shorts_fewshots = _read_cached(workspace / "SHORTS_FEWSHOTS.md")
+    governance = _script_governance_excerpt(_read_cached(workspace / "AGENTS.md"))
 
     sections = [
         "# Identity & Voice\n\n" + _read_cached(workspace / "SOUL.md"),
-        "# Governance & Routing\n\n" + _read_cached(workspace / "AGENTS.md"),
-        "# Tool Catalog\n\n" + _read_cached(workspace / "TOOLS.md"),
     ]
-    if shorts_fewshots:
+    if governance and not ultra_compact:
+        sections.append("# Script Governance (AGENTS.md 4.8~4.10)\n\n" + governance)
+    if shorts_fewshots and not ultra_compact:
         sections.append("# Shorts Editing Few-shot Examples\n\n" + shorts_fewshots)
     sections.append("# TTS Voice Library\n\n" + _load_tts_voices())
     if video_context:
-        sections.append("# Pre-computed Video Analysis\n\n" + _format_video_context(video_context))
+        sections.append(
+            "# Pre-computed Video Analysis\n\n"
+            + _format_video_context(
+                video_context,
+                compact=True,
+                ultra_compact=ultra_compact,
+            )
+        )
 
     stable_prefix = "\n\n---\n\n".join(sections)
     dynamic_suffix = "# Script Node Instructions\n\n" + SCRIPT_NODE_INSTRUCTION

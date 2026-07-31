@@ -16,9 +16,9 @@ export function EditorTimeline() {
   const selectionIndex = useEditorStore((s) => s.selectionIndex);
   const select = useEditorStore((s) => s.select);
 
-  const duration = videoContext?.duration ?? lastFinal?.duration ?? 0;
-  const scenes = videoContext?.scenes ?? lastFinal?.scenes ?? [];
-  const transcript = videoContext?.transcript ?? lastFinal?.transcript ?? [];
+  const duration = lastFinal?.duration ?? videoContext?.duration ?? 0;
+  const scenes = lastFinal?.scenes ?? videoContext?.scenes ?? [];
+  const transcript = lastFinal?.transcript ?? videoContext?.transcript ?? [];
 
   const rulerTicks = useMemo(() => {
     if (duration <= 0) return [];

@@ -62,6 +62,7 @@ from pydantic import BaseModel, Field
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
+from langchain_core.messages import ToolMessage
 
 from agent import config as agent_config
 from agent.graph import build_graph
@@ -111,19 +112,22 @@ app.add_middleware(
 # -------------------------------------------------------------------
 
 OUTPUTS_DIR = agent_config.PROJECT_ROOT / "outputs"
+LEGACY_OUTPUT_DIR = agent_config.PROJECT_ROOT / "output"
 AUDIO_DIR = agent_config.PROJECT_ROOT / "audio_files"
 BGM_DIR = agent_config.PROJECT_ROOT / "bgm_files"
 
-for _dir in (OUTPUTS_DIR, AUDIO_DIR, BGM_DIR, agent_config.VIDEOS_DIR):
+for _dir in (OUTPUTS_DIR, LEGACY_OUTPUT_DIR, AUDIO_DIR, BGM_DIR, agent_config.VIDEOS_DIR):
     _dir.mkdir(parents=True, exist_ok=True)
 
 app.mount("/files/outputs", StaticFiles(directory=OUTPUTS_DIR), name="outputs")
+app.mount("/files/output", StaticFiles(directory=LEGACY_OUTPUT_DIR), name="output")
 app.mount("/files/videos", StaticFiles(directory=agent_config.VIDEOS_DIR), name="videos")
 app.mount("/files/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 app.mount("/files/bgm", StaticFiles(directory=BGM_DIR), name="bgm")
 
 _FILE_URL_BASES = [
     (OUTPUTS_DIR, "/files/outputs"),
+    (LEGACY_OUTPUT_DIR, "/files/output"),
     (agent_config.VIDEOS_DIR, "/files/videos"),
     (AUDIO_DIR, "/files/audio"),
     (BGM_DIR, "/files/bgm"),
@@ -1067,6 +1071,7 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                             args = _jsonable(tc["args"])
                             await websocket.send_json({
                                 "type": "tool_call",
+                                "tool_call_id": tc.get("id"),
                                 "node": node_name,
                                 "tool_name": tc["name"],
                                 "args": args,
@@ -1078,6 +1083,23 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                                 tool_name=tc["name"],
                                 args=args if isinstance(args, dict) else {"value": args},
                             )
+
+                    if isinstance(msg, ToolMessage):
+                        result = _jsonable(getattr(msg, "content", ""))
+                        result_text = _extract_text(getattr(msg, "content", None))
+                        lowered = result_text.lower()
+                        ok = not (
+                            result_text.startswith("ERROR")
+                            or "status=error" in lowered
+                            or "status=fail" in lowered
+                        )
+                        await websocket.send_json({
+                            "type": "tool_result",
+                            "tool_call_id": getattr(msg, "tool_call_id", None),
+                            "ok": ok,
+                            "result": result,
+                            "detail": None if ok else result_text[:1200],
+                        })
     except (WebSocketDisconnect, RuntimeError):
         # 클라이언트 끊김 — push 중단 신호 후 상위로 전파 (그래프 상태는 체크포인트에 보존)
         stop.set()
@@ -1300,6 +1322,9 @@ async def _send_final(websocket: WebSocket, session: Session):
 
     video_context = values.get("video_context")
     critic = values.get("critic_verdict")
+    final_success = bool(
+        isinstance(critic, dict) and critic.get("verdict") == "PASS"
+    )
 
     # ── 편집본 자동 재분석 ──
     # final_path 는 편집 결과 (원본 아님) 이므로 그래프 state 의 video_context
@@ -1380,6 +1405,7 @@ async def _send_final(websocket: WebSocket, session: Session):
     critic_json = _jsonable(critic) if critic else None
     await websocket.send_json({
         "type": "final",
+        "success": final_success,
         "output_path": final_path,
         "output_url": output_url,
         "video_context": vc_json,
@@ -1400,7 +1426,9 @@ async def _send_final(websocket: WebSocket, session: Session):
         content=final_path,
         extra={"output_url": output_url},
     )
-    await SessionRepo.set_session_status(session.session_id, "completed")
+    await SessionRepo.set_session_status(
+        session.session_id, "completed" if final_success else "error"
+    )
 
 
 async def _run_turn(websocket: WebSocket, session: Session, stream_input) -> None:

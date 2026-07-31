@@ -214,9 +214,12 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
             transcript.append(transcript_item)
 
     if not videos_meta:
-        first = video_paths[0]
-        ctx: VideoContext = {"file_path": first, "duration": 0.0, "scenes": [], "transcript": []}
-        return {"video_context": ctx}
+        errors = [
+            f"{filename}: {data.get('error', 'unknown analysis error')}"
+            for filename, data in results
+        ]
+        # An analysis failure is not a valid zero-second video context.
+        raise RuntimeError("영상 분석 실패: " + "; ".join(errors))
 
     ctx = {
         "file_path": videos_meta[0]["file_path"],
@@ -599,6 +602,10 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         "# 아직 실행 안 된 step 들\n",
         f"```json\n{next_brief}\n```\n",
         "각 step 의 expert 를 *spawn tool* 로 부르고, 의존 관계에 따라 순서대로/병렬로 실행하라.",
+        "중요: TTS 생성 -> TTS 파일을 영상에 mix -> BGM/자막/효과 적용처럼 파일을 "
+        "이어받는 audio step들은 절대 같은 assistant message에서 병렬 tool call로 보내지 마라. "
+        "앞 step의 ToolMessage가 status=success이고 실제 output 파일이 존재하는 것을 확인한 "
+        "뒤, 반환된 정확한 output 경로로 다음 tool을 별도 호출하라.",
         "한 step 끝나면 결과 (특히 산출 파일 경로) 를 다음 step task 에 명시적으로 박아라.",
         "spawn 결과가 status=error/fail 이거나 실제 output 경로가 없으면 그 산출물에 "
         "의존하는 다음 step 을 절대 실행하지 마라. 같은 step 을 올바른 인자로 재시도하고, "
