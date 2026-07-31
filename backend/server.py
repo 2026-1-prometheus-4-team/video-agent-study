@@ -1839,18 +1839,18 @@ async def chat_stream(websocket: WebSocket, session_id: str):
 # -------------------------------------------------------------------
 
 _FONT_EXTS = {".ttf", ".otf", ".ttc"}
-_FONT_WEIGHT_RE = re.compile(
-    r"-(Regular|Bold|Medium|Light|SemiBold|ExtraBold|Thin|Black)$", re.I
-)
 
 
 @app.get("/fonts")
 async def list_fonts():
     """assets/fonts/ 에 실제로 있는 자막 폰트 목록.
 
-    각 항목 {file, family}. 스크립트(download_fonts.py) 미실행이면 기본
-    NotoSansKR 하나만 나온다. 프론트 드롭다운이 family 로 "자막 폰트 X로" 채운다.
+    각 항목 {file, family}. family 는 폰트 내부 name 테이블에서 읽은 실제
+    패밀리명 (libass 매칭 기준). 깨진 파일(EOT/HTML 등)은 목록에서 제외 —
+    scripts/download_fonts.py 재실행으로 복구한다.
     """
+    from agent.tools.subtitle import _font_family_from_file, _sfnt_family_name
+
     fonts_dir = agent_config.PROJECT_ROOT / "assets" / "fonts"
     out: list[dict] = []
     seen: set[str] = set()
@@ -1858,7 +1858,11 @@ async def list_fonts():
         for f in sorted(fonts_dir.iterdir()):
             if f.suffix.lower() not in _FONT_EXTS:
                 continue
-            family = _FONT_WEIGHT_RE.sub("", f.stem)
+            # 내부 name 테이블이 안 읽히면 폰트 파일이 아니다 (과거 EOT 오다운로드).
+            if _sfnt_family_name(str(f)) is None:
+                logger.warning("list_fonts: 깨진 폰트 파일 제외: %s", f.name)
+                continue
+            family = _font_family_from_file(f.name)
             if family in seen:
                 continue
             seen.add(family)
@@ -1891,6 +1895,22 @@ class SubtitleStyleBody(BaseModel):
 
 class RenderSubtitlesBody(BaseModel):
     style: Optional[SubtitleStyleBody] = None
+
+
+class CueUpdateItem(BaseModel):
+    """update_subtitle_cues 명세 항목 — 매칭 키(id|index|at_ms) + 변경 필드."""
+    id: Optional[str] = None
+    index: Optional[int] = None
+    at_ms: Optional[float] = None
+    text: Optional[str] = None
+    start: Optional[float] = None
+    end: Optional[float] = None
+    style: Optional[dict] = None
+    delete: Optional[bool] = None
+
+
+class CueUpdatesBody(BaseModel):
+    updates: list[CueUpdateItem]
 
 
 def _current_subtitle_style(stem: str) -> dict:
@@ -1934,6 +1954,28 @@ def patch_subtitle_style(stem: str, body: SubtitleStyleBody):
     """스타일 부분 갱신 (style_defaults 병합). 영상 반영은 render 호출."""
     _apply_subtitle_style(stem, body.model_dump())
     return _current_subtitle_style(stem)
+
+
+@app.patch("/api/subtitles/{stem}/cues")
+def patch_subtitle_cues(stem: str, body: CueUpdatesBody):
+    """자막 큐 배치 수정 (텍스트/타이밍/개별 스타일/삭제) — 모션 에디터 저장용.
+
+    영상 반영은 별도로 POST /api/subtitles/{stem}/render 호출.
+    """
+    from agent.tools.subtitle_cues import update_subtitle_cues
+
+    updates = [
+        {k: v for k, v in item.model_dump().items() if v is not None}
+        for item in body.updates
+    ]
+    result = update_subtitle_cues.invoke({"video_path": stem, "updates": updates})
+    if isinstance(result, str) and result.startswith("ERROR"):
+        raise HTTPException(status_code=400, detail=result)
+    data = json.loads(result)
+    if data.get("status") == "error":
+        code = 404 if data.get("error") == "no_cues" else 400
+        raise HTTPException(status_code=code, detail=data.get("error"))
+    return data
 
 
 # sync def — 렌더는 FFmpeg 블로킹 호출이라 threadpool 에서 실행돼야 한다.

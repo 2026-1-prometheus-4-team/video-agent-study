@@ -119,10 +119,62 @@ def _render_error(result: str) -> str | None:
     return None
 
 
+_FONT_MAGIC = (b"\x00\x01\x00\x00", b"OTTO", b"true")
+_family_cache: dict[str, str | None] = {}  # 파일 절대경로 -> 내부 family 명
+
+
+def _sfnt_family_name(font_path: str) -> str | None:
+    """TTF/OTF name 테이블에서 family 명(nameID 16 우선, 없으면 1) 추출.
+
+    libass 는 폰트 *내부* family 명으로만 매칭한다. 파일이 폰트가 아니거나
+    파싱 실패면 None (호출부가 파일명 기반으로 폴백).
+    """
+    import struct
+
+    try:
+        with open(font_path, "rb") as f:
+            data = f.read()
+        if data[:4] not in _FONT_MAGIC:
+            return None
+        num_tables = struct.unpack(">H", data[4:6])[0]
+        for i in range(num_tables):
+            rec = 12 + i * 16
+            if data[rec:rec + 4] != b"name":
+                continue
+            t_off = struct.unpack(">I", data[rec + 8:rec + 12])[0]
+            count, str_off = struct.unpack(">HH", data[t_off + 2:t_off + 6])
+            candidates: dict[tuple[int, bool], str] = {}
+            for j in range(count):
+                r = t_off + 6 + j * 12
+                pid, _eid, lid, nid, length, offset = struct.unpack(
+                    ">6H", data[r:r + 12]
+                )
+                if nid not in (1, 16):
+                    continue
+                raw = data[t_off + str_off + offset:t_off + str_off + offset + length]
+                if pid == 3:  # Windows: UTF-16BE
+                    value = raw.decode("utf-16-be", "ignore").strip()
+                else:  # Mac/Unicode: 사실상 ASCII/Latin-1
+                    value = raw.decode("latin-1", "ignore").strip()
+                if value:
+                    candidates[(nid, pid == 3 and lid == 0x409)] = value
+            # typographic family(16) > legacy family(1), 영어(0x409) 우선
+            for key in ((16, True), (1, True), (16, False), (1, False)):
+                if key in candidates:
+                    return candidates[key]
+            return None
+    except (OSError, struct.error):
+        return None
+    return None
+
+
 def _font_family_from_file(font_file: str) -> str:
-    """폰트 파일명 -> libass FontName. NanumGothic-Regular.ttf -> NanumGothic.
+    """폰트 파일명 -> libass FontName (폰트 내부 family 명).
 
     force_style 의 FontName 은 *패밀리명* 이라 파일명을 그대로 넣으면 매칭 실패.
+    파일명 stem 은 내부 family 와 다른 경우가 많다 (NotoSansKR-Regular.ttf 의
+    내부 명은 "Noto Sans KR"). 이름이 틀리면 libass 가 Arial 로 조용히 폴백해
+    한글이 두부가 되므로, 폰트 파일의 name 테이블에서 직접 읽는다.
     """
     stem = os.path.splitext(os.path.basename(font_file))[0]
     for suffix in ("-Regular", "-Bold", "-Medium", "-Light", "-SemiBold", "-ExtraBold"):
@@ -130,10 +182,16 @@ def _font_family_from_file(font_file: str) -> str:
             stem = stem[: -len(suffix)]
             break
 
-    # File names are not guaranteed to equal the font's internal family name.
-    # In particular, the bundled file is NotoSansKR-Regular.ttf but libass must
-    # receive "Noto Sans KR".  "NotoSansKR" silently falls back to Arial and
-    # Korean subtitles become tofu boxes on hosts without a usable fallback.
+    path = os.path.join(FONTS_DIR, os.path.basename(font_file))
+    if os.path.exists(path):
+        abs_path = os.path.abspath(path)
+        if abs_path not in _family_cache:
+            _family_cache[abs_path] = _sfnt_family_name(abs_path)
+        parsed = _family_cache[abs_path]
+        if parsed:
+            return parsed
+
+    # 파일이 없거나 파싱 실패 — 알려진 패밀리 매핑 후 stem 폴백.
     known_families = {
         "NotoSansKR": "Noto Sans KR",
         "NotoSerifKR": "Noto Serif KR",
