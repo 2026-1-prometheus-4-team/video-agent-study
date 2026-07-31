@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check } from "lucide-react";
 import { useAgentStore } from "../state";
 import { fetchFonts } from "../backend";
@@ -10,6 +10,7 @@ import {
   getSubtitleStyle,
   pathStem,
   renderSubtitles,
+  type SubtitlePosition,
   type SubtitleStyle,
 } from "./subtitleApi";
 import styles from "./subtitle-style.module.css";
@@ -19,6 +20,20 @@ interface Props {
   stem: string;
   status: "pending" | "applied";
   outputPath?: string;
+}
+
+const POSITION_OPTIONS: Array<{ value: SubtitlePosition; label: string }> = [
+  { value: "bottom", label: "하단" },
+  { value: "middle", label: "중앙" },
+  { value: "top", label: "상단" },
+];
+
+/** 백엔드 position 값("bottom-left", "center" 등)을 카드의 3분류로 정규화. */
+function normalizePosition(p: unknown): SubtitlePosition {
+  const v = String(p ?? "");
+  if (v.startsWith("top")) return "top";
+  if (v.startsWith("middle") || v.startsWith("center")) return "middle";
+  return "bottom";
 }
 
 export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
@@ -64,7 +79,7 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
     setLoading(true);
     setError(null);
     getSubtitleStyle(effectiveStem)
-      .then(setStyle)
+      .then((s) => setStyle({ ...s, position: normalizePosition(s.position) }))
       .catch(() => {
         // 백엔드 미연결 or cues.json 없음 → 기본값으로 폴백
         setStyle(DEFAULT_STYLE);
@@ -104,7 +119,13 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
     180 * (style.size / 60) * 0.46
   ));
 
-  const previewBottom = `${4 + (style.margin_v / 100) * 80}%`;
+  // 위치별 프리뷰 배치 — bottom/top 은 여백 비례, middle 은 정중앙.
+  const previewPlacement: CSSProperties =
+    style.position === "top"
+      ? { top: `${4 + (style.margin_v / 100) * 40}%` }
+      : style.position === "middle"
+        ? { top: "50%", transform: "translateY(-50%)" }
+        : { bottom: `${4 + (style.margin_v / 100) * 40}%` };
 
   const strokeShadow = (() => {
     if (!style.stroke_width) return undefined;
@@ -154,7 +175,7 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
         <div
           className={styles.previewSubtitle}
           style={{
-            bottom: previewBottom,
+            ...previewPlacement,
             fontSize: previewFontSize,
             color: style.color,
             fontWeight: style.bold ? 700 : 400,
@@ -276,23 +297,50 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
           <div className={styles.row}>
             <span className={styles.label}>자막 위치</span>
             <div className={styles.rhs}>
-              <div className={styles.sliderWrap}>
-                <input
-                  type="range"
-                  className={styles.slider}
-                  min={0} max={100} value={style.margin_v}
-                  disabled={isApplied}
-                  onChange={(e) => update("margin_v", Number(e.target.value))}
-                  style={{ background: sliderFill(style.margin_v, 0, 100) }}
-                />
-                <span className={styles.sliderVal}>{style.margin_v}</span>
+              <div className={styles.chipGroup} role="radiogroup" aria-label="자막 위치">
+                {POSITION_OPTIONS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    className={styles.chip}
+                    data-on={style.position === p.value || undefined}
+                    disabled={isApplied}
+                    onClick={() => update("position", p.value)}
+                  >
+                    <span className={styles.chipDot} />
+                    {p.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
-          <div className={styles.posHint}>
-            <span className={styles.posHintLabel}>0 · 하단</span>
-            <span className={styles.posHintLabel}>100 · 상단</span>
-          </div>
+
+          {style.position !== "middle" && (
+            <>
+              <div className={styles.row}>
+                <span className={styles.label}>가장자리 여백</span>
+                <div className={styles.rhs}>
+                  <div className={styles.sliderWrap}>
+                    <input
+                      type="range"
+                      className={styles.slider}
+                      min={0} max={100} value={style.margin_v}
+                      disabled={isApplied}
+                      onChange={(e) => update("margin_v", Number(e.target.value))}
+                      style={{ background: sliderFill(style.margin_v, 0, 100) }}
+                    />
+                    <span className={styles.sliderVal}>{style.margin_v}</span>
+                  </div>
+                </div>
+              </div>
+              <div className={styles.posHint}>
+                <span className={styles.posHintLabel}>
+                  {style.position === "top" ? "0 · 상단 밀착" : "0 · 하단 밀착"}
+                </span>
+                <span className={styles.posHintLabel}>100 · 안쪽으로</span>
+              </div>
+            </>
+          )}
 
           <div className={styles.divider} />
 

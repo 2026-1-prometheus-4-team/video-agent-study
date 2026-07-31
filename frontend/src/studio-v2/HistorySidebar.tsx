@@ -2,7 +2,15 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
-import { Film, History, Loader2, MessageSquare, Plus } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
+import {
+  Film,
+  History,
+  Loader2,
+  MessageSquare,
+  PanelLeftClose,
+  Plus,
+} from "lucide-react";
 import {
   fetchSessions,
   loadSession,
@@ -12,10 +20,13 @@ import {
 import { useAgentStore } from "./state";
 import styles from "./history-sidebar.module.css";
 
+const COLLAPSE_KEY = "studio.histCollapsed";
+
 /**
  * HistorySidebar — 지난 대화 목록.
  *
- * 데스크톱(>=1024px): 좌측 고정 rail.
+ * 데스크톱(>=1024px): 좌측 rail — 접기/펼치기 (⌘⇧B, localStorage 기억).
+ * 접힌 상태는 아이콘 rail (펼치기 · 새 대화)만 남는다.
  * 그 이하: 좌상단 FAB → drawer.
  *
  * 마운트 시 GET /sessions. 세션 전환/턴 완료 시 재조회(새 대화가 목록에 뜨게).
@@ -30,6 +41,24 @@ export function HistorySidebar() {
   const [loading, setLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // SSR 과 첫 페인트를 일치시키기 위해 false 로 시작, 마운트 후 저장값 반영.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((c) => {
+      window.localStorage.setItem(COLLAPSE_KEY, c ? "0" : "1");
+      return !c;
+    });
+  }, []);
+
+  useHotkeys("meta+shift+b, ctrl+shift+b", (e) => {
+    e.preventDefault();
+    toggleCollapsed();
+  });
 
   const refresh = useCallback(async () => {
     const list = await fetchSessions();
@@ -86,10 +115,21 @@ export function HistorySidebar() {
     <div className={styles.inner}>
       <div className={styles.head}>
         <span className={styles.headTitle}>대화</span>
-        <button type="button" className={styles.newBtn} onClick={onNew}>
-          <Plus size={13} strokeWidth={2.4} />
-          <span>새 대화</span>
-        </button>
+        <div className={styles.headActions}>
+          <button type="button" className={styles.newBtn} onClick={onNew}>
+            <Plus size={13} strokeWidth={2.4} />
+            <span>새 대화</span>
+          </button>
+          <button
+            type="button"
+            className={styles.collapseBtn}
+            onClick={toggleCollapsed}
+            title="대화 목록 접기 (⌘⇧B)"
+            aria-label="대화 목록 접기"
+          >
+            <PanelLeftClose size={14} strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       <div className={styles.list}>
@@ -134,8 +174,32 @@ export function HistorySidebar() {
 
   return (
     <>
-      {/* 데스크톱 고정 rail */}
-      <aside className={styles.rail}>{panel}</aside>
+      {/* 데스크톱 rail — 접으면 아이콘 컬럼으로 크로스페이드 */}
+      <aside className={styles.rail} data-collapsed={collapsed || undefined}>
+        {panel}
+        <div className={styles.collapsedCol} aria-hidden={!collapsed}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={toggleCollapsed}
+            tabIndex={collapsed ? 0 : -1}
+            title="대화 목록 펼치기 (⌘⇧B)"
+            aria-label="대화 목록 펼치기"
+          >
+            <History size={15} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${styles.iconBtnAccent}`}
+            onClick={onNew}
+            tabIndex={collapsed ? 0 : -1}
+            title="새 대화"
+            aria-label="새 대화"
+          >
+            <Plus size={15} strokeWidth={2.4} />
+          </button>
+        </div>
+      </aside>
 
       {/* 모바일 토글 FAB */}
       <button

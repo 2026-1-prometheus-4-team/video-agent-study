@@ -128,7 +128,9 @@
   right: 8px;
   text-align: center;
   pointer-events: none;
-  transition: bottom 0.12s ease, font-size 0.12s ease, color 0.1s, font-weight 0.1s;
+  transition:
+    bottom 0.12s ease, top 0.12s ease,
+    font-size 0.12s ease, color 0.1s, font-weight 0.1s;
   line-height: 1.3;
   z-index: 2;
 }
