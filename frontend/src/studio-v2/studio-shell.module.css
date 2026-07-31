@@ -7,9 +7,10 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* history rail 은 <1024px 에서 display:none → auto 트랙이 0 으로 접힘 */
+  grid-template-columns: auto auto 1fr;
   grid-template-rows: 1fr;
-  grid-template-areas: "sidebar right";
+  grid-template-areas: "history sidebar right";
   background: var(--bg-app);
   color: var(--text-1);
   overflow: hidden;
@@ -96,9 +97,10 @@
   }
   .stageOverlay {
     top: 12px;
-    left: 60px; /* FAB 자리 확보 */
+    left: 108px; /* 히스토리 FAB + 대화 FAB 자리 확보 */
   }
   .mobileFab {
     display: inline-flex;
+    left: 56px; /* 좌상단 히스토리 FAB(고정 left:14) 옆으로 */
   }
 }

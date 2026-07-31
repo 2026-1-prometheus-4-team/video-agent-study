@@ -185,33 +185,62 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         total_duration += duration
         videos_meta.append({"file_path": f"videos/{filename}", "duration": duration})
         for seg in data.get("segments", []):
+            start = seg["start_ms"] / 1000
+            end = seg["end_ms"] / 1000
+            # 감정/내용 메타를 scene 에 실어보낸다 — 기획의 "감정 비트 선별" 이
+            # 여기에 의존한다. 없는 필드는 생략 (Scene total=False).
             scene = {
-                "start": seg["start_ms"] / 1000,
-                "end": seg["end_ms"] / 1000,
+                "start": start,
+                "end": end,
                 "description": seg.get("description", ""),
-                "transcript": seg.get("transcript", ""),
-                "objects": seg.get("objects", []),
-                "people_count": seg.get("people_count", 0),
-                "people": seg.get("people", []),
-                "actions": seg.get("actions", []),
-                "scene_change": bool(seg.get("scene_change", False)),
-                "mood": seg.get("mood", "neutral"),
             }
             if multi:
-                scene["video"] = f"videos/{filename}"  # 어느 영상의 장면인지
+                scene["video"] = f"videos/{filename}"
+            if seg.get("mood"):
+                scene["mood"] = seg["mood"]
+            if seg.get("objects"):
+                scene["objects"] = seg["objects"]
+            if seg.get("people_count") is not None:
+                scene["people_count"] = seg["people_count"]
+            if seg.get("people"):
+                scene["people"] = seg["people"]
+            if seg.get("actions"):
+                scene["actions"] = seg["actions"]
+            if seg.get("scene_change") is not None:
+                scene["scene_change"] = bool(seg["scene_change"])
+            seg_transcript = seg.get("transcript") or ""
+            if seg_transcript:
+                scene["transcript"] = seg_transcript
             scenes.append(scene)
 
-        for item in data.get("_source_transcript", []):
-            if not isinstance(item, dict) or not str(item.get("text", "")).strip():
-                continue
-            transcript_item = {
-                "start": float(item.get("start", 0)),
-                "end": float(item.get("end", 0)),
-                "text": str(item.get("text", "")).strip(),
-            }
-            if multi:
-                transcript_item["video"] = f"videos/{filename}"
-            transcript.append(transcript_item)
+        source_transcript = [
+            item for item in data.get("_source_transcript", [])
+            if isinstance(item, dict) and str(item.get("text", "")).strip()
+        ]
+        if source_transcript:
+            # Whisper 원본 전사가 있으면 그것만 상위 transcript 로 쓴다 —
+            # 장면 요약 대사를 중복 호이스팅하지 않는다 (발화 시간축이 더 정확).
+            for item in source_transcript:
+                transcript_item = {
+                    "start": float(item.get("start", 0)),
+                    "end": float(item.get("end", 0)),
+                    "text": str(item.get("text", "")).strip(),
+                }
+                if multi:
+                    transcript_item["video"] = f"videos/{filename}"
+                transcript.append(transcript_item)
+        else:
+            # Whisper 전사가 없을 때만 장면 대사를 호이스팅 (자막/검색 blob 이 씀).
+            for seg in data.get("segments", []):
+                seg_transcript = seg.get("transcript") or ""
+                if not seg_transcript:
+                    continue
+                transcript.append({
+                    "start": seg["start_ms"] / 1000,
+                    "end": seg["end_ms"] / 1000,
+                    "text": seg_transcript,
+                    **({"video": f"videos/{filename}"} if multi else {}),
+                })
 
     if not videos_meta:
         errors = [
@@ -235,6 +264,76 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
         len(videos_meta), len(scenes), total_duration,
     )
     return {"video_context": ctx}
+
+
+# =============================================================
+# research_prepass — 기획 이전 트렌드 사전조사
+# =============================================================
+
+# 트렌드 리서치를 원하는 요청인지 판별하는 신호. 이게 없으면 (예: "3초~7초 잘라줘")
+# 리서치를 건너뛰어 비용/지연을 아낀다.
+_RESEARCH_INTENT = re.compile(
+    r"트렌드|트렌디|요즘|유행|레퍼런스|참고|분석해|조사해|리서치|"
+    r"어떻게.*(만들|편집|기획)|기획(해|안|좀)|컨셉|바이럴|떡상|인기.*(영상|쇼츠)",
+    re.I,
+)
+
+
+def _extract_niche(user_request: str) -> str:
+    """요청에서 니치 키워드 대충 뽑기. 실패해도 원문 그대로 넘김."""
+    text = (user_request or "").strip()
+    return text[:80] if text else "숏폼 영상"
+
+
+def research_prepass(state: AgentState) -> dict[str, Any]:
+    """기획 전에 트렌드를 조사해 trend_brief 를 만든다.
+
+    리서치 의도가 감지될 때만 실행 (아니면 no-op). youtube_search + web_search 로
+    니치 트렌드를 긁고 trend_distill 로 증류한 뒤 state['trend_brief'] 에 넣는다.
+    script_node 가 이걸 프롬프트에 주입해 컨셉/BGM/페이싱을 트렌드에 grounding.
+
+    실패(키 없음/쿼터/파싱)해도 조용히 no-op — 기획은 계속 진행된다.
+    """
+    user_request = state.get("user_request", "")
+    if not _RESEARCH_INTENT.search(user_request):
+        return {}
+    if state.get("trend_brief"):
+        return {}  # 재진입 시 재조사 안 함
+
+    import json as _json
+    from agent.tools.research_external import web_search, youtube_search
+    from agent.tools.research_llm import trend_distill
+
+    niche = _extract_niche(user_request)
+    samples_parts: list[str] = []
+    try:
+        yt = youtube_search.invoke({"query": niche, "sort_by": "viewCount", "count": 8})
+        samples_parts.append(str(yt))
+    except Exception:
+        logger.warning("research_prepass: youtube_search 실패", exc_info=True)
+    try:
+        web = web_search.invoke({"query": f"{niche} 숏츠 트렌드", "max_results": 5})
+        samples_parts.append(str(web))
+    except Exception:
+        logger.warning("research_prepass: web_search 실패", exc_info=True)
+
+    samples = "\n\n".join(samples_parts)
+    try:
+        raw = trend_distill.invoke({
+            "niche": niche,
+            "samples": samples,
+            "target_format": "shorts",
+        })
+        brief = _json.loads(raw)
+        if isinstance(brief, dict) and not brief.get("_error"):
+            logger.info(
+                "research_prepass: trend_brief 완성 (요소 %d개)",
+                len(brief.get("trend_elements") or []),
+            )
+            return {"trend_brief": brief}
+    except Exception:
+        logger.warning("research_prepass: trend_distill 실패", exc_info=True)
+    return {}
 
 
 # =============================================================
@@ -807,6 +906,7 @@ def build_graph(checkpointer=None):
     g = StateGraph(AgentState)
 
     g.add_node("analysis", analysis_node)
+    g.add_node("research_prepass", research_prepass)
     g.add_node("script", script_node)
     g.add_node("interrupt_gate", interrupt_gate)
     g.add_node("clarify", clarify_gate)
@@ -816,7 +916,9 @@ def build_graph(checkpointer=None):
     g.add_node("summary", summary_node)
 
     g.add_edge(START, "analysis")
-    g.add_edge("analysis", "script")
+    # 기획 이전 트렌드 사전조사 (리서치 의도 없으면 no-op 통과)
+    g.add_edge("analysis", "research_prepass")
+    g.add_edge("research_prepass", "script")
 
     g.add_conditional_edges(
         "script",

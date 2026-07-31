@@ -7,6 +7,7 @@ import { Check, HelpCircle, MessageSquare, Sparkles } from "lucide-react";
 import type { StreamItem } from "../state";
 import { useAgentStore } from "../state";
 import { tryResumeInterrupt } from "../backend";
+import { Markdown } from "../Markdown";
 import styles from "./rows.module.css";
 
 const NODE_LABEL: Record<string, string> = {
@@ -112,35 +113,52 @@ export function InterruptCard({
         )}
       </div>
 
+      {item.conceptName && (
+        <div className={styles.conceptTitle}>{item.conceptName}</div>
+      )}
+
       {item.creativeBrief && <CreativeBriefView brief={item.creativeBrief} />}
 
-      <div className={styles.interruptSub}>
-        <Sparkles size={11} className={styles.interruptSubIcon} />
-        <span>총 {item.plan.length}단계 · 예상 실행 시간 약 {estTotal(item.plan)}초</span>
-      </div>
-
-      <div className={styles.planList}>
-        {item.plan.map((step, idx) => (
-          <div key={step.id} className={styles.planStep}>
-            <div className={styles.planStepIdx}>{idx + 1}</div>
-            <div className={styles.planStepBody}>
-              <div className={styles.planStepTitle}>
-                <span className={styles.planStepAction}>{step.action}</span>
-                <span className={styles.planStepNode}>
-                  {NODE_LABEL[step.expert]}
-                </span>
-                {step.estimatedSec && (
-                  <span className={styles.planStepEst}>~{step.estimatedSec}s</span>
-                )}
-              </div>
-              <div className={styles.planStepReason}>{step.rationale}</div>
-              {step.parallelGroup && (
-                <div className={styles.planStepBadge}>병렬 실행</div>
-              )}
-            </div>
+      {item.planMarkdown ? (
+        // 기획안(마크다운)이 있으면 steps 리스트 대신 렌더. 길 수 있어 내부 스크롤.
+        <div className={styles.planMarkdown}>
+          <Markdown text={item.planMarkdown} />
+        </div>
+      ) : (
+        <>
+          <div className={styles.interruptSub}>
+            <Sparkles size={11} className={styles.interruptSubIcon} />
+            <span>
+              총 {item.plan.length}단계 · 예상 실행 시간 약 {estTotal(item.plan)}초
+            </span>
           </div>
-        ))}
-      </div>
+
+          <div className={styles.planList}>
+            {item.plan.map((step, idx) => (
+              <div key={step.id} className={styles.planStep}>
+                <div className={styles.planStepIdx}>{idx + 1}</div>
+                <div className={styles.planStepBody}>
+                  <div className={styles.planStepTitle}>
+                    <span className={styles.planStepAction}>{step.action}</span>
+                    <span className={styles.planStepNode}>
+                      {NODE_LABEL[step.expert]}
+                    </span>
+                    {step.estimatedSec && (
+                      <span className={styles.planStepEst}>
+                        ~{step.estimatedSec}s
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.planStepReason}>{step.rationale}</div>
+                  {step.parallelGroup && (
+                    <div className={styles.planStepBadge}>병렬 실행</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {item.questions.length > 0 && (
         <div className={styles.interruptQuestions}>

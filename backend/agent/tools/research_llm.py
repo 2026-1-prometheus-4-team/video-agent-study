@@ -296,4 +296,65 @@ JSON:
     return json.dumps(_llm_json(system, user), ensure_ascii=False)
 
 
-TOOLS = [concept_brainstorm, storyboard_from_concept, hook_suggest, cta_suggest, music_mood_recommend]
+# =============================================================
+# trend_distill — 리서치 원자료를 기획에 쓸 구조로 증류
+# =============================================================
+
+@tool
+def trend_distill(niche: str, samples: str = "", target_format: str = "shorts") -> str:
+    """youtube_search / web_search 결과를 기획에 바로 쓸 트렌드 브리프로 증류.
+
+    "요즘 이사 쇼츠 분석해봐" 처럼 니치가 정해진 창작 요청에서, 검색 원자료를
+    받아 컨셉/트렌드요소/BGM진행/페이싱으로 정리한다. research_prepass 가
+    youtube_search + web_search 를 부른 뒤 그 payload 를 samples 로 넘긴다.
+
+    Args:
+        niche: 니치/주제 (예: "이사 브이로그 쇼츠", "자취 룸투어").
+        samples: 검색 결과 원문 (youtube_search/web_search 의 JSON 문자열들 이어붙임).
+            비어 있으면 일반 숏폼 상식으로 추론.
+        target_format: shorts | reels | youtube.
+
+    Returns:
+        JSON: {niche, trend_elements:[3~5], named_concept, pacing_notes,
+               bgm_progression:[{mood, cue}], references:[{title, url}], hook_ideas:[..]}
+    """
+    system = (
+        "너는 숏폼 트렌드 분석가다. 주어진 니치의 검색 자료(제목/조회수/설명)를 보고 "
+        "지금 이 니치에서 통하는 트렌드를 뽑아 기획에 바로 쓸 형태로 증류한다. "
+        "메타데이터 기반 추론임을 감안해 과장 없이. TREND_RESEARCH.md / CONCEPT_PATTERNS.md "
+        "의 패턴 어휘를 활용. 한국어."
+    )
+    user = f"""니치: {niche}
+타겟 포맷: {target_format}
+
+검색 자료 (없으면 일반 상식으로):
+{samples[:6000] if samples else "(자료 없음)"}
+
+아래 JSON 으로만 응답:
+
+```json
+{{
+  "niche": "{niche}",
+  "trend_elements": ["이 니치에서 지금 통하는 요소 3~5개 (예: 빠른 호흡 컷 편집, 현실 공감 실패 모먼트, 솔직 유쾌 내레이션)"],
+  "named_concept": "이 영상에 붙일 만한 트렌디한 컨셉 이름 한 줄",
+  "pacing_notes": "컷 호흡/길이 가이드 (예: 첫 3초 강훅, 평균 컷 1~2초, 45~60초)",
+  "bgm_progression": [
+    {{"mood": "도입 무드", "cue": "언제/왜"}},
+    {{"mood": "전개 무드", "cue": "언제/왜"}}
+  ],
+  "hook_ideas": ["첫 3초 훅 문구 아이디어 2~3개"],
+  "references": [{{"title": "참고한 자료 제목", "url": "url (자료에 있으면)"}}]
+}}
+```
+"""
+    return json.dumps(_llm_json(system, user), ensure_ascii=False)
+
+
+TOOLS = [
+    concept_brainstorm,
+    storyboard_from_concept,
+    hook_suggest,
+    cta_suggest,
+    music_mood_recommend,
+    trend_distill,
+]

@@ -301,11 +301,45 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 - 애매하면 edit. chat 의 reply 는 대화 요약·직전 결과·분석 데이터를 근거로
   정확하게 답한다 (아는 척 금지 — 모르면 모른다고).
 
+## 창작 기획 vs 단순 편집 (edit 모드에서 한 번 더 판단)
+
+사용자 요청이 *창작 기획*이면 (숏츠/브이로그/릴스 만들어줘, 트렌디하게, 기획해줘 등)
+아래 "기획 층" 필드를 채워 **사람이 읽고 승인할 기획안**을 만든다. 단순 편집
+(자막만 넣어줘, 3초~7초 잘라줘)이면 기획 층은 생략하고 steps 만 채운다.
+
 출력 스키마:
 ```json
 {
   "mode": "edit" | "chat",
   "reply": "<mode=chat 일 때만: 사용자에게 보낼 답변>",
+
+  "concept": {
+    "name": "<컨셉 이름, 예: 우당탕탕 복층 오피스텔 현실 이사 1일차>",
+    "logline": "<한 줄 요약>",
+    "emotional_contrast": "<감정 대비, 예: 기대감 새집 vs 우당탕탕 현실>"
+  },
+  "trend_elements": ["<트렌드 요소, 예: 빠른 호흡 컷 편집>", "<현실 공감 모먼트>", "..."],
+  "timeline": [
+    {
+      "index": 1, "label": "<섹션 이름, 예: 훅>",
+      "start_ms": 0, "end_ms": 5000,
+      "source_videos": ["videos/a.mp4"],
+      "transition": "hard_cut" | "crossfade",
+      "subtitle_text": "<이 섹션 자막 문구 (직접 작성)>",
+      "narration_text": "<나래이션 문구 (직접 작성, 없으면 빈 문자열)>",
+      "sfx": "<효과음 설명, 예: 한숨 효과음>",
+      "emphasis_note": "<감정 포인트>"
+    }
+  ],
+  "bgm_progression": [
+    {"start_ms": 0, "end_ms": 15000, "mood": "경쾌한 브이로그", "cue": "도입 텐션"},
+    {"start_ms": 15000, "end_ms": 30000, "mood": "정적/개그", "cue": "렌치 안 맞을 때"}
+  ],
+  "editing_tips": ["<배속: 짐 옮기는 뻔한 구간 2~4배속>", "<화면분할: 깨끗 vs 지저분 대비>", "<자막: 큰 볼드 + 굵은 외곽선>"],
+  "references": [{"title": "<참고 영상/글 제목>", "url": "<url>"}],
+
+  "plan_markdown": "<위 기획을 사용자가 읽기 좋은 한국어 마크다운으로. 컨셉 → 타임라인 표 → 섹션별 스크립트 → BGM 진행 → 편집 팁 순. 이모지 없이 헤더(##)와 불릿(-)으로 구조화. 이게 승인 카드에 그대로 렌더된다.>",
+
   "target_format": "shorts" | "youtube" | "reels" | "general",
   "target_aspect_ratio": "9:16" | "16:9" | "1:1" | "original",
   "target_duration_sec": <number or null>,
@@ -376,12 +410,34 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 }
 ```
 
+기획 층 원칙:
+- timeline 은 *사람이 읽는 서사*, steps 는 *그걸 실행하는 도구 호출*이다. 둘은 대응하되
+  timeline 섹션 하나가 여러 step 이 될 수 있다 (컷 + 자막 + SFX).
+- **subtitle_text / narration_text 는 직접 작성한다.** 이 창작 요청에서는 STT 전사가 아니라
+  네가 쓴 훅 문구/내레이션이 필요하다 (예: "이사 끝! 인 줄 알았죠?"). authored 모드.
+- **감정 비트로 하이라이트를 고른다**: scenes 의 mood/actions/transcript 를 보고 실패·리액션·
+  웃긴 순간(mood ∈ tense/energetic, actions 에 실수/놀람)을 하이라이트로, 정적인 이동/정리
+  구간은 배속 후보로. 키워드가 아니라 감정/유머로 선별.
+- bgm_progression 은 서사 흐름을 따라 음악이 바뀌게 (도입 경쾌 → 갈등 개그 → 마무리 힐링).
+- trend_elements/references 는 trend_brief 가 있으면 거기서 채우고, 없으면 일반 숏폼 상식으로.
+- plan_markdown 은 반드시 채운다 (기획 요청일 때). 사용자가 이걸 보고 승인/수정한다.
+
 action 종류 (TOOLS.md 참조):
-- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments, cut_by_description(필요 장면 추출), remove_video_segments(명시 구간 제거), remove_by_description(불필요 장면 검색+제거), resize_video(화면비 변환: 9:16 쇼츠 등)
-- **audio_expert**: transcribe_video, text_to_speech, generate_bgm, add_bgm, generate_sfx, add_sfx, mix_audio, denoise, normalize_loudness
-- **text_expert**: add_subtitle, add_auto_subtitle, add_title, add_caption, add_captions_batch, add_emoji_overlay
+- **edit_expert**: cut_video(start_ms/end_ms, ms 단위), merge_video, search_video_segments,
+  cut_by_description(자연어 장면 검색+자동 컷), remove_video_segments(명시 구간 제거),
+  remove_by_description(불필요 장면 검색+제거), resize_video(화면비 변환: 9:16 쇼츠 등),
+  speed_video(구간 배속 0.5~4x — 뻔한 이동/정리 구간용), split_screen(두 영상 화면분할 vstack/hstack — 대비용),
+  crossfade_video(클립들 부드러운 디졸브 전환)
+- **audio_expert**: transcribe_video, text_to_speech, transcribe_video_to_speech(영상 발화를 다른 목소리로 더빙),
+  generate_bgm, add_bgm, add_bgm_progression(구간별 다른 BGM — 도입 경쾌→갈등 개그→마무리 힐링),
+  generate_sfx(자연어로 효과음 생성: "한숨 소리", "띠로리 실패음"), add_sfx(효과음 시점 삽입),
+  mix_audio, denoise, normalize_loudness
+- **text_expert**: add_auto_subtitle, add_subtitle, add_title, add_caption, add_captions_batch, add_emoji_overlay,
+  list_subtitle_cues, update_subtitle_cues, set_subtitle_style(preset 지정 가능), add_subtitle_cue, render_subtitles
 - **effect_expert**: apply_remotion_effect, query_effect_catalog
-- **research_expert**: web_search, youtube_trend
+- **research_expert**: web_search, youtube_search(니치 검색 — youtube_trend 보다 우선),
+  youtube_trend(카테고리 인기), channel_analysis, concept_brainstorm, hook_suggest,
+  cta_suggest, music_mood_recommend, trend_distill
 
 원칙:
 
@@ -453,8 +509,11 @@ action 종류 (TOOLS.md 참조):
 
 - **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
   미구현이라 실행이 실패한다.) 화면비 변환은 `resize_video` 로 처리하고,
-  subject-aware 리프레임·속도 조절처럼 아직 없는 기능만 step 대신
+  subject-aware 리프레임처럼 아직 없는 기능만 step 대신
   `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
+- **쇼츠 창작 편집 조합** (참고): search/cut_by_description 으로 감정 비트 선별 → speed_video 로
+  뻔한 구간 배속 → resize_video 9:16 → add_auto_subtitle(쇼츠 볼드 자막) → add_bgm_progression →
+  generate_sfx+add_sfx 로 포인트 효과음. 필요한 것만 골라 쓴다.
 - 사용자 요청에 필요한 작업은 빠뜨리지 않되, 같은 expert의 연속 작업은 가능한 한 묶는다.
   전체 step은 보통 15개 이내, 최대 20개로 제한하고, 같은 종류의 반복 작업은
   배치 도구 또는 한 expert 호출로 묶는다. 숫자를 맞추려고 명시된 요구를 누락하지는
@@ -506,9 +565,13 @@ action 종류 (TOOLS.md 참조):
   장면 설명 캡션은 사용자가 "장면 설명을 자막으로" 처럼 명시했을 때만 add_caption 으로 하되,
   2개 이상이면 `add_captions_batch` 한 step으로 묶는다.
   영상에 음성이 없다고 판단되면 questions 로 사용자에게 확인 (묘사 캡션 대체 여부).
-- **자막 수정 요청 ("두번째 자막 오타", "이 자막만 노란색", "자막 전부 위로") 은 재전사가 아니라
-  큐 수정이다**: text_expert 의 list_subtitle_cues → update_subtitle_cues / set_subtitle_style →
-  render_subtitles 경로. 전체 재전사(add_auto_subtitle 재실행) 금지 — 기존 수정이 다 날아간다.
+- **자막 수정 요청 ("두번째 자막 오타", "이 자막만 노란색/위로/pop 효과", "폰트 검은고딕으로") 은
+  재전사가 아니라 큐 수정이다**: text_expert 의 list_subtitle_cues → update_subtitle_cues /
+  set_subtitle_style → render_subtitles 경로. 전체 재전사(add_auto_subtitle 재실행) 금지.
+  자막 스타일 자유도: position(9방향)/color(임의 hex)/size/font/bold/stroke/effect 전부 per-cue
+  또는 전역으로 프롬프트로 바꿀 수 있다. effect = pop/bounce/slide_up/fade/typewriter.
+- **쇼츠 자막 기본은 크고 굵게**: 쇼츠/릴스면 set_subtitle_style preset="shorts_bold" (또는
+  add_auto_subtitle 에 platform=shorts) 로 큰 볼드+굵은 외곽선. 사용자가 다른 요청 없으면 이게 기본.
 - **입력 영상이 여러 개인 경우**: 각 scene 의 `video` 필드가 어느 영상의 장면인지 알려준다.
   cut step 의 video_path 에 반드시 그 scene 의 video 값을 그대로 지정할 것.
   서로 다른 영상에서 자른 클립들도 merge_video 로 이어붙일 수 있다 (해상도/코덱이 달라도 자동 재인코딩).

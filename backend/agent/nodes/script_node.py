@@ -561,6 +561,19 @@ def script_node(state: AgentState) -> dict[str, Any]:
         user_request,
     ]
 
+    # 트렌드 사전조사 결과 (research_prepass 산출). 있으면 컨셉/BGM/페이싱을
+    # 여기에 grounding — trend_elements / references 는 이걸로 채운다.
+    trend_brief = state.get("trend_brief")
+    if trend_brief:
+        user_parts.append("\n# 트렌드 사전조사 (이걸 기획에 반영)")
+        user_parts.append("```json")
+        user_parts.append(json.dumps(trend_brief, ensure_ascii=False, indent=2))
+        user_parts.append("```")
+        user_parts.append(
+            "위 트렌드를 concept/trend_elements/bgm_progression/pacing 에 반영하고, "
+            "references 는 여기 자료로 채워라."
+        )
+
     if state.get("video_paths"):
         user_parts.append("\n# 원본 영상")
         for p in state["video_paths"]:
@@ -595,17 +608,17 @@ def script_node(state: AgentState) -> dict[str, Any]:
 
     user_text = "\n".join(user_parts)
 
-    # LLM 호출
+    # LLM 호출 — 안정 prefix(sys_text)는 Gemini explicit cache 로 재사용해
+    # 매 턴 ~20k prompt 토큰 반복 비용을 줄인다 (실패 시 자동 inline 폴백).
     # Script 노드는 아래에서 명시적으로 한 번만 축약 재시도한다. SDK 내부
     # 재시도까지 겹치면 한 요청이 수 분 동안 UI의 busy 상태를 점유한다.
-    llm = make_llm("script", max_retries=0, timeout=90, temperature=0.1)
+    from agent.llm import system_user_invoke
+
     compact_attempted = False
     try:
-        ai_msg = llm.invoke(
-            [
-                SystemMessage(content=sys_text),
-                HumanMessage(content=user_text),
-            ]
+        ai_msg = system_user_invoke(
+            "script", sys_text, user_text,
+            temperature=0.1, max_retries=0, timeout=90,
         )
     except Exception as e:
         # 긴 프롬프트가 Gemini 서버 deadline에 걸리면 거버넌스/few-shot까지

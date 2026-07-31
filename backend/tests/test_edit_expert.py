@@ -15,6 +15,7 @@ import pytest
 
 from agent.tools.edit import (
     _orientation_args,
+    crossfade_video,
     cut_by_description,
     cut_video,
     merge_video,
@@ -22,6 +23,8 @@ from agent.tools.edit import (
     remove_video_segments,
     resize_video,
     search_video_segments,
+    speed_video,
+    split_screen,
 )
 
 
@@ -630,6 +633,240 @@ class TestResizeVideo:
         result = resize_video.invoke({"video_path": "nonexistent.mp4"})
         assert result.startswith("ERROR")
 
+
+# =============================================================
+# speed_video — 배속
+# =============================================================
+
+class TestSpeedVideo:
+    def test_whole_video_no_audio_builds_setpts(self, tmp_path):
+        """오디오 없는 영상 전체 배속: setpts 만, atempo 없음."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=False):
+            _mock_ffmpeg_success(mock_run)
+            result = speed_video.invoke({
+                "video_path": str(fake_video),
+                "factor": 2.0,
+            })
+
+        assert not result.startswith("ERROR"), result
+        cmd = mock_run.call_args[0][0]
+        joined = " ".join(cmd)
+        assert "setpts=PTS/2.0" in joined
+        assert "atempo" not in joined
+        assert "-an" in cmd
+
+    def test_whole_video_4x_chains_atempo_twice(self, tmp_path):
+        """오디오 있는 4배속: setpts=PTS/4.0 + atempo=2.0 두 번 체이닝."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=True):
+            _mock_ffmpeg_success(mock_run)
+            result = speed_video.invoke({
+                "video_path": str(fake_video),
+                "factor": 4.0,
+            })
+
+        assert not result.startswith("ERROR"), result
+        fc = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-filter_complex") + 1]
+        assert "setpts=PTS/4.0" in fc
+        assert fc.count("atempo=2.0") == 2
+
+    def test_segment_speed_cuts_and_merges(self, tmp_path):
+        """구간 배속: 앞/뒤 원속도 컷 + 구간 배속 후 병합."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=False), \
+             patch("agent.tools.edit._ffprobe_duration_sec", return_value=10.0):
+            _mock_ffmpeg_success(mock_run)
+            result = speed_video.invoke({
+                "video_path": str(fake_video),
+                "factor": 2.0,
+                "start_ms": 2000,
+                "end_ms": 5000,
+                "output_path": "sped.mp4",
+            })
+
+        assert result == str(tmp_path / "sped.mp4")
+        # 여러 ffmpeg 호출 중 하나는 구간 배속(setpts) 명령이어야 한다.
+        assert any(
+            any("setpts=PTS/2.0" in str(arg) for arg in call.args[0])
+            for call in mock_run.call_args_list
+        )
+        # 앞(원속도 컷) + 배속 구간 + 뒤(원속도 컷) + 병합 = 최소 4회 호출
+        assert mock_run.call_count >= 4
+
+    def test_invalid_factor(self, tmp_path):
+        """factor 범위(0.5~4.0) 밖 -> ERROR."""
+        fake_video = tmp_path / "sample.mp4"
+        fake_video.write_bytes(b"fake")
+
+        result = speed_video.invoke({
+            "video_path": str(fake_video),
+            "factor": 5.0,
+        })
+        assert result.startswith("ERROR")
+        assert "factor" in result
+
+    def test_file_not_found(self):
+        result = speed_video.invoke({"video_path": "nonexistent.mp4", "factor": 2.0})
+        assert result.startswith("ERROR")
+
+
+# =============================================================
+# split_screen — 화면 분할
+# =============================================================
+
+class TestSplitScreen:
+    def test_vstack_builds_vstack_filter(self, tmp_path):
+        """vstack: 각 패널 1080x960 + vstack 필터."""
+        clip1 = tmp_path / "a.mp4"
+        clip2 = tmp_path / "b.mp4"
+        clip1.write_bytes(b"f1")
+        clip2.write_bytes(b"f2")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)):
+            _mock_ffmpeg_success(mock_run)
+            result = split_screen.invoke({
+                "video_paths": [str(clip1), str(clip2)],
+                "layout": "vstack",
+            })
+
+        assert not result.startswith("ERROR"), result
+        fc = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-filter_complex") + 1]
+        assert "vstack=inputs=2:shortest=1" in fc
+        assert "1080:960" in fc
+
+    def test_hstack_builds_hstack_filter(self, tmp_path):
+        """hstack: 각 패널 540x1920 + hstack 필터."""
+        clip1 = tmp_path / "a.mp4"
+        clip2 = tmp_path / "b.mp4"
+        clip1.write_bytes(b"f1")
+        clip2.write_bytes(b"f2")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)):
+            _mock_ffmpeg_success(mock_run)
+            result = split_screen.invoke({
+                "video_paths": [str(clip1), str(clip2)],
+                "layout": "hstack",
+            })
+
+        assert not result.startswith("ERROR"), result
+        fc = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-filter_complex") + 1]
+        assert "hstack=inputs=2" in fc
+        assert "540:1920" in fc
+
+    def test_requires_two_videos(self, tmp_path):
+        """영상 1개 -> ERROR."""
+        clip1 = tmp_path / "a.mp4"
+        clip1.write_bytes(b"f1")
+
+        result = split_screen.invoke({"video_paths": [str(clip1)]})
+        assert result.startswith("ERROR")
+
+    def test_invalid_layout(self, tmp_path):
+        clip1 = tmp_path / "a.mp4"
+        clip2 = tmp_path / "b.mp4"
+        clip1.write_bytes(b"f1")
+        clip2.write_bytes(b"f2")
+
+        result = split_screen.invoke({
+            "video_paths": [str(clip1), str(clip2)],
+            "layout": "grid",
+        })
+        assert result.startswith("ERROR")
+        assert "layout" in result
+
+
+# =============================================================
+# crossfade_video — 크로스페이드 전환
+# =============================================================
+
+class TestCrossfadeVideo:
+    def test_builds_xfade_chain_with_offsets(self, tmp_path):
+        """3개 클립 -> xfade 2회 체이닝 + 누적 offset 계산."""
+        clips = []
+        for name in ("a.mp4", "b.mp4", "c.mp4"):
+            p = tmp_path / name
+            p.write_bytes(b"fake")
+            clips.append(str(p))
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=False), \
+             patch("agent.tools.edit._ffprobe_duration_sec", return_value=5.0):
+            _mock_ffmpeg_success(mock_run)
+            result = crossfade_video.invoke({
+                "clip_paths": clips,
+                "duration": 0.4,
+            })
+
+        assert not result.startswith("ERROR"), result
+        fc = mock_run.call_args[0][0][mock_run.call_args[0][0].index("-filter_complex") + 1]
+        assert fc.count("xfade=transition=fade") == 2
+        # d0=5.0 -> offset1 = 5.0-0.4 = 4.600, 누적 9.6 -> offset2 = 9.200
+        assert "offset=4.600" in fc
+        assert "offset=9.200" in fc
+
+    def test_with_audio_adds_acrossfade(self, tmp_path):
+        """모든 클립에 오디오 있으면 acrossfade 도 체이닝."""
+        clips = []
+        for name in ("a.mp4", "b.mp4"):
+            p = tmp_path / name
+            p.write_bytes(b"fake")
+            clips.append(str(p))
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run, \
+             patch("agent.tools.edit.OUTPUTS_DIR", str(tmp_path)), \
+             patch("agent.tools.edit._ffprobe_has_audio", return_value=True), \
+             patch("agent.tools.edit._ffprobe_duration_sec", return_value=5.0):
+            _mock_ffmpeg_success(mock_run)
+            result = crossfade_video.invoke({"clip_paths": clips})
+
+        assert not result.startswith("ERROR"), result
+        cmd = mock_run.call_args[0][0]
+        fc = cmd[cmd.index("-filter_complex") + 1]
+        assert "acrossfade=d=0.4" in fc
+        assert "[aout]" in cmd
+
+    def test_duration_longer_than_clip(self, tmp_path):
+        """전환 길이가 클립보다 길면 -> ERROR."""
+        clips = []
+        for name in ("a.mp4", "b.mp4"):
+            p = tmp_path / name
+            p.write_bytes(b"fake")
+            clips.append(str(p))
+
+        with patch("agent.tools.edit._ffprobe_duration_sec", return_value=0.2):
+            result = crossfade_video.invoke({"clip_paths": clips, "duration": 0.4})
+        assert result.startswith("ERROR")
+
+    def test_single_clip_returns_path(self, tmp_path):
+        """클립 1개면 FFmpeg 없이 그 경로 반환."""
+        clip1 = tmp_path / "a.mp4"
+        clip1.write_bytes(b"fake")
+
+        with patch("agent.tools.edit.subprocess.run") as mock_run:
+            result = crossfade_video.invoke({"clip_paths": [str(clip1)]})
+
+        mock_run.assert_not_called()
+        assert result == str(clip1)
+
+    def test_empty_list(self):
+        result = crossfade_video.invoke({"clip_paths": []})
+        assert result.startswith("ERROR")
 
 
 # =============================================================

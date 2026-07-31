@@ -483,6 +483,39 @@ async def create_session(request: CreateSessionRequest):
     )
 
 
+@app.get("/sessions")
+async def list_sessions(limit: int = 50):
+    """지난 세션 목록 (UI 히스토리 사이드바용). DB 기반 — 서버 재시작해도 보인다.
+
+    각 항목: {session_id, title, preview, status, video_paths, message_count,
+    created_at, updated_at}. 메시지가 하나도 없는 빈 세션은 제외.
+    """
+    rows = await SessionRepo.list_sessions(limit=max(1, min(limit, 200)))
+    return {"sessions": [r for r in rows if r.get("message_count", 0) > 0]}
+
+
+@app.get("/session/{session_id}/history")
+async def session_history(session_id: str):
+    """세션의 전체 대화 로그 (시간순). UI 가 지난 대화를 재구성한다.
+
+    in-memory sessions 에 없어도 (서버 재시작 후) DB 에서 읽어 반환한다.
+    """
+    messages = await SessionRepo.get_messages(session_id)
+    live = session_id in sessions
+    result: dict = {"session_id": session_id, "live": live, "messages": messages}
+    # 살아있는 세션이면 최종 결과물/컨텍스트/pending 도 함께 (재개용)
+    if live:
+        try:
+            info = await get_session(session_id)
+            result["final_output_path"] = info.get("final_output_path")
+            result["final_output_url"] = info.get("final_output_url")
+            result["video_context"] = info.get("video_context")
+            result["pending_interrupt"] = info.get("pending_interrupt")
+        except Exception:
+            pass
+    return result
+
+
 @app.get("/session/{session_id}")
 async def get_session(session_id: str):
     """세션 정보를 조회한다. 그래프가 실행된 적 있으면 최종 상태 요약 포함."""
@@ -681,6 +714,10 @@ PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
         "영상 분석 중",
         "씬 감지 · Whisper 자막 · Gemini 시각 요약 (최대 60초)",
     ),
+    "research_prepass": (
+        "트렌드 리서치 중",
+        "요즘 숏폼 트렌드 · 레퍼런스 조사 (기획에 반영)",
+    ),
     "script": (
         "편집 계획 초안 준비 중",
         "타겟 포맷 · 편집 시나리오 · TTS/BGM 옵션 검토",
@@ -702,7 +739,8 @@ PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
 # 어떤 노드가 끝나면 다음에 어떤 노드가 실행되는지. interrupt_gate 는 phase
 # 이벤트가 아니라 interrupt 이벤트로 대체하므로 매핑에서 skip.
 NEXT_PHASE: dict[str, Optional[str]] = {
-    "analysis": "script",
+    "analysis": "research_prepass",
+    "research_prepass": "script",
     "script": None,   # 다음은 interrupt_gate → interrupt 이벤트가 대체
     "supervisor": "critic",
     "critic": None,
@@ -1794,6 +1832,40 @@ async def chat_stream(websocket: WebSocket, session_id: str):
                 turn_task.add_done_callback(
                     lambda t: t.exception() if not t.cancelled() else None
                 )
+
+
+# -------------------------------------------------------------------
+# 폰트 목록 (UI 자막 폰트 드롭다운용)
+# -------------------------------------------------------------------
+
+_FONT_EXTS = {".ttf", ".otf", ".ttc"}
+_FONT_WEIGHT_RE = re.compile(
+    r"-(Regular|Bold|Medium|Light|SemiBold|ExtraBold|Thin|Black)$", re.I
+)
+
+
+@app.get("/fonts")
+async def list_fonts():
+    """assets/fonts/ 에 실제로 있는 자막 폰트 목록.
+
+    각 항목 {file, family}. 스크립트(download_fonts.py) 미실행이면 기본
+    NotoSansKR 하나만 나온다. 프론트 드롭다운이 family 로 "자막 폰트 X로" 채운다.
+    """
+    fonts_dir = agent_config.PROJECT_ROOT / "assets" / "fonts"
+    out: list[dict] = []
+    seen: set[str] = set()
+    try:
+        for f in sorted(fonts_dir.iterdir()):
+            if f.suffix.lower() not in _FONT_EXTS:
+                continue
+            family = _FONT_WEIGHT_RE.sub("", f.stem)
+            if family in seen:
+                continue
+            seen.add(family)
+            out.append({"file": f.name, "family": family})
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    return {"fonts": out}
 
 
 # -------------------------------------------------------------------

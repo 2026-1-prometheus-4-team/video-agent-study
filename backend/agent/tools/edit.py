@@ -104,6 +104,31 @@ def _ffprobe_has_audio(path: str) -> bool:
         return False
 
 
+def _ffprobe_duration_sec(path: str) -> Optional[float]:
+    """영상 길이를 초 단위로 프로빙. 실패 시 None (호출부에서 에러 처리)."""
+    try:
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "json",
+            path,
+        ]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        duration = (data.get("format") or {}).get("duration")
+        return float(duration) if duration is not None else None
+    except Exception:
+        return None
+
+
 def _streams_compatible(metas: list[dict | None]) -> bool:
     if not metas or any(meta is None for meta in metas):
         return True
@@ -1477,6 +1502,374 @@ def resize_video(
         return f"ERROR: {e}"
 
 
+def _fmt_ratio(value: float) -> str:
+    """배율을 필터 문자열용으로 포맷. 1.0 -> "1.0", 1.5 -> "1.5" 처럼 소수부를 남긴다."""
+    text = f"{value:.3f}".rstrip("0").rstrip(".")
+    return text if "." in text else f"{text}.0"
+
+
+def _atempo_chain(factor: float) -> list[str]:
+    """atempo 는 0.5~2.0 배속만 지원 -> 범위를 벗어나면 2.0/0.5 단위로 분해해
+    곱(체이닝)으로 표현한다. 예: 4.0배 -> ["atempo=2.0", "atempo=2.0"]."""
+    tempos: list[float] = []
+    remaining = factor
+    while remaining > 2.0 + 1e-9:
+        tempos.append(2.0)
+        remaining /= 2.0
+    while remaining < 0.5 - 1e-9:
+        tempos.append(0.5)
+        remaining /= 0.5
+    tempos.append(remaining)
+    return [f"atempo={_fmt_ratio(t)}" for t in tempos]
+
+
+def _build_speed_cmd(
+    input_path: str, factor: float, has_audio: bool, output_path: str
+) -> list[str]:
+    """단일 파일 전체에 배속을 적용하는 ffmpeg 명령을 만든다.
+
+    영상은 setpts=PTS/factor, 오디오는 atempo 체인. 인코딩은 cut_video 와 동일하게
+    통일해 이후 concat(merge_video) 호환을 보장한다.
+    """
+    setpts = f"setpts=PTS/{_fmt_ratio(factor)}"
+    if has_audio:
+        atempo = ",".join(_atempo_chain(factor))
+        return [
+            "ffmpeg", "-y",
+            "-i", input_path,
+            "-filter_complex", f"[0:v]{setpts}[v];[0:a]{atempo}[a]",
+            "-map", "[v]", "-map", "[a]",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            output_path,
+        ]
+    return [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-filter:v", setpts,
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-pix_fmt", "yuv420p",
+        "-an",
+        output_path,
+    ]
+
+
+@tool
+def speed_video(
+    video_path: str,
+    factor: float,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    output_path: Optional[str] = None,
+) -> str:
+    """영상 전체 또는 특정 구간의 재생 속도를 바꾼다. "지루한 이사 장면 4배속" 등.
+
+    영상은 setpts=PTS/factor, 오디오는 atempo 로 속도를 조절한다. atempo 는
+    0.5~2.0 만 지원하므로 4배속은 atempo=2.0 을 두 번 체이닝한다.
+    start_ms/end_ms 를 주면 해당 구간만 배속하고, 앞뒤는 원속도로 잘라 유지한 뒤
+    다시 이어붙인다(concat). 인코딩은 cut_video 와 동일해 병합이 안전하다.
+
+    Args:
+        video_path: 원본 영상 경로. 절대경로, 프로젝트 루트 상대경로, 또는 videos/ 기준 파일명.
+        factor: 속도 배율. 0.5(절반 느리게) ~ 4.0(4배 빠르게).
+        start_ms: 배속 시작 시각(ms). 생략 시 처음부터.
+        end_ms: 배속 종료 시각(ms). 생략 시 영상 끝까지.
+        output_path: 저장 경로. 생략 시 outputs/speed_<id>.mp4.
+
+    Returns:
+        성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
+    """
+    try:
+        resolved = _resolve_video_path(video_path)
+        if not os.path.exists(resolved):
+            return f"ERROR: 파일을 찾을 수 없음: {resolved}"
+
+        factor = float(factor)
+        if not (0.5 <= factor <= 4.0):
+            return f"ERROR: factor 는 0.5 ~ 4.0 범위만 지원: {factor}"
+
+        output_path = _resolve_output_path(output_path, "speed", resolved)
+        has_audio = _ffprobe_has_audio(resolved)
+
+        # 전체 배속: 단일 명령
+        if start_ms is None and end_ms is None:
+            cmd = _build_speed_cmd(resolved, factor, has_audio, output_path)
+            logger.info("speed_video 전체 %sx: %s -> %s", factor, resolved, output_path)
+            code, stderr = _run_ffmpeg(cmd)
+            if code != 0:
+                return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
+            if not os.path.exists(output_path):
+                return f"ERROR: 출력 파일 생성 실패: {output_path}"
+            return output_path
+
+        # 구간 배속: 영상 길이 필요 (앞/뒤 원속도 구간 계산)
+        duration_sec = _ffprobe_duration_sec(resolved)
+        if duration_sec is None:
+            return "ERROR: 영상 길이 프로빙 실패 (ffprobe)."
+        total_ms = int(round(duration_sec * 1000))
+
+        seg_start = 0 if start_ms is None else int(round(float(start_ms)))
+        seg_end = total_ms if end_ms is None else int(round(float(end_ms)))
+        seg_end = min(seg_end, total_ms)
+        if seg_start < 0 or seg_end <= seg_start or seg_start >= total_ms:
+            return (
+                f"ERROR: 잘못된 구간: start_ms={seg_start}, end_ms={seg_end}, "
+                f"영상 길이={total_ms}ms"
+            )
+
+        parts: list[str] = []
+        # 앞 구간 (원속도)
+        if seg_start > 0:
+            before = cut_video.invoke({
+                "video_path": resolved, "start_ms": 0, "end_ms": seg_start,
+            })
+            if isinstance(before, str) and before.startswith("ERROR"):
+                return before
+            parts.append(before)
+
+        # 배속 구간: 잘라낸 뒤 파일 전체에 배속 적용
+        seg_clip = cut_video.invoke({
+            "video_path": resolved, "start_ms": seg_start, "end_ms": seg_end,
+        })
+        if isinstance(seg_clip, str) and seg_clip.startswith("ERROR"):
+            return seg_clip
+        seg_sped = _resolve_output_path(None, "speed_seg", resolved)
+        cmd = _build_speed_cmd(seg_clip, factor, has_audio, seg_sped)
+        logger.info(
+            "speed_video 구간 %sx [%dms~%dms]: %s", factor, seg_start, seg_end, resolved
+        )
+        code, stderr = _run_ffmpeg(cmd)
+        if code != 0:
+            return f"ERROR: FFmpeg 구간 배속 실패 (rc={code}): {stderr[-300:]}"
+        parts.append(seg_sped)
+
+        # 뒤 구간 (원속도)
+        if seg_end < total_ms:
+            after = cut_video.invoke({
+                "video_path": resolved, "start_ms": seg_end, "end_ms": total_ms,
+            })
+            if isinstance(after, str) and after.startswith("ERROR"):
+                return after
+            parts.append(after)
+
+        # 구간이 곧 영상 전체였으면 배속 결과를 그대로 출력 경로로 사용
+        if len(parts) == 1:
+            os.replace(parts[0], output_path)
+            return output_path
+
+        merged = merge_video.invoke({"clip_paths": parts, "output_path": output_path})
+        if isinstance(merged, str) and merged.startswith("ERROR"):
+            return merged
+        return merged
+
+    except FileNotFoundError:
+        return "ERROR: ffmpeg 바이너리를 찾을 수 없습니다."
+    except Exception as e:
+        logger.exception("speed_video 예외")
+        return f"ERROR: {e}"
+
+
+_SPLIT_PANEL = {
+    # 최종 캔버스 1080x1920 (9:16 쇼츠) 기준 각 패널 크기
+    "vstack": (1080, 960),   # 위아래 2분할
+    "hstack": (540, 1920),   # 좌우 2분할
+}
+
+
+@tool
+def split_screen(
+    video_paths: list[str],
+    output_path: Optional[str] = None,
+    layout: str = "vstack",
+    duration_source: str = "shortest",
+) -> str:
+    """두 영상을 한 화면에 분할 배치한다. "깨끗한 새집 vs 지저분한 짐" 대비 등.
+
+    쇼츠(9:16)에 맞춰 최종 1080x1920 캔버스로 만든다. vstack 은 위아래(각 1080x960),
+    hstack 은 좌우(각 540x1920)로 나눈다. 각 영상은 패널 비율에 맞춰 축소한 뒤
+    남는 영역을 검은 여백으로 채워(letterbox) 배치한다.
+
+    Args:
+        video_paths: 분할할 영상 경로 목록. 2개 사용 (3개 이상이면 앞 2개만).
+        output_path: 저장 경로. 생략 시 outputs/split_<id>.mp4.
+        layout: "vstack"(위아래, 쇼츠 기본) | "hstack"(좌우).
+        duration_source: "shortest"(짧은 쪽에서 종료) | "longest"(긴 쪽까지).
+
+    Returns:
+        성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
+    """
+    try:
+        if not video_paths or len(video_paths) < 2:
+            return "ERROR: split_screen 은 영상 2개가 필요합니다."
+        if layout not in _SPLIT_PANEL:
+            return f"ERROR: layout 은 vstack 또는 hstack 만 가능: {layout}"
+        if duration_source not in ("shortest", "longest"):
+            return (
+                f"ERROR: duration_source 는 shortest 또는 longest 만 가능: {duration_source}"
+            )
+
+        if len(video_paths) > 2:
+            logger.warning("split_screen: 영상 %d개 중 앞 2개만 사용", len(video_paths))
+        selected = [_resolve_video_path(p) for p in video_paths[:2]]
+        for path in selected:
+            if not os.path.exists(path):
+                return f"ERROR: 파일을 찾을 수 없음: {path}"
+
+        output_path = _resolve_output_path(output_path, "split", selected[0])
+        pw, ph = _SPLIT_PANEL[layout]
+        shortest_flag = 1 if duration_source == "shortest" else 0
+
+        panel = (
+            f"scale={pw}:{ph}:force_original_aspect_ratio=decrease,"
+            f"pad={pw}:{ph}:(ow-iw)/2:(oh-ih)/2:black,setsar=1"
+        )
+        filter_complex = (
+            f"[0:v]{panel}[v0];"
+            f"[1:v]{panel}[v1];"
+            f"[v0][v1]{layout}=inputs=2:shortest={shortest_flag}[v]"
+        )
+
+        tail = ["-shortest"] if duration_source == "shortest" else []
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", selected[0],
+            "-i", selected[1],
+            "-filter_complex", filter_complex,
+            "-map", "[v]",
+            "-map", "0:a?",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            *tail,
+            output_path,
+        ]
+
+        logger.info(
+            "split_screen %s: %s + %s -> %s",
+            layout, os.path.basename(selected[0]), os.path.basename(selected[1]), output_path,
+        )
+        code, stderr = _run_ffmpeg(cmd)
+        if code != 0:
+            return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
+        if not os.path.exists(output_path):
+            return f"ERROR: 출력 파일 생성 실패: {output_path}"
+        return output_path
+
+    except FileNotFoundError:
+        return "ERROR: ffmpeg 바이너리를 찾을 수 없습니다."
+    except Exception as e:
+        logger.exception("split_screen 예외")
+        return f"ERROR: {e}"
+
+
+@tool
+def crossfade_video(
+    clip_paths: list[str],
+    duration: float = 0.4,
+    output_path: Optional[str] = None,
+) -> str:
+    """클립들을 크로스페이드(디졸브) 전환으로 부드럽게 이어붙인다.
+
+    하드컷(딱 잘리는 전환)은 merge_video 로 처리하고, 이 도구는 클립 사이를
+    부드럽게 녹여 전환할 때 쓴다. 영상은 xfade, 오디오는 acrossfade 를 사용한다.
+    각 클립 길이를 ffprobe 로 구해 xfade offset(직전까지 누적 길이 - duration)을
+    순차 누적 계산한다. 클립들의 해상도/프레임레이트가 같아야 xfade 가 동작한다.
+
+    Args:
+        clip_paths: 이어붙일 클립 경로 목록 (순서대로). 최소 2개.
+        duration: 전환(디졸브) 길이(초). 기본 0.4. 각 클립 길이보다 짧아야 함.
+        output_path: 저장 경로. 생략 시 outputs/xfade_<id>.mp4.
+
+    Returns:
+        성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
+    """
+    try:
+        if not clip_paths:
+            return "ERROR: clip_paths 가 비어 있습니다."
+        resolved = [_resolve_video_path(p) for p in clip_paths]
+        for path in resolved:
+            if not os.path.exists(path):
+                return f"ERROR: 클립 파일을 찾을 수 없음: {path}"
+        if len(resolved) == 1:
+            return resolved[0]
+
+        duration = float(duration)
+        if duration <= 0:
+            return f"ERROR: duration 은 0보다 커야 합니다: {duration}"
+
+        durations: list[float] = []
+        for path in resolved:
+            probed = _ffprobe_duration_sec(path)
+            if probed is None:
+                return f"ERROR: 클립 길이 프로빙 실패: {path}"
+            durations.append(probed)
+
+        if min(durations) <= duration:
+            return (
+                f"ERROR: 전환 길이(duration={duration}s)가 클립보다 깁니다. "
+                f"가장 짧은 클립={min(durations):.3f}s"
+            )
+
+        n = len(resolved)
+        d_str = _fmt_ratio(duration)
+        inputs: list[str] = []
+        for path in resolved:
+            inputs.extend(["-i", path])
+
+        filter_parts: list[str] = []
+        vprev = "0:v"
+        cumulative = durations[0]
+        for i in range(1, n):
+            offset = cumulative - duration
+            vout = "vout" if i == n - 1 else f"vx{i}"
+            filter_parts.append(
+                f"[{vprev}][{i}:v]xfade=transition=fade:"
+                f"duration={d_str}:offset={offset:.3f}[{vout}]"
+            )
+            vprev = vout
+            cumulative += durations[i] - duration
+
+        all_have_audio = all(_ffprobe_has_audio(path) for path in resolved)
+        if all_have_audio:
+            aprev = "0:a"
+            for i in range(1, n):
+                aout = "aout" if i == n - 1 else f"ax{i}"
+                filter_parts.append(f"[{aprev}][{i}:a]acrossfade=d={d_str}[{aout}]")
+                aprev = aout
+            maps = ["-map", "[vout]", "-map", "[aout]"]
+            audio_args = ["-c:a", "aac", "-b:a", "192k"]
+        else:
+            maps = ["-map", "[vout]"]
+            audio_args = []
+
+        output_path = _resolve_output_path(output_path, "xfade", resolved[0])
+        cmd = [
+            "ffmpeg", "-y",
+            *inputs,
+            "-filter_complex", ";".join(filter_parts),
+            *maps,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            *audio_args,
+            output_path,
+        ]
+
+        logger.info("crossfade_video %d clips (d=%ss) -> %s", n, d_str, output_path)
+        code, stderr = _run_ffmpeg(cmd)
+        if code != 0:
+            return f"ERROR: FFmpeg 실패 (rc={code}): {stderr[-300:]}"
+        if not os.path.exists(output_path):
+            return f"ERROR: 출력 파일 생성 실패: {output_path}"
+        return output_path
+
+    except FileNotFoundError:
+        return "ERROR: ffmpeg 바이너리를 찾을 수 없습니다."
+    except Exception as e:
+        logger.exception("crossfade_video 예외")
+        return f"ERROR: {e}"
+
+
 TOOLS = [
     cut_video,
     merge_video,
@@ -1485,4 +1878,7 @@ TOOLS = [
     remove_video_segments,
     remove_by_description,
     resize_video,
+    speed_video,
+    split_screen,
+    crossfade_video,
 ]

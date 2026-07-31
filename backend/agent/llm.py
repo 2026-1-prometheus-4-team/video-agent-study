@@ -75,6 +75,58 @@ def make_llm(
     return ChatGoogleGenerativeAI(**kwargs)
 
 
+def _model_for(role: str) -> str:
+    return {
+        "supervisor": config.MODEL_SUPERVISOR,
+        "script": config.MODEL_SCRIPT,
+        "critic": config.MODEL_CRITIC,
+        "sub_agent": config.MODEL_SUB_AGENT,
+        "summary": config.MODEL_CRITIC,
+    }.get(role, config.MODEL_SCRIPT)
+
+
+def system_user_invoke(
+    role: str,
+    system_text: str,
+    user_text: str,
+    *,
+    temperature: Optional[float] = None,
+    max_retries: Optional[int] = None,
+    timeout: Optional[int] = None,
+):
+    """system + user 한 쌍 호출. 안정 prefix 를 Gemini explicit cache 로 재사용.
+
+    system_text(안정 prefix) 를 CachedContent 로 만들어 두면 이후 턴은 그 토큰을
+    ~75% 할인가로 재사용한다 (script/critic 의 ~20k prompt 반복 비용 절감).
+    캐시 불가/실패 시 기존처럼 SystemMessage+HumanMessage 를 통째로 보낸다.
+
+    script_node / critic_node / summary_node 처럼 (SystemMessage, HumanMessage)
+    단일 invoke 노드가 쓴다. supervisor 의 react-agent 루프는 구조가 달라 별도.
+    """
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from agent import gemini_cache
+
+    model_name = _model_for(role)
+    cache_name = gemini_cache.get_or_create(system_text, model_name, role=role)
+    if cache_name:
+        try:
+            cached_llm = make_llm(
+                role, cached_content=cache_name, temperature=temperature,
+                max_retries=max_retries, timeout=timeout,
+            )
+            return cached_llm.invoke([HumanMessage(content=user_text)])
+        except Exception:
+            # 만료/무효 캐시 — 레지스트리에서 빼고 비캐시 경로로 폴백
+            gemini_cache.invalidate(cache_name)
+
+    return make_llm(
+        role, temperature=temperature, max_retries=max_retries, timeout=timeout,
+    ).invoke(
+        [SystemMessage(content=system_text), HumanMessage(content=user_text)]
+    )
+
+
 # 하위 호환: 기존 코드에서 `from agent.llm import llm` 으로 쓰는 곳 유지.
 # 새 코드는 make_llm(role=...) 사용 권장.
 llm = make_llm("supervisor")

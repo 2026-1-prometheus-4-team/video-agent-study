@@ -107,6 +107,11 @@ export type StreamItem =
       resolved?: "approved" | "revised" | "answered";
       // interrupt 종류. 미지정이면 script_approval (하위호환).
       interruptKind?: "script_approval" | "clarify";
+      // script_approval 전용 — 한국어 마크다운 기획안 (컨셉·타임라인·스크립트·
+      // BGM·편집 팁). 있으면 steps 리스트 대신 <Markdown> 으로 렌더.
+      planMarkdown?: string;
+      // 기획 컨셉 이름 — 있으면 카드 제목으로 크게 표시.
+      conceptName?: string;
       // clarify 전용 필드
       question?: string;
       candidates?: ClarifyCandidate[];
@@ -226,7 +231,11 @@ export interface AgentState {
   pushInterrupt: (
     plan: PlanStep[],
     questions: string[],
-    creativeBrief?: CreativeBrief
+    opts?: {
+      planMarkdown?: string;
+      conceptName?: string;
+      creativeBrief?: CreativeBrief;
+    }
   ) => void;
   /** clarify interrupt 카드 push. 미해결 카드가 있으면 갱신 (dedupe). */
   pushClarify: (
@@ -274,6 +283,17 @@ export interface AgentState {
   clearVideos: () => void;
   setVideoContext: (ctx: AgentState["videoContext"]) => void;
   clearStream: () => void;
+  /**
+   * 세션 ID 만 세팅 (startSession 과 달리 status/파이프라인 초기화 없음).
+   * 히스토리에서 지난 세션을 열 때 사용.
+   */
+  setSessionId: (id: string | null) => void;
+  /**
+   * 지난 대화(히스토리)에서 재구성한 StreamItem[] 로 스트림을 통째 교체.
+   * 과거 기록은 읽기 위주라 streaming/pending/파이프라인 상태를 모두 초기화하고,
+   * 마지막 final 이 있으면 lastFinal 로 복원한다. sessionStatus 는 idle.
+   */
+  hydrateStream: (items: StreamItem[]) => void;
 
   // Timeline · Stage 액션
   setPlayhead: (t: number) => void;
@@ -451,7 +471,7 @@ export const useAgentStore = create<AgentState>()(
         }
       }),
 
-    pushInterrupt: (plan, questions, creativeBrief) =>
+    pushInterrupt: (plan, questions, opts) =>
       set((s) => {
         // 재접속/복원으로 같은 interrupt 가 다시 오면 기존 미해결 카드를 갱신.
         const existing = lastUnresolvedInterrupt(s.stream);
@@ -459,7 +479,9 @@ export const useAgentStore = create<AgentState>()(
           existing.interruptKind = "script_approval";
           existing.plan = plan;
           existing.questions = questions;
-          existing.creativeBrief = creativeBrief;
+          existing.planMarkdown = opts?.planMarkdown;
+          existing.conceptName = opts?.conceptName;
+          existing.creativeBrief = opts?.creativeBrief;
           existing.question = undefined;
           existing.candidates = undefined;
           existing.options = undefined;
@@ -475,7 +497,9 @@ export const useAgentStore = create<AgentState>()(
           interruptKind: "script_approval" as const,
           plan,
           questions,
-          creativeBrief,
+          planMarkdown: opts?.planMarkdown,
+          conceptName: opts?.conceptName,
+          creativeBrief: opts?.creativeBrief,
         };
         s.stream.push(item);
         s.pendingInterrupt = item;
@@ -778,6 +802,31 @@ export const useAgentStore = create<AgentState>()(
         s.videoContext = null;
         // 업로드된 파일은 유지 (mock 시나리오에서 재생용).
         // uploadedUrl 은 유저가 명시적으로 clear 할 때만 revoke.
+        s.sessionStatus = "idle";
+      }),
+
+    setSessionId: (id) =>
+      set((s) => {
+        s.sessionId = id;
+      }),
+
+    hydrateStream: (items) =>
+      set((s) => {
+        s.stream = items;
+        s.streamingAgentId = null;
+        s.pendingInterrupt = null;
+        s.activeNode = null;
+        s.nodeToolCount = { ...initialNodeCount };
+        // 마지막 final 카드를 lastFinal 로 (Stage 가 편집본으로 스위치 가능).
+        let lastFinal: (StreamItem & { kind: "final" }) | null = null;
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          if (it.kind === "final") {
+            lastFinal = it;
+            break;
+          }
+        }
+        s.lastFinal = lastFinal;
         s.sessionStatus = "idle";
       }),
   }))

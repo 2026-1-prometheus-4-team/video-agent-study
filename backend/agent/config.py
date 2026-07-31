@@ -59,10 +59,12 @@ TEMPERATURE_SUB_AGENT: float = 0.5
 # 아래쪽: 세션 메모리 + 사용자 피드백 (매번 변함, 캐시 안 됨)
 CACHE_BOUNDARY: str = "\n<!-- VIDEO_AGENT_CACHE_BOUNDARY -->\n"
 
-# Gemini explicit cache 최소 토큰. 이보다 작으면 implicit caching 만 활용.
-EXPLICIT_CACHE_MIN_TOKENS: int = 32_000
+# Gemini explicit cache 최소 토큰. gemini-2.5-flash 실제 최소는 ~1024 이므로
+# 안전하게 2048 이상일 때만 캐싱 (그 아래는 생성 비용 대비 이득 적음).
+# script/critic 의 안정 prefix 는 ~15k 라 충분히 넘는다.
+EXPLICIT_CACHE_MIN_TOKENS: int = 2_048
 
-# Explicit cache TTL (seconds). 1 시간이 일반적.
+# Explicit cache TTL (seconds). 1 시간 — 한 세션의 여러 턴을 커버.
 EXPLICIT_CACHE_TTL_SECONDS: int = 3600
 
 
