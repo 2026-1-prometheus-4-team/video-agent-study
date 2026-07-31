@@ -94,3 +94,36 @@ class TestRender:
              patch.object(subtitle_cues, "VIDEOS_DIR", str(tmp_path)):
             res = client.post("/api/subtitles/ghost/render", json={})
         assert res.status_code == 404
+
+
+class TestPatchCues:
+    def test_update_text_by_index(self, client, cue_env):
+        res = client.patch(
+            "/api/subtitles/sample/cues",
+            json={"updates": [{"index": 0, "text": "고친 자막"}]},
+        )
+        assert res.status_code == 200
+        assert res.json()["updated"] == ["c001"]
+
+    def test_update_cue_style(self, client, cue_env):
+        res = client.patch(
+            "/api/subtitles/sample/cues",
+            json={"updates": [
+                {"index": 0, "style": {"size": 30, "bold": True, "position": "top"}}
+            ]},
+        )
+        assert res.status_code == 200
+        assert res.json()["updated"] == ["c001"]
+
+    def test_no_doc_is_404(self, client, tmp_path):
+        with patch.object(subtitle_cues, "SUBTITLES_DIR", str(tmp_path)), \
+             patch.object(subtitle_cues, "VIDEOS_DIR", str(tmp_path)):
+            res = client.patch(
+                "/api/subtitles/ghost/cues",
+                json={"updates": [{"index": 0, "text": "x"}]},
+            )
+        assert res.status_code == 404
+
+    def test_empty_updates_is_400(self, client, cue_env):
+        res = client.patch("/api/subtitles/sample/cues", json={"updates": []})
+        assert res.status_code == 400

@@ -865,7 +865,8 @@ export const useAgentStore = create<AgentState>()(
 );
 
 // dev helper — browser console: __store.getState().pushSubtitleStyle("test")
-if (typeof window !== "undefined") {
+// production 번들에는 노출하지 않는다.
+if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
   // @ts-expect-error dev
   window.__store = useAgentStore;
 }

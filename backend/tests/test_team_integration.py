@@ -195,9 +195,14 @@ class TestSubtitleFont:
             == "Noto Sans KR"
         )
 
-    def test_family_derived_from_filename(self):
+    def test_family_falls_back_to_filename_when_font_absent(self, tmp_path, monkeypatch):
+        """폰트 파일이 없으면 파일명 stem 폴백. 파일이 있으면 내부 family 명이
+        우선한다 (test_font_family.py 에서 검증)."""
+        import agent.tools.subtitle as sub
         from agent.tools.subtitle import _font_family_from_file
 
+        monkeypatch.setattr(sub, "FONTS_DIR", str(tmp_path))
+        sub._family_cache.clear()
         assert _font_family_from_file("NanumGothic-Regular.ttf") == "NanumGothic"
         assert _font_family_from_file("BlackHanSans-Regular.ttf") == "BlackHanSans"
         assert _font_family_from_file("Custom.ttf") == "Custom"
