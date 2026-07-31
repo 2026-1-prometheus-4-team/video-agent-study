@@ -21,6 +21,8 @@ export function outputFileUrl(p: string | undefined | null): string | null {
   return `${API_BASE}/files/${sub}/${m[2]}`;
 }
 
+export type SubtitlePosition = "bottom" | "middle" | "top";
+
 export interface SubtitleStyle {
   font: string;
   size: number;
@@ -28,6 +30,7 @@ export interface SubtitleStyle {
   color: string;
   stroke_color: string;
   stroke_width: number;
+  position: SubtitlePosition;
   bold: boolean;
   fade: boolean;
 }
@@ -39,6 +42,7 @@ export const DEFAULT_STYLE: SubtitleStyle = {
   color: "#FFFFFF",
   stroke_color: "#000000",
   stroke_width: 2,
+  position: "bottom",
   bold: true,
   fade: true,
 };

@@ -74,6 +74,21 @@ class TestPatchStyle:
         again = client.get("/api/subtitles/sample/style").json()
         assert again["size"] == 30
 
+    def test_patch_position(self, client, cue_env):
+        res = client.patch(
+            "/api/subtitles/sample/style", json={"position": "top", "margin_v": 60}
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["position"] == "top"
+        assert data["margin_v"] == 60
+
+    def test_invalid_position_is_400(self, client, cue_env):
+        res = client.patch(
+            "/api/subtitles/sample/style", json={"position": "diagonal"}
+        )
+        assert res.status_code == 400
+
     def test_unknown_font_is_400(self, client, cue_env):
         res = client.patch(
             "/api/subtitles/sample/style", json={"font": "ComicSans"}

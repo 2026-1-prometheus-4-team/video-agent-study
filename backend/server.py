@@ -1878,7 +1878,7 @@ async def list_fonts():
 
 _SUBTITLE_STYLE_KEYS = (
     "font", "size", "margin_v", "color",
-    "stroke_color", "stroke_width", "bold", "fade",
+    "stroke_color", "stroke_width", "position", "bold", "fade",
 )
 
 
@@ -1889,6 +1889,7 @@ class SubtitleStyleBody(BaseModel):
     color: Optional[str] = None
     stroke_color: Optional[str] = None
     stroke_width: Optional[float] = None
+    position: Optional[str] = None  # bottom | middle | top (등 _AN_MAP 키)
     bold: Optional[bool] = None
     fade: Optional[bool] = None
 
