@@ -218,7 +218,7 @@ def build_supervisor_system_prompt(
     sections_stable.append("# TTS Voice Library\n\n" + _load_tts_voices())
 
     if video_context:
-        sections_stable.append("# Pre-computed Video Analysis\n\n" + _format_video_context(video_context))
+        sections_stable.append("# Pre-computed Video Analysis\n\n" + _format_video_context(video_context, compact=True, ultra_compact=True))
 
     stable_prefix = "\n\n---\n\n".join(sections_stable)
 
@@ -498,6 +498,12 @@ action 종류 (TOOLS.md 참조):
   각자 다른 출력을 내면 누적되지 않고 마지막 하나만 남는다는 점도 주의.
 - 가로/세로 클립이 섞였고 최종 화면비가 명확하면 각 클립을 먼저 같은 화면비로
   맞춘 뒤 merge_video 하라. 병합 뒤에는 이미 생긴 letterbox를 복구할 수 없다.
+- **세로(9:16) 변환은 pad(원본 보존) 를 기본으로 한다.** `resize_video` 의 mode 를 명시하지
+  않으면 pad 로 두어 원본을 자르지 말고 위·아래에 검은 여백을 넣는다. 화면을 꽉 채우려고
+  `mode="crop"` 을 넣지 마라 — 사용자가 "꽉 채워/크롭/잘라서"를 명시했을 때만 crop.
+- **패딩 세로 영상의 텍스트 레이아웃**: 제목은 위쪽 여백에(add_title, position="top"),
+  발화 자막은 아래쪽 여백에(add_auto_subtitle style 의 position="bottom") 배치해 서로 겹치지
+  않게 한다.
 - 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다. storyboard 항목마다
   발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본 발화를
   자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
@@ -682,7 +688,7 @@ def build_sub_agent_system_prompt(
         )
 
     if video_context:
-        sections_stable.append("# Video Analysis\n\n" + _format_video_context(video_context))
+        sections_stable.append("# Video Analysis\n\n" + _format_video_context(video_context, compact=True, ultra_compact=True))
 
     stable_prefix = "\n\n---\n\n".join(sections_stable)
 
@@ -755,7 +761,7 @@ def build_critic_system_prompt(
         "# Governance & Routing\n\n" + _read_cached(workspace / "AGENTS.md"),
     ]
     if video_context:
-        sections_stable.append("# Original Video Analysis\n\n" + _format_video_context(video_context))
+        sections_stable.append("# Original Video Analysis\n\n" + _format_video_context(video_context, compact=True, ultra_compact=True))
 
     stable_prefix = "\n\n---\n\n".join(sections_stable)
 
