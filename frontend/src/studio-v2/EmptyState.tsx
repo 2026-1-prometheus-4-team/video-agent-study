@@ -28,6 +28,16 @@ const PROMPTS = [
 // 백엔드 ALLOWED_VIDEO_EXTS 와 동일. 드롭 시점에 걸러야 415 왕복을 줄인다.
 const VIDEO_EXTS = [".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"];
 
+// backend/agent/graph.py 의 노드 흐름과 같은 순서.
+// 패널 아래쪽을 채우는 동시에, 실행을 누르기 전에 무슨 일이 일어날지 알려준다.
+const PIPELINE = [
+  { name: "분석", detail: "씬 감지 · 음성 전사 · 화면 요약" },
+  { name: "기획", detail: "편집 계획 초안" },
+  { name: "승인", detail: "계획을 확인한 뒤 실행" },
+  { name: "실행", detail: "컷 · 자막 · BGM" },
+  { name: "검증", detail: "길이 · 자막 점검" },
+];
+
 function isVideoFile(file: File): boolean {
   if (file.type.startsWith("video/")) return true;
   const lower = file.name.toLowerCase();
@@ -245,6 +255,21 @@ export function EmptyState() {
           쓸 영상을 고르고 아래에 하고 싶은 편집을 적어줘.
         </div>
       )}
+
+      {/* margin-top:auto 로 하단에 붙는다. 남는 세로 공간이 "빈 화면"이 아니라
+          액션(위)과 설명(아래) 사이의 여백으로 읽히게 하는 장치. */}
+      <div className={styles.pipeline}>
+        <div className={styles.pipelineHead}>지시하면 이렇게 진행돼</div>
+        <ol className={styles.pipelineList}>
+          {PIPELINE.map((step) => (
+            <li key={step.name} className={styles.pipelineStep}>
+              <span className={styles.pipelineDot} aria-hidden />
+              <span className={styles.pipelineName}>{step.name}</span>
+              <span className={styles.pipelineDetail}>{step.detail}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
