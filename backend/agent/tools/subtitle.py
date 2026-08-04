@@ -209,10 +209,52 @@ def _font_family_from_file(font_file: str) -> str:
 
 # ─── 내부 헬퍼 ────────────────────────────────────────────────────────────────
 
+def _normalize_font_key(value: str) -> str:
+    """폰트 이름 비교용 정규화 — 공백/하이픈/대소문자 차이를 흡수."""
+    return re.sub(r"[\s_-]+", "", (value or "").strip().lower())
+
+
 def _resolve_font(filename: str) -> str | None:
-    """fonts/ 디렉터리에 해당 폰트가 있으면 절대 경로, 없으면 None."""
-    path = os.path.join(FONTS_DIR, filename)
-    return path if os.path.exists(path) else None
+    """fonts/ 디렉터리에서 폰트 *파일* 을 찾아 절대 경로 반환. 없으면 None.
+
+    빈 문자열이면 os.path.join(FONTS_DIR, "") 이 디렉터리 자체가 되고,
+    os.path.exists 는 디렉터리에도 True 라 그 경로가 그대로 반환됐다.
+    호출부는 `_resolve_font(x) or _resolve_font(기본폰트)` 형태라 첫 항이
+    truthy 가 되면서 기본 폰트로 넘어가지 못했고, ffmpeg 는 디렉터리를 폰트로
+    열지 못해 내장 기본 폰트로 그렸다 — 한글이 전부 두부(□)로 나온 원인.
+
+    파일명 외에 "Noto Sans KR" 같은 family 표기도 받아준다. 스타일 카드와
+    LLM 이 그 형태를 자주 넘기는데, 매번 fallback 으로 떨어지면 사용자가
+    고른 폰트가 조용히 무시된다.
+    """
+    name = (filename or "").strip()
+    if not name:
+        return None
+
+    direct = os.path.join(FONTS_DIR, name)
+    if os.path.isfile(direct):
+        return direct
+
+    if not os.path.isdir(FONTS_DIR):
+        return None
+
+    target = _normalize_font_key(name)
+    if not target:
+        return None
+    for entry in sorted(os.listdir(FONTS_DIR)):
+        if not entry.lower().endswith((".ttf", ".otf", ".ttc")):
+            continue
+        candidate = os.path.join(FONTS_DIR, entry)
+        stem = os.path.splitext(entry)[0]
+        if _normalize_font_key(stem) == target:
+            return candidate
+        # "NotoSansKR-Regular.ttf" 를 "Noto Sans KR" 로도 찾을 수 있게.
+        if _normalize_font_key(stem.split("-")[0]) == target:
+            return candidate
+        family = _sfnt_family_name(candidate)
+        if family and _normalize_font_key(family) == target:
+            return candidate
+    return None
 
 
 def _ffmpeg_env() -> dict[str, str]:

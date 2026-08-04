@@ -83,3 +83,65 @@ class TestFontFamilyFromFile:
         sub._family_cache.clear()
         (tmp_path / "Fake-Regular.ttf").write_bytes(b"not a font")
         assert _font_family_from_file("Fake-Regular.ttf") == "Fake"
+
+
+class TestResolveFont:
+    """drawtext 계열(add_captions_batch 등)이 한글 폰트를 실제로 찾는지.
+
+    실패 사례: 스타일에 font 가 없으면 _resolve_font("") 가
+    os.path.join(FONTS_DIR, "") == FONTS_DIR 를 돌려줬고, os.path.exists 가
+    디렉터리에도 True 라 그 경로가 그대로 fontfile 로 들어갔다. 호출부의
+    `_resolve_font(x) or _resolve_font(기본폰트)` 에서 첫 항이 truthy 라
+    기본 폰트로 못 넘어갔고, ffmpeg 는 디렉터리를 열지 못해 내장 폰트로
+    그리면서 한글이 전부 □ 로 나왔다.
+    """
+
+    def _fonts(self, tmp_path, monkeypatch):
+        import agent.tools.subtitle as sub
+
+        monkeypatch.setattr(sub, "FONTS_DIR", str(tmp_path))
+        sub._family_cache.clear()
+        return sub
+
+    def test_empty_name_returns_none_not_the_directory(self, tmp_path, monkeypatch):
+        sub = self._fonts(tmp_path, monkeypatch)
+        (tmp_path / "NotoSansKR-Regular.ttf").write_bytes(b"font")
+
+        for blank in ("", "   ", None):
+            assert sub._resolve_font(blank) is None
+
+    def test_never_returns_a_directory(self, tmp_path, monkeypatch):
+        sub = self._fonts(tmp_path, monkeypatch)
+        (tmp_path / "subdir").mkdir()
+
+        assert sub._resolve_font("subdir") is None
+
+    def test_exact_filename_resolves(self, tmp_path, monkeypatch):
+        sub = self._fonts(tmp_path, monkeypatch)
+        target = tmp_path / "NotoSansKR-Regular.ttf"
+        target.write_bytes(b"font")
+
+        assert sub._resolve_font("NotoSansKR-Regular.ttf") == str(target)
+
+    def test_family_name_with_spaces_resolves(self, tmp_path, monkeypatch):
+        """스타일 카드와 LLM 은 "Noto Sans KR" 형태를 넘긴다."""
+        sub = self._fonts(tmp_path, monkeypatch)
+        target = tmp_path / "NotoSansKR-Regular.ttf"
+        target.write_bytes(b"font")
+
+        assert sub._resolve_font("Noto Sans KR") == str(target)
+        assert sub._resolve_font("notosanskr") == str(target)
+
+    def test_unknown_font_returns_none(self, tmp_path, monkeypatch):
+        sub = self._fonts(tmp_path, monkeypatch)
+        (tmp_path / "NotoSansKR-Regular.ttf").write_bytes(b"font")
+
+        assert sub._resolve_font("존재하지않는폰트") is None
+
+    def test_missing_font_dir_does_not_raise(self, tmp_path, monkeypatch):
+        import agent.tools.subtitle as sub
+
+        monkeypatch.setattr(sub, "FONTS_DIR", str(tmp_path / "nope"))
+        sub._family_cache.clear()
+
+        assert sub._resolve_font("Noto Sans KR") is None
