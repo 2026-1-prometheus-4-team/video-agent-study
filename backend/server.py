@@ -64,6 +64,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 from langchain_core.messages import ToolMessage
 
+import media_library
 from agent import config as agent_config
 from agent.graph import build_graph
 from agent.state import VideoContext
@@ -306,6 +307,17 @@ class UploadResponse(BaseModel):
     path: str = Field(..., description="세션 생성 시 video_paths 로 넘길 서버 기준 경로")
     url: str = Field(..., description="프론트에서 바로 재생 가능한 정적 URL")
     size: int
+    # 아래는 미디어 라이브러리 렌더용. 구버전 클라이언트 호환을 위해 전부 선택.
+    name: str = Field("", description="videos/ 아래 실제 파일명")
+    original_name: str = Field("", description="사용자가 올린 원래 파일명")
+    duration: float = Field(0.0, description="초 단위 길이 (ffprobe)")
+    width: Optional[int] = None
+    height: Optional[int] = None
+    thumbnail_url: Optional[str] = Field(None, description="첫 장면 썸네일 URL")
+    created_at: str = Field("", description="업로드 시각 (UTC ISO8601)")
+    reused: bool = Field(
+        False, description="내용이 같은 영상이 이미 있어 기존 파일을 재사용했는지"
+    )
 
 
 class ChatRequest(BaseModel):
@@ -403,7 +415,12 @@ MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024
 
 @app.post("/upload", response_model=UploadResponse)
 async def upload_video(file: UploadFile = File(...)):
-    """영상 파일을 업로드한다. 반환된 path 를 POST /session 의 video_paths 로 사용."""
+    """영상 파일을 업로드한다. 반환된 path 를 POST /session 의 video_paths 로 사용.
+
+    같은 내용의 영상이 이미 라이브러리에 있으면 새로 저장하지 않고 기존 파일을
+    돌려준다 (reused=True). 실행이 실패해 사용자가 같은 파일을 다시 올려도
+    videos/ 에 사본이 쌓이지 않고, 이미 만들어둔 분석 캐시가 그대로 재사용된다.
+    """
     raw_name = Path(file.filename or "upload.mp4").name
     safe_name = _SAFE_NAME_RE.sub("_", raw_name) or "upload.mp4"
 
@@ -414,16 +431,14 @@ async def upload_video(file: UploadFile = File(...)):
             detail=f"지원하지 않는 파일 형식입니다: {suffix_check or '(확장자 없음)'} — {', '.join(sorted(ALLOWED_VIDEO_EXTS))} 만 가능",
         )
 
-    dest = agent_config.VIDEOS_DIR / safe_name
-    stem, suffix = dest.stem, dest.suffix
-    counter = 1
-    while dest.exists():
-        dest = agent_config.VIDEOS_DIR / f"{stem}_{counter}{suffix}"
-        counter += 1
+    # 해시는 다 받아봐야 알 수 있으므로 임시 파일에 먼저 저장한다.
+    # 중복이면 이 임시 파일만 지우면 되고, videos/ 는 오염되지 않는다.
+    videos_dir = agent_config.VIDEOS_DIR
+    staging = videos_dir / f".upload_{uuid.uuid4().hex}{suffix_check}"
 
     size = 0
     try:
-        with dest.open("wb") as out:
+        with staging.open("wb") as out:
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
@@ -433,14 +448,68 @@ async def upload_video(file: UploadFile = File(...)):
                     raise HTTPException(status_code=413, detail="파일이 2GB 를 초과합니다")
                 out.write(chunk)
     except HTTPException:
-        dest.unlink(missing_ok=True)
+        staging.unlink(missing_ok=True)
         raise
     except Exception as exc:
-        dest.unlink(missing_ok=True)
+        staging.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=f"업로드 실패: {exc}")
 
-    rel_path = f"videos/{dest.name}"
-    return UploadResponse(path=rel_path, url=f"/files/videos/{dest.name}", size=size)
+    try:
+        sha256 = await asyncio.to_thread(media_library.hash_file, staging)
+        existing = await asyncio.to_thread(
+            media_library.find_by_hash, videos_dir, sha256
+        )
+        if existing:
+            staging.unlink(missing_ok=True)
+            logger.info("upload 중복 감지 -> 기존 파일 재사용: %s", existing["name"])
+            return UploadResponse(**existing, reused=True)
+
+        dest = videos_dir / safe_name
+        stem, suffix = dest.stem, dest.suffix
+        counter = 1
+        while dest.exists():
+            dest = videos_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+        staging.replace(dest)
+
+        item = await asyncio.to_thread(
+            media_library.register,
+            videos_dir,
+            dest.name,
+            sha256=sha256,
+            size=size,
+            original_name=raw_name,
+        )
+        return UploadResponse(**item, reused=False)
+    except HTTPException:
+        staging.unlink(missing_ok=True)
+        raise
+    except Exception as exc:
+        staging.unlink(missing_ok=True)
+        logger.exception("upload 후처리 실패")
+        raise HTTPException(status_code=500, detail=f"업로드 실패: {exc}")
+
+
+@app.get("/media", response_model=list[UploadResponse])
+async def list_media():
+    """업로드된 원본 영상 목록 (최신순). 프론트 미디어 라이브러리의 근거."""
+    items = await asyncio.to_thread(media_library.list_media, agent_config.VIDEOS_DIR)
+    return [UploadResponse(**item) for item in items]
+
+
+@app.delete("/media/{filename}")
+async def delete_media(filename: str):
+    """라이브러리에서 영상 제거. 분석 캐시는 남겨 재업로드 시 재사용한다."""
+    # 경로 조작 차단 — filename 은 videos/ 바로 아래 이름이어야 한다.
+    if Path(filename).name != filename:
+        raise HTTPException(status_code=400, detail="잘못된 파일명입니다")
+
+    removed = await asyncio.to_thread(
+        media_library.remove, agent_config.VIDEOS_DIR, filename
+    )
+    if not removed:
+        raise HTTPException(status_code=404, detail="라이브러리에 없는 영상입니다")
+    return {"status": "deleted", "name": filename}
 
 
 # -------------------------------------------------------------------
