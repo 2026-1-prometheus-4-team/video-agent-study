@@ -7,8 +7,9 @@
   gap: 20px;
 }
 
-/* ---- hero ---- */
+/* ---- hero (= 드롭존) ---- */
 .hero {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -17,6 +18,22 @@
   background: linear-gradient(180deg, rgba(124, 141, 241, 0.06), transparent);
   border-radius: 12px;
   box-shadow: 0 0 0 1px var(--hairline);
+  transition: box-shadow var(--dur-pop) var(--ease-pop),
+    background var(--dur-pop) var(--ease-pop);
+}
+
+/* 드래그 중임을 확실히 알린다 — 문구만 바뀌면 놓아도 되는지 확신이 안 선다. */
+.hero[data-dragging="true"] {
+  background: linear-gradient(180deg, var(--accent-muted), transparent);
+  box-shadow: 0 0 0 1px var(--accent-outline);
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 4px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--accent-outline);
+  pointer-events: none;
 }
 
 .heroIcon {
@@ -43,6 +60,8 @@
   line-height: 1.55;
   color: var(--text-3);
   margin-bottom: 6px;
+  /* 한국어 어절 보존 — 폭이 좁아져도 단어 중간에서 끊기지 않게. */
+  word-break: keep-all;
 }
 
 .uploadBtn {
@@ -64,10 +83,148 @@
   background: var(--accent-strong);
 }
 
+.uploadBtn[data-disabled="true"] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.uploadBtn:focus-within {
+  outline: 2px solid var(--accent-outline);
+  outline-offset: 2px;
+}
+
 .uploadHint {
   font-size: 11px;
   color: var(--text-4);
   margin-top: 2px;
+}
+
+/* ---- 업로드 진행 ---- */
+.progressTrack {
+  width: 100%;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* ---- 업로드 실패 ---- */
+.uploadError {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-3);
+  background: var(--danger-muted);
+  color: var(--danger);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.uploadErrorText {
+  /* 서버 detail 은 길 수 있다. 줄바꿈을 살리되 가로로는 넘치지 않게. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* ---- 영상이 준비된 뒤의 다음 행동 안내 ---- */
+.readyHint {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+  padding-left: 2px;
+}
+
+/* ---- 파이프라인 안내 ----
+   콘텐츠가 패널 상단 60% 만 채우고 아래가 통째로 비어 "로딩이 잘린 화면"처럼
+   보이던 문제. margin-top:auto 로 이 블록을 바닥에 붙여, 남는 세로 공간을
+   위(액션)와 아래(설명) 사이의 의도된 여백으로 만든다. */
+.pipeline {
+  margin-top: auto;
+  padding-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pipelineHead {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-left: 2px;
+}
+
+.pipelineList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0 0 0 2px;
+  list-style: none;
+}
+
+.pipelineStep {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px minmax(0, auto) minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 5px 0;
+}
+
+/* 단계 사이를 잇는 세로선 — 분리선이 아니라 순서를 읽게 하는 장치라
+   마지막 항목에서는 끊는다. */
+.pipelineStep::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 15px;
+  bottom: -5px;
+  width: 1px;
+  background: var(--hairline);
+}
+
+.pipelineStep:last-child::before {
+  display: none;
+}
+
+.pipelineDot {
+  width: 5px;
+  height: 5px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--text-4);
+  align-self: center;
+}
+
+.pipelineStep:first-child .pipelineDot {
+  background: var(--accent);
+}
+
+.pipelineName {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.pipelineDetail {
+  font-size: 11px;
+  color: var(--text-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* ---- prompts ---- */

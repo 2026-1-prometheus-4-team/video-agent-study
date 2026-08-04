@@ -19,6 +19,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent import config
+from agent.errors import is_terminal_error, user_message_for
 from agent.llm import make_llm
 from agent.prompt_builder import build_critic_system_prompt
 from agent.state import AgentState
@@ -141,29 +142,14 @@ def critic_node(state: AgentState) -> dict[str, Any]:
     except Exception as e:
         logger.exception("critic LLM failed")
         err_text = f"{type(e).__name__}: {e}"
-        lowered = err_text.lower()
-        is_connection_error = any(
-            key in lowered
-            for key in (
-                "remoteprotocolerror",
-                "server disconnected",
-                "readtimeout",
-                "connecttimeout",
-                "connectionerror",
-                "connection reset",
-            )
-        )
         return {
             "critic_verdict": {
                 "verdict": "RETRY",
                 "issues": [f"critic LLM 오류: {err_text}"],
-                "message_to_user": (
-                    "검증 중 Gemini 연결이 종료됐어. 자동 전체 재실행은 하지 않았으니 "
-                    "필요하면 검증을 다시 요청해줘."
-                    if is_connection_error
-                    else "검증 단계 LLM 호출 실패. 다시 시도 필요."
-                ),
-                "terminal": is_connection_error,
+                "message_to_user": user_message_for(e, stage="검증"),
+                # 검증 실패로 편집 결과까지 버리지 않는다. 일시 장애/쿼터면
+                # 여기서 종료하고, 산출물은 그대로 사용자에게 넘긴다.
+                "terminal": is_terminal_error(e),
             },
             "critic_retries": state.get("critic_retries", 0) + 1,
         }

@@ -31,12 +31,18 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage, ToolMessage
 
 from agent import config
+from agent.errors import is_transient_error
 from agent.llm import make_llm
 from agent.prompt_builder import build_sub_agent_system_prompt
 from agent.state import VideoContext
 from agent.tools import tool_groups
 
 logger = logging.getLogger(__name__)
+
+# 일시 장애 재시도 — 총 3회 시도, 2s / 4s 백오프.
+# 파이프라인 전체 재실행(최대 3회 × 전체 step)보다 훨씬 싼 복구 지점이다.
+TRANSIENT_RETRY_ATTEMPTS = 3
+TRANSIENT_RETRY_BASE_SEC = 2.0
 
 
 # =============================================================
@@ -205,20 +211,34 @@ def spawn_sub_agent(envelope: SubAgentEnvelope) -> SubAgentResult:
     # ── 6. Invoke (child 에게는 envelope.task 만이 유일한 input) ──
     invoke_input = {"messages": [HumanMessage(content=envelope.task)]}
 
-    try:
-        result_state = child_agent.invoke(
-            invoke_input,
-            config={"recursion_limit": limits.max_tool_calls_per_spawn * 2},
-        )
-    except Exception as e:
-        logger.exception("sub-agent %s invoke failed", role)
-        return SubAgentResult(
-            role=role,
-            status="error",
-            summary=f"{type(e).__name__}: {e}",
-            error=str(e),
-            duration_sec=time.monotonic() - started,
-        )
+    # 서버측 일시 장애(504 DEADLINE_EXCEEDED, 503 등)는 여기서 흡수한다.
+    # 이 재시도가 없으면 supervisor 가 step 실패로 보고 파이프라인 전체를
+    # 재실행해서, 같은 타임아웃을 훨씬 비싼 단위로 반복하게 된다.
+    result_state = None
+    for attempt in range(1, TRANSIENT_RETRY_ATTEMPTS + 1):
+        try:
+            result_state = child_agent.invoke(
+                invoke_input,
+                config={"recursion_limit": limits.max_tool_calls_per_spawn * 2},
+            )
+            break
+        except Exception as e:
+            retriable = is_transient_error(e) and attempt < TRANSIENT_RETRY_ATTEMPTS
+            if not retriable:
+                logger.exception("sub-agent %s invoke failed", role)
+                return SubAgentResult(
+                    role=role,
+                    status="error",
+                    summary=f"{type(e).__name__}: {e}",
+                    error=str(e),
+                    duration_sec=time.monotonic() - started,
+                )
+            delay = TRANSIENT_RETRY_BASE_SEC * attempt
+            logger.warning(
+                "sub-agent %s transient failure (%d/%d), %.1fs 후 재시도: %s",
+                role, attempt, TRANSIENT_RETRY_ATTEMPTS, delay, e,
+            )
+            time.sleep(delay)
 
     # ── 7. 결과 추출 ──
     return _extract_result(role, result_state, started)

@@ -21,6 +21,7 @@ export function Composer() {
   const [text, setText] = useState("");
   const [dragging, setDragging] = useState(false);
   const uploadedNames = useAgentStore((s) => s.uploadedNames);
+  const serverVideoPaths = useAgentStore((s) => s.serverVideoPaths);
   const connection = useAgentStore((s) => s.connection);
   const sessionStatus = useAgentStore((s) => s.sessionStatus);
   const pendingInterrupt = useAgentStore((s) => s.pendingInterrupt);
@@ -216,18 +217,32 @@ export function Composer() {
       {uploadedNames.length > 0 && (
         <div className={styles.uploadedRow}>
           {uploadedNames.map((n, i) => (
-            <div key={`${n}-${i}`} className={styles.uploadedName}>
-              {n}
-            </div>
+            <span key={`${n}-${i}`} className={styles.uploadedChip}>
+              <span className={styles.uploadedName} title={n}>
+                {n}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  useAgentStore.getState().removeVideo(serverVideoPaths[i])
+                }
+                aria-label={`${n} 첨부 해제`}
+                className={styles.uploadedRemove}
+              >
+                <X size={10} />
+              </button>
+            </span>
           ))}
-          <button
-            type="button"
-            onClick={() => useAgentStore.getState().clearVideos()}
-            aria-label="첨부 전체 취소"
-            className={styles.uploadedRemove}
-          >
-            <X size={11} />
-          </button>
+          {uploadedNames.length > 1 && (
+            <button
+              type="button"
+              onClick={() => useAgentStore.getState().clearVideos()}
+              aria-label="첨부 전체 취소"
+              className={styles.uploadedClear}
+            >
+              전체 해제
+            </button>
+          )}
         </div>
       )}
 

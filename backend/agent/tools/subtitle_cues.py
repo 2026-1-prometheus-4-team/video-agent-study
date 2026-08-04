@@ -914,7 +914,7 @@ def list_subtitle_cues(video_path: str) -> str:
 
 
 @tool
-def update_subtitle_cues(video_path: str, updates: list) -> str:
+def update_subtitle_cues(video_path: str, updates: list[dict]) -> str:
     """자막 큐를 배치 수정 — 오타 수정 / 타이밍 조정 / 개별 스타일 / 삭제.
 
     updates 각 항목은 매칭 키 하나(id | index | at_ms)와 변경 필드로 구성:
