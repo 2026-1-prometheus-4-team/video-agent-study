@@ -57,6 +57,28 @@ def find_media(
     return None
 
 
+def resolve_output(
+    path: str | os.PathLike[str],
+    *,
+    default_dir: Path | None = None,
+) -> Path:
+    """산출물 저장 경로 해석.
+
+    디렉토리 없는 이름("add_captions_batch_18.mp4")은 반드시 서빙 디렉토리
+    안으로 보낸다. 이전에는 모듈마다 PROJECT_ROOT / videos 의 부모 등으로
+    흩어져서 결과물이 backend/ 루트에 떨어졌고, server.py 의 정적 마운트
+    (/files/outputs · /files/videos · ...) 밖이라 _to_file_url 이 None 을
+    돌려줬다. 편집은 성공했는데 화면에서는 원본만 보이던 원인.
+    """
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+    if candidate.parent != Path("."):
+        # 위치를 명시한 상대경로는 그 의도를 존중한다.
+        return config.PROJECT_ROOT / candidate
+    return (default_dir if default_dir is not None else OUTPUTS_DIR) / candidate
+
+
 def resolve_media(
     path: str | os.PathLike[str],
     *,

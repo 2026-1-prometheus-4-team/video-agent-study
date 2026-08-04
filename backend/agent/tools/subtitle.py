@@ -884,9 +884,11 @@ def add_auto_subtitle(
                     os.path.join(PROJECT_ROOT, output_path)
                 )
             else:
-                resolved_output_path = os.path.join(
-                    os.path.dirname(input_path),
-                    output_path,
+                # 입력 파일 옆이 아니라 outputs/ 로. 입력이 이미 backend/ 루트에
+                # 있으면 (이전 step 이 그렇게 저장했으면) 결과물도 서빙 밖으로
+                # 끌려가 화면에서 사라진다.
+                resolved_output_path = os.path.normpath(
+                    str(media_paths.resolve_output(output_path))
                 )
         else:
             resolved_output_path = os.path.join(
@@ -1220,9 +1222,9 @@ def add_captions_batch(
             normalized.append({"text": text, "start": start, "end": end})
 
         if output_path:
-            output_file = Path(output_path)
-            if not output_file.is_absolute():
-                output_file = Path(VIDEOS_DIR).parent / output_file
+            # bare 파일명이 backend/ 루트로 가면 정적 마운트 밖이라 프론트에서
+            # 재생할 수 없다. outputs/ 로 보낸다 (media_paths 참고).
+            output_file = media_paths.resolve_output(output_path)
         else:
             output_file = input_file.with_name(
                 f"{input_file.stem}_captions_{uuid.uuid4().hex[:8]}{input_file.suffix}"

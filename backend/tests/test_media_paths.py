@@ -87,3 +87,61 @@ def test_caller_supplied_dirs_are_respected(project):
 
     assert media_paths.find_media("legacy.mp4", dirs=[project / "videos"]) is None
     assert media_paths.find_media("legacy.mp4", dirs=[project / "output"]) == only_here
+
+
+# =============================================================
+# 산출물 위치 — 서빙 디렉토리 밖으로 나가면 화면에서 사라진다
+# =============================================================
+
+def test_bare_output_name_goes_to_outputs(project):
+    """실제 증상: add_captions_batch_18.mp4 가 backend/ 루트에 저장돼
+    /files/* 로 서빙되지 않았고, 편집은 성공했는데 화면엔 원본만 남았다."""
+    resolved = media_paths.resolve_output("add_captions_batch_18.mp4")
+
+    assert resolved.parent == project / "outputs"
+
+
+def test_explicit_relative_output_keeps_its_location(project):
+    resolved = media_paths.resolve_output("videos/clips/take_1.mp4")
+
+    assert resolved == project / "videos" / "clips" / "take_1.mp4"
+
+
+def test_absolute_output_is_untouched(project):
+    target = project / "elsewhere" / "final.mp4"
+
+    assert media_paths.resolve_output(str(target)) == target
+
+
+def test_audio_tool_output_lands_in_served_directory(project):
+    from agent.tools.audio_common import resolve_output_path
+
+    resolved = resolve_output_path("add_bgm_16.mp4", "bgm", ".mp4")
+
+    assert resolved.parent == (project / "outputs").resolve()
+
+
+def test_final_output_in_outputs_maps_to_a_url(project, monkeypatch):
+    """경로가 URL 로 변환돼야 프론트가 편집본을 재생할 수 있다."""
+    import server
+
+    produced = project / "outputs" / "add_captions_batch_18.mp4"
+    produced.write_bytes(b"final")
+    monkeypatch.setattr(
+        server, "_FILE_URL_BASES", [(project / "outputs", "/files/outputs")]
+    )
+
+    assert server._to_file_url(str(produced)) == "/files/outputs/add_captions_batch_18.mp4"
+
+
+def test_final_output_outside_served_dirs_has_no_url(project, monkeypatch):
+    """루트에 떨어진 산출물은 URL 이 안 나온다 — 위 수정이 필요한 이유."""
+    import server
+
+    stray = project / "add_captions_batch_18.mp4"
+    stray.write_bytes(b"final")
+    monkeypatch.setattr(
+        server, "_FILE_URL_BASES", [(project / "outputs", "/files/outputs")]
+    )
+
+    assert server._to_file_url(str(stray)) is None
