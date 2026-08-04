@@ -44,6 +44,7 @@ except ImportError:  # 구버전 호환
     class GraphInterrupt(Exception):
         pass
 
+from agent.errors import is_quota_error, is_terminal_error, user_message_for
 from agent.llm import make_llm
 from agent.nodes import (
     script_node,
@@ -752,51 +753,23 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.exception("supervisor invoke failed")
-        # 429 · quota · rate limit 계열은 재시도해도 같은 결과 → 즉시 PASS 로
-        # 종료해서 무한 RETRY 방지 + 사용자에게 원인 명시.
         err_text = f"{type(e).__name__}: {e}"
-        lowered_error = err_text.lower()
-        is_quota = any(
-            k in err_text.lower()
-            for k in ("resource_exhausted", "429", "quota", "credits are depleted")
-        )
-        is_connection_error = any(
-            key in lowered_error
-            for key in (
-                "remoteprotocolerror",
-                "server disconnected",
-                "readtimeout",
-                "connecttimeout",
-                "connectionerror",
-                "connection reset",
-            )
-        )
-        user_msg = (
-            "Gemini API 쿼터/크레딧 소진으로 실행을 중단했어. "
-            ".env 의 GOOGLE_API_KEY_SUPERVISOR (또는 GOOGLE_API_KEY) 를 크레딧이 남은 "
-            "키로 교체하거나 결제를 충전한 뒤 다시 요청해줘."
-            if is_quota
-            else (
-                "Gemini 연결이 응답 없이 종료되어 실행을 멈췄어. 승인된 계획은 유지되어 "
-                "있으니 잠시 후 같은 계획으로 다시 실행해줘."
-                if is_connection_error
-                else f"실행 중 오류가 발생했어: {err_text[:200]} — 다시 시도해줘."
-            )
-        )
+        user_msg = user_message_for(e, stage="실행")
         # critic 이 verdict 를 덮어써도 사용자에겐 메시지가 relay 되도록
         # messages 에도 명시적으로 남긴다 (조사에서 확인된 quota 침묵 문제 대응).
         return {
             "messages": [AIMessage(content=user_msg, name="supervisor")],
             "critic_verdict": {
-                "verdict": "PASS" if is_quota else "RETRY",
-                "issues": [f"supervisor 오류: {err_text}"],
-                "message_to_user": user_msg,
                 # quota 소진은 재시도해도 같은 결과 — critic 을 아예 건너뛰고
                 # 종료한다. critic 을 태우면 verdict 가 덮여 3회 재시도 후에도
                 # 이 메시지가 사용자에게 안 가고 침묵으로 끝난다.
-                # 연결 장애는 critic RETRY로 전체 Supervisor를 다시 돌리지 않는다.
-                # LLM 내부에서 이미 짧게 재시도했으므로 여기서 종료해야 busy가 풀린다.
-                "terminal": is_quota or is_connection_error,
+                "verdict": "PASS" if is_quota_error(e) else "RETRY",
+                "issues": [f"supervisor 오류: {err_text}"],
+                "message_to_user": user_msg,
+                # 504/503/연결 끊김은 sub-agent 단계에서 이미 백오프 재시도를
+                # 마친 뒤다. 여기서 또 RETRY 하면 전체 파이프라인을 최대 3회
+                # 반복하며 같은 타임아웃을 훨씬 비싸게 재현할 뿐이다.
+                "terminal": is_terminal_error(e),
             },
         }
 
