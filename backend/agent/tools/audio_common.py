@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import Sequence
 
 from agent import config
+from agent.tools import media_paths
 
 
 def resolve_input_path(path: str) -> Path:
-    candidate = Path(path)
-    if not candidate.is_absolute():
-        candidate = config.PROJECT_ROOT / candidate
-    candidate = candidate.resolve()
+    # 편집 산출물은 outputs/ 에 있고 업로드 원본은 videos/ 에 있다. PROJECT_ROOT
+    # 만 보면 edit_expert 가 넘긴 "merge_video_5.mp4" 를 못 찾는다 (공용 규칙은
+    # media_paths 참고).
+    candidate = media_paths.resolve_media(path).resolve()
     if not candidate.exists():
         raise FileNotFoundError(f"file not found: {candidate}")
     return candidate

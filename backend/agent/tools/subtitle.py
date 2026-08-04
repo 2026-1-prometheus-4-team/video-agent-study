@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from langchain_core.tools import tool
 from typing_extensions import TypedDict
 
+from agent.tools import media_paths
+
 logger = logging.getLogger(__name__)
 
 _HERE = os.path.dirname(__file__)
@@ -42,6 +44,12 @@ def _resolve_video_file(video_path: str) -> Path:
     raw = Path(video_path)
     if raw.is_absolute():
         return raw.resolve()
+
+    # 편집 산출물(outputs/)까지 포함한 공용 규칙을 먼저 적용한다.
+    found = media_paths.find_media(raw)
+    if found is not None:
+        return found.resolve()
+
     parts = raw.parts
     without_videos = (
         Path(*parts[1:]) if parts and parts[0].lower() == "videos" else raw
@@ -93,13 +101,13 @@ def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
 
 
 def _resolve_video_path(video_path: str) -> str:
-    """Resolve absolute, backend-relative, then videos-relative paths."""
+    """Resolve absolute, backend-relative, outputs/ then videos-relative paths."""
     if os.path.isabs(video_path):
         return os.path.normpath(video_path)
-    project_relative = os.path.join(PROJECT_ROOT, video_path)
-    if os.path.exists(project_relative):
-        return os.path.normpath(project_relative)
-    return os.path.normpath(os.path.join(VIDEOS_DIR, video_path))
+    resolved = media_paths.resolve_media(
+        video_path, fallback_dir=Path(VIDEOS_DIR)
+    )
+    return os.path.normpath(str(resolved))
 
 
 def _render_error(result: str) -> str | None:

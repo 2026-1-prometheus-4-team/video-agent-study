@@ -21,9 +21,12 @@ import tempfile
 import time
 import uuid
 from collections import Counter
+from pathlib import Path
 from typing import Any, Optional
 
 from langchain_core.tools import tool
+
+from agent.tools import media_paths
 
 logger = logging.getLogger(__name__)
 
@@ -147,20 +150,20 @@ def _resolve_video_path(video_path: str) -> str:
         return os.path.normpath(video_path)
 
     # Bare filenames returned by cut_video are written to outputs/, while
-    # source uploads live in videos/. Search both instead of silently forcing
-    # every unresolved relative input into videos/.
-    candidates = [
-        os.path.join(_PROJECT_ROOT, video_path),
-        os.path.join(OUTPUTS_DIR, video_path),
-        os.path.join(LEGACY_OUTPUT_DIR, video_path),
-        os.path.join(VIDEOS_DIR, video_path),
-    ]
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return os.path.normpath(candidate)
-
-    # Preserve the legacy missing-file error location for source filenames.
-    return os.path.normpath(candidates[-1])
+    # source uploads live in videos/. The search order lives in media_paths so
+    # audio_expert and text_expert resolve the same string the same way.
+    # Missing files still report the legacy videos/ location.
+    resolved = media_paths.resolve_media(
+        video_path,
+        dirs=[
+            Path(_PROJECT_ROOT),
+            Path(OUTPUTS_DIR),
+            Path(LEGACY_OUTPUT_DIR),
+            Path(VIDEOS_DIR),
+        ],
+        fallback_dir=Path(VIDEOS_DIR),
+    )
+    return os.path.normpath(str(resolved))
 
 
 def _resolve_output_path(output_path: Optional[str], prefix: str, source_path: str) -> str:
