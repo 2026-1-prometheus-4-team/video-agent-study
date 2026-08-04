@@ -46,6 +46,7 @@ Swagger UI: http://localhost:8000/docs
 
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -94,14 +95,25 @@ app = FastAPI(
     lifespan=_lifespan,
 )
 
+# 로컬 개발 기본값. 배포/터널 주소는 코드를 고치지 않고 env 로 추가한다.
+#   CORS_ALLOW_ORIGINS       쉼표 구분 목록 (예: https://studio.example.com)
+#   CORS_ALLOW_ORIGIN_REGEX  정규식 1개 (터널처럼 주소가 매번 바뀔 때)
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",  # frontend/motion-editor (video agent studio)
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+_EXTRA_CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",  # frontend/motion-editor (video agent studio)
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=_DEFAULT_CORS_ORIGINS + _EXTRA_CORS_ORIGINS,
+    allow_origin_regex=os.getenv("CORS_ALLOW_ORIGIN_REGEX") or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
