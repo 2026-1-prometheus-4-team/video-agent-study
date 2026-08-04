@@ -33,6 +33,25 @@ export type SessionStatus =
 export type TranscriptSeg = { start: number; end: number; text: string };
 export type SceneSeg = { start: number; end: number; description: string };
 
+/**
+ * 서버 라이브러리(GET /media)의 영상 하나.
+ *
+ * 업로드가 끝나면 여기 남는다. 실행이 실패해도 목록은 유지되므로 같은 파일을
+ * 다시 올릴 필요가 없다 — 재선택하고 다시 지시하면 된다.
+ */
+export interface MediaItem {
+  name: string;
+  originalName: string;
+  path: string;
+  url: string;
+  size: number;
+  duration: number;
+  width?: number;
+  height?: number;
+  thumbnailUrl?: string;
+  createdAt: string;
+}
+
 /** clarify interrupt 의 구간 후보 (서버 candidates 항목). */
 export interface ClarifyCandidate {
   startMs: number;
@@ -197,6 +216,11 @@ export interface AgentState {
   // 멀티 영상 — 세션 생성 시 전부 video_paths 로 전달. 단수 필드는 [0] 미러.
   serverVideoPaths: string[];
   uploadedNames: string[];
+  // 서버 라이브러리 전체 (선택 여부와 무관). serverVideoPaths 는 이 중 선택분.
+  media: MediaItem[];
+  mediaLoading: boolean;
+  // 업로드 실패 사유 — 조용히 삼키면 사용자가 왜 안 되는지 알 수 없다.
+  uploadError: string | null;
   // insights (video_context) — 실제 배열 포함
   videoContext: {
     file_path: string;
@@ -289,8 +313,18 @@ export interface AgentState {
   ) => void;
   /** 업로드 완료된 영상 하나를 목록에 추가. 첫 영상은 대표(단수) 필드도 채운다. */
   addVideo: (serverPath: string, name: string, url?: string | null) => void;
+  /** 선택 해제 — 라이브러리에는 남기고 이번 세션 대상에서만 뺀다. */
+  removeVideo: (serverPath: string) => void;
   /** 업로드 영상 목록 초기화 (새 세션 시작 등). */
   clearVideos: () => void;
+  /** 서버 라이브러리 목록 교체 (GET /media 응답). */
+  setMedia: (items: MediaItem[]) => void;
+  setMediaLoading: (loading: boolean) => void;
+  /** 업로드 직후 항목 반영 — 이미 있으면 갱신 (중복 재사용 시 그대로). */
+  upsertMedia: (item: MediaItem) => void;
+  /** 라이브러리에서 제거 (DELETE /media 성공 후). 선택 상태도 함께 정리. */
+  dropMedia: (name: string) => void;
+  setUploadError: (message: string | null) => void;
   setVideoContext: (ctx: AgentState["videoContext"]) => void;
   clearStream: () => void;
   /**
@@ -386,6 +420,9 @@ export const useAgentStore = create<AgentState>()(
     serverVideoPath: null,
     serverVideoPaths: [],
     uploadedNames: [],
+    media: [],
+    mediaLoading: false,
+    uploadError: null,
     videoContext: null,
     playhead: 0,
     playing: false,
@@ -752,6 +789,73 @@ export const useAgentStore = create<AgentState>()(
         }
       }),
 
+    removeVideo: (serverPath) =>
+      set((s) => {
+        const idx = s.serverVideoPaths.indexOf(serverPath);
+        if (idx === -1) return;
+        s.serverVideoPaths.splice(idx, 1);
+        s.uploadedNames.splice(idx, 1);
+        // 대표(단수) 필드는 항상 [0] 을 미러 — 첫 영상을 뺐으면 다음 것이 대표.
+        const head = s.serverVideoPaths[0] ?? null;
+        s.serverVideoPath = head;
+        s.uploadedName = head ? s.uploadedNames[0] ?? null : null;
+        if (!head) {
+          if (s.uploadedUrl?.startsWith("blob:")) {
+            try {
+              URL.revokeObjectURL(s.uploadedUrl);
+            } catch {
+              // ignore
+            }
+          }
+          s.uploadedUrl = null;
+          s.uploadPct = null;
+        } else {
+          const item = s.media.find((m) => m.path === head);
+          if (item) s.uploadedUrl = item.url;
+        }
+      }),
+
+    setMedia: (items) =>
+      set((s) => {
+        s.media = items;
+        s.mediaLoading = false;
+      }),
+
+    setMediaLoading: (loading) =>
+      set((s) => {
+        s.mediaLoading = loading;
+      }),
+
+    upsertMedia: (item) =>
+      set((s) => {
+        const idx = s.media.findIndex((m) => m.name === item.name);
+        if (idx === -1) s.media.unshift(item);
+        else s.media[idx] = item;
+      }),
+
+    dropMedia: (name) =>
+      set((s) => {
+        const item = s.media.find((m) => m.name === name);
+        s.media = s.media.filter((m) => m.name !== name);
+        if (!item) return;
+        const idx = s.serverVideoPaths.indexOf(item.path);
+        if (idx === -1) return;
+        s.serverVideoPaths.splice(idx, 1);
+        s.uploadedNames.splice(idx, 1);
+        const head = s.serverVideoPaths[0] ?? null;
+        s.serverVideoPath = head;
+        s.uploadedName = head ? s.uploadedNames[0] ?? null : null;
+        if (!head) {
+          s.uploadedUrl = null;
+          s.uploadPct = null;
+        }
+      }),
+
+    setUploadError: (message) =>
+      set((s) => {
+        s.uploadError = message;
+      }),
+
     clearVideos: () =>
       set((s) => {
         if (s.uploadedUrl && s.uploadedUrl.startsWith("blob:")) {
@@ -767,6 +871,8 @@ export const useAgentStore = create<AgentState>()(
         s.uploadedName = null;
         s.uploadedUrl = null;
         s.uploadPct = null;
+        s.uploadError = null;
+        // media 는 서버 라이브러리 미러라 세션 초기화와 무관하게 유지한다.
       }),
 
     setVideoContext: (ctx) =>

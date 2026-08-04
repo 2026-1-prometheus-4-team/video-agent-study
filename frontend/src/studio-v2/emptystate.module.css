@@ -7,8 +7,9 @@
   gap: 20px;
 }
 
-/* ---- hero ---- */
+/* ---- hero (= 드롭존) ---- */
 .hero {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -17,6 +18,22 @@
   background: linear-gradient(180deg, rgba(124, 141, 241, 0.06), transparent);
   border-radius: 12px;
   box-shadow: 0 0 0 1px var(--hairline);
+  transition: box-shadow var(--dur-pop) var(--ease-pop),
+    background var(--dur-pop) var(--ease-pop);
+}
+
+/* 드래그 중임을 확실히 알린다 — 문구만 바뀌면 놓아도 되는지 확신이 안 선다. */
+.hero[data-dragging="true"] {
+  background: linear-gradient(180deg, var(--accent-muted), transparent);
+  box-shadow: 0 0 0 1px var(--accent-outline);
+}
+
+.dropOverlay {
+  position: absolute;
+  inset: 4px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--accent-outline);
+  pointer-events: none;
 }
 
 .heroIcon {
@@ -64,10 +81,64 @@
   background: var(--accent-strong);
 }
 
+.uploadBtn[data-disabled="true"] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.uploadBtn:focus-within {
+  outline: 2px solid var(--accent-outline);
+  outline-offset: 2px;
+}
+
 .uploadHint {
   font-size: 11px;
   color: var(--text-4);
   margin-top: 2px;
+}
+
+/* ---- 업로드 진행 ---- */
+.progressTrack {
+  width: 100%;
+  height: 3px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* ---- 업로드 실패 ---- */
+.uploadError {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-3);
+  background: var(--danger-muted);
+  color: var(--danger);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.uploadErrorText {
+  /* 서버 detail 은 길 수 있다. 줄바꿈을 살리되 가로로는 넘치지 않게. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* ---- 영상이 준비된 뒤의 다음 행동 안내 ---- */
+.readyHint {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+  padding-left: 2px;
 }
 
 /* ---- prompts ---- */

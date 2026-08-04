@@ -26,6 +26,7 @@ import {
   useAgentStore,
   type ClarifyCandidate,
   type CreativeBrief,
+  type MediaItem,
   type PlanStep,
   type StreamItem,
 } from "./state";
@@ -56,6 +57,34 @@ export interface UploadResult {
   path: string; // 서버 상대 경로 — /session 에 넘길 값
   url: string; // /files/videos/xxx.mp4
   size: number;
+  name: string;
+  original_name: string;
+  duration: number;
+  width?: number | null;
+  height?: number | null;
+  thumbnail_url?: string | null;
+  created_at: string;
+  reused: boolean; // 내용이 같은 영상이 이미 있어 기존 파일을 재사용했는지
+}
+
+/** 서버 응답(snake_case) → store 형식. 절대 URL 로 바꿔 <img>/<video> 가 바로 쓴다. */
+function toMediaItem(raw: UploadResult): MediaItem {
+  return {
+    name: raw.name || raw.path.replace(/^videos\//, ""),
+    originalName: raw.original_name || raw.name,
+    path: raw.path,
+    url: absoluteUrl(raw.url),
+    size: raw.size,
+    duration: raw.duration ?? 0,
+    width: raw.width ?? undefined,
+    height: raw.height ?? undefined,
+    thumbnailUrl: raw.thumbnail_url ? absoluteUrl(raw.thumbnail_url) : undefined,
+    createdAt: raw.created_at ?? "",
+  };
+}
+
+function absoluteUrl(path: string): string {
+  return path.startsWith("http") ? path : `${API_BASE}${path}`;
 }
 
 export async function uploadVideo(file: File): Promise<UploadResult> {
@@ -66,34 +95,83 @@ export async function uploadVideo(file: File): Promise<UploadResult> {
     body: fd,
   });
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`upload failed (${res.status}) ${detail}`);
+    throw new Error(await uploadErrorMessage(res));
   }
   return (await res.json()) as UploadResult;
 }
 
+/** FastAPI 의 {detail: "..."} 를 사람이 읽는 한 줄로. 실패 원인을 감추지 않는다. */
+async function uploadErrorMessage(res: Response): Promise<string> {
+  const body = await res.text().catch(() => "");
+  let detail = body;
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed?.detail === "string") detail = parsed.detail;
+  } catch {
+    // 평문 응답 — 그대로 사용
+  }
+  if (res.status === 413) return detail || "파일이 2GB 를 초과합니다";
+  if (res.status === 415) return detail || "지원하지 않는 영상 형식입니다";
+  return detail || `업로드 실패 (${res.status})`;
+}
+
+/** 서버 라이브러리 목록을 불러와 store 에 반영. */
+export async function fetchMedia(): Promise<MediaItem[]> {
+  const store = useAgentStore.getState();
+  store.setMediaLoading(true);
+  try {
+    const res = await fetch(`${API_BASE}/media`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`media list failed (${res.status})`);
+    const items = ((await res.json()) as UploadResult[]).map(toMediaItem);
+    store.setMedia(items);
+    return items;
+  } catch {
+    // 백엔드가 꺼져 있어도 UI 는 살아 있어야 한다 — 빈 목록으로 둔다.
+    store.setMedia([]);
+    return [];
+  }
+}
+
+/** 라이브러리에서 영상 삭제. 성공 시 store 에서도 제거. */
+export async function deleteMedia(name: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/media/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) return false;
+  useAgentStore.getState().dropMedia(name);
+  persistStudioSession();
+  return true;
+}
+
 /**
  * 여러 영상 파일을 순차 업로드하고 store 에 누적한다.
- * 각 파일: 로컬 blob 프리뷰 즉시 → 서버 업로드 → addVideo.
+ * 실패한 파일은 건너뛰되 사유를 uploadError 에 남긴다 — 조용히 삼키면
+ * 사용자는 왜 목록이 비었는지 알 수 없다.
  * 반환: 성공한 서버 경로 목록.
  */
 export async function uploadVideos(files: File[]): Promise<string[]> {
   const store = useAgentStore.getState();
   const ok: string[] = [];
+  const failures: string[] = [];
   const total = files.length;
+
+  store.setUploadError(null);
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    const url = URL.createObjectURL(f);
     store.setUpload(Math.round((i / total) * 100), undefined, undefined);
     try {
-      const res = await uploadVideo(f);
-      store.addVideo(res.path, f.name, url);
-      ok.push(res.path);
-    } catch {
-      // 개별 실패는 건너뛴다 — 나머지는 계속 시도.
+      const raw = await uploadVideo(f);
+      const item = toMediaItem(raw);
+      store.upsertMedia(item);
+      // 서버 URL 을 쓴다 — blob URL 은 새로고침하면 죽어서 프리뷰가 깨진다.
+      store.addVideo(item.path, item.originalName, item.url);
+      ok.push(item.path);
+    } catch (err) {
+      failures.push(`${f.name}: ${err instanceof Error ? err.message : "업로드 실패"}`);
     }
   }
   store.setUpload(100);
+  if (failures.length > 0) store.setUploadError(failures.join("\n"));
   persistStudioSession();
   return ok;
 }
