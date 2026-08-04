@@ -185,7 +185,9 @@ def critic_node(state: AgentState) -> dict[str, Any]:
     return {"critic_verdict": verdict, "critic_retries": retries}
 
 
-MAX_SUPERVISOR_RETRIES = 3
+# 재시도 1회로 제한 — 재시도마다 supervisor 프롬프트 전체가 재전송되고 오디오/자막
+# tail 이 통째로 재실행돼 토큰·시간이 급증한다. 한 번 더 시도해도 안 되면 부분 결과로 종료.
+MAX_SUPERVISOR_RETRIES = 1
 
 
 def route_after_critic(state: AgentState) -> str:

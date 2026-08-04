@@ -58,7 +58,7 @@ def make_llm(
         # 서버가 응답 없이 끊는 경우가 있어 파이프라인 안정성을 위해 필수.
         # 짧은 일시 장애는 자동 복구하되, 한 요청이 수 분간 재시도되며 UI를
         # busy 상태로 붙잡지 않도록 제한한다.
-        "max_retries": 2 if max_retries is None else max_retries,
+        "max_retries": 1 if max_retries is None else max_retries,
         "timeout": 60 if timeout is None else timeout,
     }
     if cached_content:
