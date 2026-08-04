@@ -119,6 +119,16 @@ backend/generated_bgm.mp3
 backend/narration_*.mp3
 backend/video_with_bgm*.mp4
 
+# 산출물의 정상 위치는 backend/outputs/ 다. 툴이 bare 파일명을 잘못 해석해
+# backend/ 루트로 새는 경우가 반복돼 위 세 줄이 하나씩 추가됐었다 — 이름을
+# 예측하지 말고 루트의 미디어 자체를 막는다.
+backend/*.mp4
+backend/*.mov
+backend/*.mp3
+backend/*.wav
+backend/*.m4a
+backend/*.origin.json
+
 audio_files/**
 bgm_files/**
 video_files/**
