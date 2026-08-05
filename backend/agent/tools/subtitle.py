@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import uuid
 from pathlib import Path
@@ -794,8 +795,13 @@ def add_auto_subtitle(
     video_path: str,
     style: str | AutoSubtitleStyle = "",
     output_path: str = "",
+    burn: bool = True,
 ) -> str:
     """영상을 자동 전사(Whisper)하고 자막 큐 문서 생성 후 burn-in — one-shot 처리.
+
+    burn=False 면 영상에 굽지 않고 *깨끗한 영상 + cue 문서*만 남긴다 (자막 레이어
+    방식). 스튜디오/모션에디터가 cue 를 오버레이하고, 최종 export 에서만 burn 한다.
+    이러면 편집 결과에 자막이 이중으로 겹치지 않고, 나중에 위치/스타일 편집도 된다.
 
     내부 흐름: Whisper 전사·보수적 교정·화면용 반응/효과음 캡션 제안 →
     SRT/JSON 사이드카 저장(프론트 호환) →
@@ -937,6 +943,63 @@ def add_auto_subtitle(
                 os.path.dirname(input_path),
                 f"{name}_subtitled{ext or '.mp4'}",
             )
+        # burn=False: 자막 레이어 방식. 영상에 굽지 않고 깨끗한 영상 + cue 문서만
+        # 남긴다. 스튜디오/모션에디터가 cue 를 오버레이하고, 최종 export 에서만 굽는다.
+        # 이러면 이후 씬 분석이 구운 자막을 다시 읽거나, 편집 결과에 자막이 이중으로
+        # 겹치는 문제가 사라지고 나중에 위치/스타일 편집도 가능하다.
+        if not burn:
+            if os.path.abspath(resolved_output_path) != os.path.abspath(input_path):
+                os.makedirs(os.path.dirname(resolved_output_path) or ".", exist_ok=True)
+                shutil.copyfile(input_path, resolved_output_path)
+                # 시간축/콘텐츠 영역이 그대로이므로 edit origin·pad 메타를 승계해
+                # 이후 step(BGM 등)이 최종본이 돼도 origin 추적으로 자막을 되살린다.
+                for suffix in (".origin.json", ".pad.json"):
+                    src_sidecar = input_path + suffix
+                    if os.path.exists(src_sidecar):
+                        try:
+                            shutil.copy2(src_sidecar, resolved_output_path + suffix)
+                        except OSError:
+                            logger.warning("no-burn sidecar copy failed: %s", src_sidecar)
+            clean_out = resolved_output_path
+            out_stem = os.path.splitext(os.path.basename(clean_out))[0]
+            # 최종 stem 으로도 전사/큐 문서를 남겨 server final 복구가 맞는 cue 를
+            # 찾게 한다 (구운 경로가 아니어도 동일 규칙 유지).
+            out_json = os.path.join(SUBTITLES_DIR, f"{out_stem}.json")
+            with open(out_json, "w", encoding="utf-8") as f:
+                json.dump({
+                    "schema_version": 2,
+                    "segments": canonical_transcript,
+                    "raw_segments": result.get("raw_segments", canonical_transcript),
+                    "display_segments": display_transcript,
+                    "correction": result.get("correction"),
+                    "language": result.get("language"),
+                    "engine": result.get("engine") or "origin-reuse",
+                    "source_video": clean_out,
+                }, f, ensure_ascii=False, indent=2)
+            out_cues_doc = cues_doc_path
+            if out_stem != name:
+                _, out_cues_doc = subtitle_cues.create_cues_doc(
+                    stem=out_stem,
+                    source_video=clean_out,
+                    segments=display_transcript,
+                    style_defaults=defaults,
+                )
+            return json.dumps({
+                "output": clean_out,
+                "burned": False,
+                "cues_doc": out_cues_doc,
+                "source_cues_doc": cues_doc_path,
+                "style": {
+                    "font": defaults["font"],
+                    "size": defaults["size"],
+                    "color": defaults["color"],
+                },
+                "segments": len(display_transcript),
+                "spoken_segments": len(canonical_transcript),
+                "expressive_captions": expressive_caption_count,
+                "status": "success",
+            }, ensure_ascii=False)
+
         rendered = subtitle_cues.render_subtitles.invoke({
             "video_path": input_path,
             "output_path": resolved_output_path,

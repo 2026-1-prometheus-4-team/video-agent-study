@@ -133,6 +133,16 @@
   display: inline-block;
 }
 
+@keyframes rows-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: rows-spin 0.8s linear infinite;
+}
+
 .checkMark {
   width: 18px;
   height: 18px;
