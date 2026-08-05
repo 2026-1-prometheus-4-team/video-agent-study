@@ -293,23 +293,38 @@
   color: var(--text-4);
 }
 
+/* 빈 목록이 상단에만 붙어 아래 800px 넘게 검게 남던 문제.
+   auto 마진으로 세로 중앙에 두면 같은 여백도 의도된 배치로 읽힌다. */
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 44px 16px;
+  justify-content: center;
+  gap: 6px;
+  margin: auto 0;
+  padding: 24px 20px;
   color: var(--text-4);
   text-align: center;
 }
 
 .empty svg {
   opacity: 0.5;
+  margin-bottom: 2px;
 }
 
 .empty span {
   font-size: 12px;
   letter-spacing: -0.01em;
+}
+
+.emptyHint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-4);
+  opacity: 0.72;
+  max-width: 172px;
+  /* 한국어는 어절 중간에서 끊기면 "여기 / 에 쌓여" 처럼 읽힌다. */
+  word-break: keep-all;
 }
 
 /* ---- mobile FAB ---- */

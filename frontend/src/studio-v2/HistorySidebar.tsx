@@ -139,6 +139,9 @@ export function HistorySidebar() {
           <div className={styles.empty}>
             <MessageSquare size={18} strokeWidth={1.8} />
             <span>아직 대화가 없어</span>
+            <span className={styles.emptyHint}>
+              영상을 올리고 편집을 지시하면 여기에 쌓여
+            </span>
           </div>
         ) : (
           sessions.map((s) => (

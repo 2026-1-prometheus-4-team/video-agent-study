@@ -81,3 +81,54 @@ def test_cache_is_written_to_canonical_subtitles_dir(tmp_path):
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["source_path"] == str(source.resolve())
     assert payload["engine"] == "openai"
+
+
+def test_video_without_audio_reports_cause_not_ffmpeg_noise(tmp_path):
+    """무음 영상은 ffmpeg 원문 대신 원인과 대안을 돌려준다.
+
+    실제로 사용자에게 노출됐던 문자열:
+      "전사 실패: audio normalization: ffmpeg failed: ...
+       Output file does not contain any stream"
+    """
+    source = tmp_path / "screen_capture.mp4"
+    source.write_bytes(b"video-without-audio")
+
+    with patch("agent.tools.transcribe.resolve_input_path", return_value=source), \
+         patch("agent.tools.transcribe._has_audio_stream", return_value=False), \
+         patch("agent.tools.transcribe._normalize_audio") as normalize:
+        result = json.loads(transcribe_video.invoke({
+            "video_path": str(source),
+            "force": True,
+        }))
+
+    normalize.assert_not_called(), "오디오가 없으면 ffmpeg 를 태우지 않는다"
+    assert result["status"] == "error"
+    assert result["error"] == "no_audio_stream"
+    assert "오디오 트랙이 없어서" in result["message"]
+    assert "add_caption" in result["message"], "다음에 뭘 하면 되는지 알려준다"
+
+
+def test_audio_probe_failure_does_not_block_transcription(tmp_path, monkeypatch):
+    """ffprobe 판단이 불가할 때 전사를 막으면 멀쩡한 영상까지 죽는다."""
+    source = tmp_path / "sample.mp4"
+    normalized = tmp_path / "sample.wav"
+    source.write_bytes(b"video")
+    normalized.write_bytes(b"audio")
+    monkeypatch.setenv("WHISPER_ENGINE", "openai")
+    monkeypatch.setenv("WHISPER_DISABLE_FALLBACK", "1")
+
+    with patch("agent.tools.transcribe.resolve_input_path", return_value=source), \
+         patch("agent.tools.transcribe.subprocess.run", side_effect=OSError("ffprobe missing")), \
+         patch("agent.tools.transcribe._normalize_audio", return_value=normalized), \
+         patch("agent.tools.transcribe._split_audio", return_value=[(normalized, 0.0)]), \
+         patch("agent.tools.transcribe._openai_whisper",
+               return_value=([{"start": 0.0, "end": 1.0, "text": "안녕"}], "ko")), \
+         patch("agent.tools.transcribe._save_transcript_cache",
+               return_value=tmp_path / "sample.json"):
+        result = json.loads(transcribe_video.invoke({
+            "video_path": str(source),
+            "force": True,
+            "polish": False,
+        }))
+
+    assert result["status"] == "success"

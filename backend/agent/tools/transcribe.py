@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -137,6 +138,29 @@ def _apply_transcript_correction(
         default=0.0,
     )
     return payload
+
+
+def _has_audio_stream(video_path: Path) -> bool:
+    """오디오 트랙 존재 여부. 판단이 불가하면 True (기존 경로를 막지 않는다)."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "a",
+                "-show_entries", "stream=codec_type",
+                "-of", "csv=p=0",
+                str(video_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.warning("audio stream probe failed: %s", video_path, exc_info=True)
+        return True
+    if result.returncode != 0:
+        return True
+    return bool(result.stdout.strip())
 
 
 def _normalize_audio(video_path: Path) -> Path:
@@ -292,6 +316,21 @@ def transcribe_video(video_path: str, force: bool = False, polish: bool = True) 
                     logger.warning("corrected transcript cache save failed", exc_info=True)
             logger.info("transcript cache reused: %s", cached["cache_path"])
             return json.dumps(cached, ensure_ascii=False)
+
+    # 오디오가 없는 영상(화면 녹화 등)에 자막을 걸면 ffmpeg 가 "Output file does
+    # not contain any stream" 을 뱉는다. 그대로 올리면 사용자는 무엇이 문제인지
+    # 알 수 없으므로, 전사를 시도하기 전에 원인을 분명히 말한다.
+    if not _has_audio_stream(source):
+        return json.dumps({
+            "status": "error",
+            "segments": [],
+            "error": "no_audio_stream",
+            "message": (
+                f"{source.name} 에는 오디오 트랙이 없어서 음성 자막을 만들 수 없습니다. "
+                "자막 문구를 직접 지정하거나(add_caption / add_captions_batch), "
+                "먼저 나레이션(text_to_speech)을 입힌 뒤 다시 시도하세요."
+            ),
+        }, ensure_ascii=False)
 
     normalized_path: Path | None = None
     chunks: list[tuple[Path, float]] = []
