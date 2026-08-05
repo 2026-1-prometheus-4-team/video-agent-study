@@ -166,8 +166,8 @@ class TestAutoInterval:
     """
 
     @pytest.mark.parametrize("duration_sec,expected", [
-        (10, 1.0),      # 아주 짧음
-        (60, 1.0),      # 경계: 1분
+        (10, 3.0),      # 아주 짧음 — 기본 3초/장
+        (60, 3.0),      # 1분
         (61, 3.0),      # 1분 초과
         (300, 3.0),     # 경계: 5분
         (301, 5.0),     # 5분 초과
