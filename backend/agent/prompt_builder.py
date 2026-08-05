@@ -504,6 +504,10 @@ action 종류 (TOOLS.md 참조):
 - **패딩 세로 영상의 텍스트 레이아웃**: 제목은 위쪽 여백에(add_title, position="top"),
   발화 자막은 아래쪽 여백에(add_auto_subtitle style 의 position="bottom") 배치해 서로 겹치지
   않게 한다.
+- **세로(9:16) 쇼츠에는 제목(add_title) step 을 반드시 하나 넣는다.** 사용자가 제목을
+  요청했거나, 요청하지 않았어도 세로 쇼츠면 영상 내용에 맞는 짧은 제목을 지어 위쪽 여백
+  (position="top")에 올린다. 사용자가 "제목 없이"라고 명시했을 때만 생략한다.
+  제목 문구는 creative_brief.concept/title 이나 영상 주제에서 직접 짓는다.
 - 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다. storyboard 항목마다
   발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본 발화를
   자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.

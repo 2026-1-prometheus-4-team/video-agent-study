@@ -319,7 +319,10 @@ def _extract_result(role: str, state: dict, started: float) -> SubAgentResult:
         # 경로 후보를 휴리스틱으로 추출한다 (일부 tool 은 평문 경로만 반환).
         # 에러가 있을 땐 fallback 하지 않는다 — 에러 문구에서 경로를 추론하지 않기 위해.
         output_paths = _extract_paths_from_messages(messages)
-    status = "error" if tool_errors else "ok"
+    # 유효한 산출물이 나왔으면 성공으로 본다. sub-agent 가 ReAct 루프에서 도중에
+    # 실패한 tool 호출(중복/탐색성)을 껴도, 목표 파일을 만들었으면 그 step 은 완료다.
+    # (예: merge_video 성공 후 다른 호출이 에러 → 예전엔 step 전체가 error → 편집 미완료)
+    status = "error" if (tool_errors and not output_paths) else "ok"
     error = "; ".join(tool_errors)[:1000] if tool_errors else None
 
     return SubAgentResult(
