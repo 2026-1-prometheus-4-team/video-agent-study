@@ -50,10 +50,22 @@ def find_media(
     if candidate.is_absolute():
         return candidate if candidate.exists() else None
 
-    for base in dirs if dirs is not None else search_dirs():
+    search = dirs if dirs is not None else search_dirs()
+    for base in search:
         resolved = Path(base) / candidate
         if resolved.exists():
             return resolved
+
+    # basename 폴백: sub-agent(LLM)가 파일명에 잘못된 접두어(videos/, ./, 다른
+    # 디렉토리)를 붙여도, 파일명만으로 산출물/업로드 위치에서 다시 찾는다.
+    # 이게 없으면 "videos/x.mp4" -> fallback VIDEOS_DIR/videos/x.mp4 (videos/videos)
+    # 로 이어져 step 간 파일 전달이 자주 깨졌다.
+    name = candidate.name
+    if name and name != str(candidate):
+        for base in search:
+            resolved = Path(base) / name
+            if resolved.exists():
+                return resolved
     return None
 
 
