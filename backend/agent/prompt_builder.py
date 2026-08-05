@@ -319,18 +319,6 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
     "emotional_contrast": "<감정 대비, 예: 기대감 새집 vs 우당탕탕 현실>"
   },
   "trend_elements": ["<트렌드 요소, 예: 빠른 호흡 컷 편집>", "<현실 공감 모먼트>", "..."],
-  "timeline": [
-    {
-      "index": 1, "label": "<섹션 이름, 예: 훅>",
-      "start_ms": 0, "end_ms": 5000,
-      "source_videos": ["videos/a.mp4"],
-      "transition": "hard_cut" | "crossfade",
-      "subtitle_text": "<이 섹션 자막 문구 (직접 작성)>",
-      "narration_text": "<나래이션 문구 (직접 작성, 없으면 빈 문자열)>",
-      "sfx": "<효과음 설명, 예: 한숨 효과음>",
-      "emphasis_note": "<감정 포인트>"
-    }
-  ],
   "bgm_progression": [
     {"start_ms": 0, "end_ms": 15000, "mood": "경쾌한 브이로그", "cue": "도입 텐션"},
     {"start_ms": 15000, "end_ms": 30000, "mood": "정적/개그", "cue": "렌치 안 맞을 때"}
@@ -441,6 +429,15 @@ action 종류 (TOOLS.md 참조):
 
 원칙:
 
+## 출력은 간결하게 (생성 속도 직결)
+
+- 각 서술 필드(visual / selection_reason / edit_direction / intent / duration_reason
+  / directing 등)는 **1~2줄 이내**로 짧게 쓴다. 장황하게 쓰면 생성이 수 분으로
+  느려진다 — 핵심만.
+- `plan_markdown` 은 승인 카드용 요약이다. 컨셉·타임라인 표·BGM·핵심 팁만 담고
+  storyboard 내용을 문장으로 다시 길게 풀어쓰지 마라 (중복 = 느림).
+- storyboard 항목 수는 목표 길이에 맞춘 컷 수(보통 6~10개)면 충분하다.
+
 ## 기획 먼저, 도구는 그 다음 (mode=edit 일 때)
 
 너는 단순히 도구를 나열하는 기계가 아니라 **쇼츠 편집자**다.
@@ -504,6 +501,10 @@ action 종류 (TOOLS.md 참조):
 - **패딩 세로 영상의 텍스트 레이아웃**: 제목은 위쪽 여백에(add_title, position="top"),
   발화 자막은 아래쪽 여백에(add_auto_subtitle style 의 position="bottom") 배치해 서로 겹치지
   않게 한다.
+- **세로(9:16) 쇼츠에는 제목(add_title) step 을 반드시 하나 넣는다.** 사용자가 제목을
+  요청했거나, 요청하지 않았어도 세로 쇼츠면 영상 내용에 맞는 짧은 제목을 지어 위쪽 여백
+  (position="top")에 올린다. 사용자가 "제목 없이"라고 명시했을 때만 생략한다.
+  제목 문구는 creative_brief.concept/title 이나 영상 주제에서 직접 짓는다.
 - 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다. storyboard 항목마다
   발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본 발화를
   자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.

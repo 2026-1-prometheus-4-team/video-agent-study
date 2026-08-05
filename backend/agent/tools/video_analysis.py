@@ -124,6 +124,13 @@ def analysis_stem(video_path: str, videos_dir: str) -> str:
     return f"{stem}_{digest}"
 
 
+# Gemini 는 이미지를 ~768px 타일로 처리한다. 원본(1080p 등)을 통째로 보내면
+# 타일 수(=입력 토큰)만 늘어 분석이 느리고 비싸다. 긴 변을 이 값으로 줄여도
+# 장면 이해(객체/행동/무드)엔 충분하다. 필요하면 .env 로 조정.
+_MAX_FRAME_PX = int(os.getenv("ANALYZE_MAX_FRAME_PX", "768"))
+_FRAME_JPEG_QUALITY = int(os.getenv("ANALYZE_JPEG_QUALITY", "85"))
+
+
 def _extract_frames(video_path: str, interval_sec: float) -> tuple[float, list[tuple[int, bytes]]]:
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -141,14 +148,29 @@ def _extract_frames(video_path: str, interval_sec: float) -> tuple[float, list[t
             break
         timestamp_ms = int((frame_idx / fps) * 1000)
 
+        # 다운스케일: 긴 변을 _MAX_FRAME_PX 로 줄여 Gemini 타일/토큰을 절감한다.
+        fh0, fw0 = frame.shape[:2]
+        long_side = max(fh0, fw0)
+        if long_side > _MAX_FRAME_PX:
+            s = _MAX_FRAME_PX / long_side
+            frame = cv2.resize(
+                frame,
+                (max(1, int(fw0 * s)), max(1, int(fh0 * s))),
+                interpolation=cv2.INTER_AREA,
+            )
+
         # 각 프레임에 타임스탬프를 새겨서 전송 -> Gemini 가 이미지 순서를 세다
-        # 어긋나는 정렬 오차 방지 (이미지에 적힌 시간을 직접 읽음)
+        # 어긋나는 정렬 오차 방지 (이미지에 적힌 시간을 직접 읽음). 폰트 크기는
+        # 다운스케일된 프레임 너비에 비례시켜 항상 읽히게 한다.
         total_s = timestamp_ms // 1000
         label = f"[{total_s // 60:02d}:{total_s % 60:02d}]"
-        cv2.putText(frame, label, (16, 56), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 0, 0), 10)
-        cv2.putText(frame, label, (16, 56), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 255, 255), 4)
+        fw = frame.shape[1]
+        fs = max(0.7, fw / 700.0)
+        baseline = int(38 * fs)
+        cv2.putText(frame, label, (12, baseline), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), max(4, int(7 * fs)))
+        cv2.putText(frame, label, (12, baseline), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 255), max(2, int(3 * fs)))
 
-        _, buffer = cv2.imencode(".jpg", frame)
+        _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, _FRAME_JPEG_QUALITY])
         frames.append((timestamp_ms, buffer.tobytes()))
         frame_idx += frame_step
 
@@ -420,8 +442,9 @@ CHUNK_FRAMES = int(os.getenv("ANALYZE_CHUNK_FRAMES", "100"))
 # 짧은 영상은 촘촘하게, 긴 영상은 성기게 -> 프레임 수를 100~200 장 안팎으로 유지.
 # 프레임이 과하면 토큰 비용이 급증하고 Gemini 정렬 정확도도 떨어진다.
 _INTERVAL_TABLE = [
-    (60, 1.0),      # ~1분    -> 1초  (~60장)
-    (300, 3.0),     # 1~5분   -> 3초  (20~100장)
+    # 1초/장은 느리고(오버헤드 대비 프레임 과다) 응답이 커져 Gemini 가 segment 를
+    # 병합/절단하기도 한다. 3초/장이 속도·토큰·결과 안정성 모두 낫다.
+    (300, 3.0),     # ~5분    -> 3초  (수 장~100장)
     (900, 5.0),     # 5~15분  -> 5초  (60~180장)
     (float("inf"), 10.0),  # 15분+ -> 10초
 ]

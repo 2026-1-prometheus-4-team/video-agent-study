@@ -88,10 +88,6 @@ def critic_node(state: AgentState) -> dict[str, Any]:
         step for step in plan_steps
         if step.get("step_id") is not None and step.get("step_id") not in successful_ids
     ]
-    if not final_path:
-        objective_issues.append("final_output_path 가 비어 있음 (supervisor 가 출력 경로를 보고하지 않음)")
-    elif not os.path.exists(final_path):
-        objective_issues.append(f"final_output_path 가 file system 에 없음: {final_path}")
     if failed_steps:
         failed_ids = ", ".join(str(step.get("step_id", "?")) for step in failed_steps)
         objective_issues.append(f"실패한 실행 step 존재: {failed_ids}")
@@ -99,26 +95,49 @@ def critic_node(state: AgentState) -> dict[str, Any]:
         missing_ids = ", ".join(str(step.get("step_id", "?")) for step in missing_steps)
         objective_issues.append(f"완료되지 않은 계획 step 존재: {missing_ids}")
 
-    # MP4 하나가 존재해도 TTS/믹싱/캡션 step이 실패하거나 빠졌다면 완성본이
-    # 아니다. LLM의 낙관적 판정을 받지 않고 해당 step부터 즉시 RETRY한다.
-    if objective_issues:
+    # 최종 영상 존재 여부 (절대경로 또는 PROJECT_ROOT 기준 상대).
+    final_exists = bool(final_path) and (
+        os.path.exists(str(final_path))
+        or os.path.exists(os.path.join(str(config.PROJECT_ROOT), str(final_path)))
+    )
+
+    # 최종 영상이 아예 없을 때만 하드 RETRY. 있으면 부가 step(효과음/캡션/특정
+    # 리사이즈 등)이 일부 실패해도 볼 수 있는 영상이 나온 것이므로 부분 성공으로
+    # 넘긴다 — 예전엔 부가 step 하나 실패에도 전체가 "편집 미완료"로 끊겼다.
+    if not final_exists:
         retry_candidates = failed_steps + missing_steps
         retry_from = retry_candidates[0].get("step_id") if retry_candidates else None
         verdict = {
             "verdict": "RETRY",
-            "issues": objective_issues,
+            "issues": objective_issues + ["최종 영상이 만들어지지 않음"],
             "retry_from_step_id": retry_from,
             "message_to_user": (
-                "일부 필수 편집 단계가 실패하거나 완료되지 않아 부분 결과만 생성됐어. "
-                f"step {retry_from}부터 다시 시도할게."
+                f"최종 영상이 아직 안 만들어졌어. step {retry_from}부터 다시 시도할게."
                 if retry_from is not None
                 else "최종 결과물이 만들어지지 않아 다시 시도할게."
             ),
         }
-        logger.warning("critic objective fail: %s", objective_issues)
+        logger.warning("critic: 최종 산출물 없음 -> RETRY: %s", objective_issues)
         return {
             "critic_verdict": verdict,
             "critic_retries": state.get("critic_retries", 0) + 1,
+        }
+
+    if failed_steps or missing_steps:
+        partial_ids = ", ".join(
+            str(s.get("step_id", "?")) for s in (failed_steps + missing_steps)
+        )
+        logger.info("critic: 최종 영상 존재, 일부 step(%s) 미적용 -> PASS(부분)", partial_ids)
+        return {
+            "critic_verdict": {
+                "verdict": "PASS",
+                "issues": objective_issues,
+                "message_to_user": (
+                    "영상은 완성됐어. 다만 일부 부가 편집(효과음/캡션 등 step "
+                    f"{partial_ids})은 적용되지 않았어 — 필요하면 그 부분만 다시 요청해줘."
+                ),
+            },
+            "critic_retries": state.get("critic_retries", 0),
         }
 
     # 2. LLM 검증

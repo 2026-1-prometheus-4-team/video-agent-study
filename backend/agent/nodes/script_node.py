@@ -618,7 +618,10 @@ def script_node(state: AgentState) -> dict[str, Any]:
     try:
         ai_msg = system_user_invoke(
             "script", sys_text, user_text,
-            temperature=0.1, max_retries=0, timeout=90,
+            # 첫 시도가 90초에 걸려 타임아웃되면 아래 축약 재시도로 두 배 일한다
+            # (실측 planning 252초 = 90초 타임아웃 + 재시도). 큰 storyboard 출력이
+            # 90초를 넘기므로 첫 시도에 충분히 준다 → 대개 한 번에 끝남.
+            temperature=0.1, max_retries=0, timeout=180,
         )
     except Exception as e:
         # 긴 프롬프트가 Gemini 서버 deadline에 걸리면 거버넌스/few-shot까지
@@ -632,7 +635,7 @@ def script_node(state: AgentState) -> dict[str, Any]:
         compact_attempted = True
         try:
             retry_llm = make_llm(
-                "script", max_retries=0, timeout=90, temperature=0.1
+                "script", max_retries=0, timeout=120, temperature=0.1
             )
             ai_msg = retry_llm.invoke(
                 [
@@ -671,7 +674,7 @@ def script_node(state: AgentState) -> dict[str, Any]:
         )
         try:
             retry_llm = make_llm(
-                "script", max_retries=0, timeout=90, temperature=0.1
+                "script", max_retries=0, timeout=120, temperature=0.1
             )
             retry_msg = retry_llm.invoke([
                 SystemMessage(content=compact_sys_text),

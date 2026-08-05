@@ -451,7 +451,9 @@ def _step_completed(step: dict, trace: list[ExecutionStep]) -> bool:
     return any(t.get("step_id") == sid and t.get("status") == "ok" for t in trace)
 
 
-_FINAL_LITERAL = re.compile(r"FINAL_OUTPUT:\s*(\S+)")
+# (\S+) 는 경로에 공백이 있으면(예: OneDrive\바탕 화면\...) 첫 공백에서 잘린다.
+# FINAL_OUTPUT: 뒤부터 첫 .mp4/.mov 까지를 통째로 잡아 공백 포함 경로를 보존한다.
+_FINAL_LITERAL = re.compile(r"FINAL_OUTPUT:\s*(.+?\.(?:mp4|mov))", re.I)
 _FINAL_MP4 = re.compile(r"[\w./\-]+\.(?:mp4|mov)\b", re.I)
 _CLIP_HINT = re.compile(r"clip|cut|part|segment|chunk", re.I)
 
@@ -473,6 +475,22 @@ def _extract_final_output(text: str) -> Optional[str]:
         if not _CLIP_HINT.search(p):
             return p
     return None
+
+
+def _output_exists(path: str) -> bool:
+    """추출된 최종 경로가 실제 파일인지 확인 (절대경로 또는 PROJECT_ROOT 기준 상대).
+
+    공백 잘림·상대경로·paraphrase 로 깨진 경로를 걸러 trace 폴백을 유도한다.
+    """
+    try:
+        if os.path.isabs(path):
+            return os.path.exists(path)
+        from agent import config
+        return os.path.exists(path) or os.path.exists(
+            os.path.join(str(config.PROJECT_ROOT), path)
+        )
+    except Exception:
+        return False
 
 
 _SPAWN_TOOL_NAMES = {"edit", "audio", "text", "effect", "research"}
@@ -809,6 +827,11 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
     # 마지막 fallback 은 supervisor 가 최종 리포트 형식을 어길 때도 결과물이
     # 사라지지 않게 하는 안전망.
     final_output = _extract_final_output(last_text) or state.get("final_output_path")
+    # 추출/기존 경로가 실제 파일이 아니면(공백 잘림·상대경로·paraphrase) 버리고
+    # trace 의 실제 산출 경로로 폴백한다. trace 경로는 툴이 만든 절대경로라 정확.
+    if final_output and not _output_exists(final_output):
+        logger.warning("final_output 경로가 실재하지 않아 trace 로 폴백: %s", final_output)
+        final_output = None
     if not final_output:
         for step in reversed(new_trace):
             paths = step.get("output_paths") or []

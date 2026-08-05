@@ -101,10 +101,18 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
         outputUrl: undefined,
       });
     } catch (e) {
-      // 404(no_cues) = 아직 자막 큐가 없음 — 편집이 끝난 뒤 다시 시도 안내.
-      const msg = e instanceof Error && /404/.test(e.message)
-        ? "아직 자막 데이터가 없어요 — 편집이 끝난 뒤 다시 적용해줘"
-        : "백엔드 연결 필요 — 실제 렌더링은 백엔드 연결 후 가능해요";
+      // 에러 종류별 안내. 흔한 경우는 "아직 자막이 안 만들어짐"(에이전트 실행 중)
+      // 인데 예전엔 이걸 전부 "백엔드 연결 필요"로 잘못 띄웠다. 실제 연결 오류
+      // (fetch 실패 = TypeError)일 때만 연결 문제로 안내한다.
+      const isNetworkError =
+        e instanceof TypeError ||
+        (e instanceof Error && /failed to fetch|networkerror|load failed/i.test(e.message));
+      const msg =
+        e instanceof Error && /404/.test(e.message)
+          ? "아직 자막 데이터가 없어요 — 편집이 끝난 뒤 다시 적용해줘"
+          : isNetworkError
+            ? "백엔드에 연결할 수 없어요 — 서버가 켜져 있는지 확인해줘"
+            : "아직 자막을 적용할 수 없어요 — 자막 생성(편집)이 끝난 뒤 다시 시도해줘";
       setError(msg);
     } finally {
       setSaving(false);
