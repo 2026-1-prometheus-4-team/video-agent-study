@@ -319,18 +319,6 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
     "emotional_contrast": "<감정 대비, 예: 기대감 새집 vs 우당탕탕 현실>"
   },
   "trend_elements": ["<트렌드 요소, 예: 빠른 호흡 컷 편집>", "<현실 공감 모먼트>", "..."],
-  "timeline": [
-    {
-      "index": 1, "label": "<섹션 이름, 예: 훅>",
-      "start_ms": 0, "end_ms": 5000,
-      "source_videos": ["videos/a.mp4"],
-      "transition": "hard_cut" | "crossfade",
-      "subtitle_text": "<이 섹션 자막 문구 (직접 작성)>",
-      "narration_text": "<나래이션 문구 (직접 작성, 없으면 빈 문자열)>",
-      "sfx": "<효과음 설명, 예: 한숨 효과음>",
-      "emphasis_note": "<감정 포인트>"
-    }
-  ],
   "bgm_progression": [
     {"start_ms": 0, "end_ms": 15000, "mood": "경쾌한 브이로그", "cue": "도입 텐션"},
     {"start_ms": 15000, "end_ms": 30000, "mood": "정적/개그", "cue": "렌치 안 맞을 때"}
@@ -440,6 +428,15 @@ action 종류 (TOOLS.md 참조):
   cta_suggest, music_mood_recommend, trend_distill
 
 원칙:
+
+## 출력은 간결하게 (생성 속도 직결)
+
+- 각 서술 필드(visual / selection_reason / edit_direction / intent / duration_reason
+  / directing 등)는 **1~2줄 이내**로 짧게 쓴다. 장황하게 쓰면 생성이 수 분으로
+  느려진다 — 핵심만.
+- `plan_markdown` 은 승인 카드용 요약이다. 컨셉·타임라인 표·BGM·핵심 팁만 담고
+  storyboard 내용을 문장으로 다시 길게 풀어쓰지 마라 (중복 = 느림).
+- storyboard 항목 수는 목표 길이에 맞춘 컷 수(보통 6~10개)면 충분하다.
 
 ## 기획 먼저, 도구는 그 다음 (mode=edit 일 때)
 
