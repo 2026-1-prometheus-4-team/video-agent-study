@@ -124,6 +124,13 @@ def analysis_stem(video_path: str, videos_dir: str) -> str:
     return f"{stem}_{digest}"
 
 
+# Gemini 는 이미지를 ~768px 타일로 처리한다. 원본(1080p 등)을 통째로 보내면
+# 타일 수(=입력 토큰)만 늘어 분석이 느리고 비싸다. 긴 변을 이 값으로 줄여도
+# 장면 이해(객체/행동/무드)엔 충분하다. 필요하면 .env 로 조정.
+_MAX_FRAME_PX = int(os.getenv("ANALYZE_MAX_FRAME_PX", "768"))
+_FRAME_JPEG_QUALITY = int(os.getenv("ANALYZE_JPEG_QUALITY", "85"))
+
+
 def _extract_frames(video_path: str, interval_sec: float) -> tuple[float, list[tuple[int, bytes]]]:
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -141,14 +148,29 @@ def _extract_frames(video_path: str, interval_sec: float) -> tuple[float, list[t
             break
         timestamp_ms = int((frame_idx / fps) * 1000)
 
+        # 다운스케일: 긴 변을 _MAX_FRAME_PX 로 줄여 Gemini 타일/토큰을 절감한다.
+        fh0, fw0 = frame.shape[:2]
+        long_side = max(fh0, fw0)
+        if long_side > _MAX_FRAME_PX:
+            s = _MAX_FRAME_PX / long_side
+            frame = cv2.resize(
+                frame,
+                (max(1, int(fw0 * s)), max(1, int(fh0 * s))),
+                interpolation=cv2.INTER_AREA,
+            )
+
         # 각 프레임에 타임스탬프를 새겨서 전송 -> Gemini 가 이미지 순서를 세다
-        # 어긋나는 정렬 오차 방지 (이미지에 적힌 시간을 직접 읽음)
+        # 어긋나는 정렬 오차 방지 (이미지에 적힌 시간을 직접 읽음). 폰트 크기는
+        # 다운스케일된 프레임 너비에 비례시켜 항상 읽히게 한다.
         total_s = timestamp_ms // 1000
         label = f"[{total_s // 60:02d}:{total_s % 60:02d}]"
-        cv2.putText(frame, label, (16, 56), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 0, 0), 10)
-        cv2.putText(frame, label, (16, 56), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 255, 255), 4)
+        fw = frame.shape[1]
+        fs = max(0.7, fw / 700.0)
+        baseline = int(38 * fs)
+        cv2.putText(frame, label, (12, baseline), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 0, 0), max(4, int(7 * fs)))
+        cv2.putText(frame, label, (12, baseline), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 255), max(2, int(3 * fs)))
 
-        _, buffer = cv2.imencode(".jpg", frame)
+        _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, _FRAME_JPEG_QUALITY])
         frames.append((timestamp_ms, buffer.tobytes()))
         frame_idx += frame_step
 
