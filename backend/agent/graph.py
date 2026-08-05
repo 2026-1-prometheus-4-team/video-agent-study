@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from typing import Any, Optional
@@ -295,6 +296,11 @@ def research_prepass(state: AgentState) -> dict[str, Any]:
 
     실패(키 없음/쿼터/파싱)해도 조용히 no-op — 기획은 계속 진행된다.
     """
+    # 트렌드 리서치는 youtube_search + web_search + LLM 증류를 순차로 돌려 90초를
+    # 넘길 수 있고, 프론트 감시(응답 없음)를 유발한다. 데모 안정성을 위해 기본 OFF.
+    # 되살리려면 .env 에 ENABLE_TREND_RESEARCH=true.
+    if os.getenv("ENABLE_TREND_RESEARCH", "false").lower() != "true":
+        return {}
     user_request = state.get("user_request", "")
     if not _RESEARCH_INTENT.search(user_request):
         return {}

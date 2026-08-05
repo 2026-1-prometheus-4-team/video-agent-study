@@ -61,6 +61,9 @@ class TestResearchPrepass:
         import agent.tools.research_external as rx
         import agent.tools.research_llm as rl
 
+        # 트렌드 리서치는 기본 OFF — 명시 활성화 시에만 실행된다.
+        monkeypatch.setenv("ENABLE_TREND_RESEARCH", "true")
+
         # research_prepass 는 함수 내부에서 import 하므로 소스 모듈의 툴 객체를
         # 통째로 fake(.invoke 가진) 로 교체한다 (StructuredTool 은 attr 설정 불가).
         class _Fake:
@@ -94,6 +97,8 @@ class TestResearchPrepass:
         import agent.graph as g
         import agent.tools.research_external as rx
         import agent.tools.research_llm as rl
+
+        monkeypatch.setenv("ENABLE_TREND_RESEARCH", "true")
 
         class _Fake:
             def __init__(self, ret):
