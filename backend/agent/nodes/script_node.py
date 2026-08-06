@@ -561,10 +561,12 @@ def _ensure_shorts_title(plan: dict[str, Any]) -> dict[str, Any]:
             "text": title_text,
             "position": "top",
             "start_time": 0.0,
-            "duration": 3.0,
+            # 쇼츠 상단 제목은 영상 내내 떠 있어야 한다. 큰 값으로 두면 drawtext 가
+            # 실제 영상 길이까지 표시한다(짧게 3초만 떴다 사라지던 문제 수정).
+            "duration": 100000.0,
             "output_path": title_out,
         },
-        "rationale": "세로 쇼츠 제목(위쪽 여백) - 코드 강제 주입",
+        "rationale": "세로 쇼츠 제목(위쪽 여백, 영상 내내 표시) - 코드 강제 주입",
     }
 
     if sub_idx is not None:
