@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 import agent.sub_agent as sub_agent_module
 from agent.sub_agent import SubAgentEnvelope, spawn_sub_agent
@@ -43,6 +43,19 @@ class _FlakyAgent:
         if self.calls <= self._failures:
             raise RuntimeError(self._error)
         return SUCCESS_STATE
+
+
+class _SequencedAgent:
+    def __init__(self, states):
+        self.calls = 0
+        self.inputs = []
+        self._states = states
+
+    def invoke(self, invoke_input, **_kwargs):
+        self.inputs.append(invoke_input)
+        index = min(self.calls, len(self._states) - 1)
+        self.calls += 1
+        return self._states[index]
 
 
 def _spawn_with(agent_stub):
@@ -80,3 +93,36 @@ def test_ordinary_failure_is_not_retried():
 
     assert stub.calls == 1
     assert result.status == "error"
+
+
+def test_missing_tool_call_is_forced_and_then_succeeds():
+    no_tool_state = {"messages": [AIMessage(content="I will create the BGM.")]}
+    stub = _SequencedAgent([no_tool_state, SUCCESS_STATE])
+
+    result = _spawn_with(stub)
+
+    assert stub.calls == 2
+    assert result.status == "ok"
+    retry_messages = stub.inputs[1]["messages"]
+    assert isinstance(retry_messages[-1], HumanMessage)
+    assert "did not call a tool" in retry_messages[-1].content
+
+
+def test_missing_tool_call_stops_after_retry_budget():
+    no_tool_state = {"messages": [AIMessage(content="I cannot do that.")]}
+    stub = _SequencedAgent([no_tool_state])
+
+    result = _spawn_with(stub)
+
+    assert stub.calls == 1 + sub_agent_module.NO_TOOL_RETRY_ATTEMPTS
+    assert result.status == "error"
+    assert result.error == "no_tool_call"
+
+
+def test_existing_tool_call_is_never_retried():
+    stub = _SequencedAgent([SUCCESS_STATE])
+
+    result = _spawn_with(stub)
+
+    assert stub.calls == 1
+    assert result.status == "ok"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from langchain_core.tools import tool
 
@@ -41,6 +42,16 @@ def mix_audio(
     try:
         video = resolve_input_path(video_path)
         audio = resolve_input_path(audio_path)
+        if re.search(r"(?:^|[_\-.])(bgm|music|soundtrack)(?:[_\-.]|$)", audio.stem, re.IGNORECASE):
+            return json.dumps(
+                {
+                    "status": "error",
+                    "error": "BGM audio is not allowed in mix_audio; use add_bgm or add_bgm_progression",
+                    "audio_path": str(audio),
+                    "required_tool": "add_bgm",
+                },
+                ensure_ascii=False,
+            )
         output = resolve_output_path(output_path, "mixed_audio", video.suffix)
         ensure_parent(output)
 

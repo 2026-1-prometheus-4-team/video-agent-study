@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # 파이프라인 전체 재실행(최대 3회 × 전체 step)보다 훨씬 싼 복구 지점이다.
 TRANSIENT_RETRY_ATTEMPTS = 3
 TRANSIENT_RETRY_BASE_SEC = 2.0
+NO_TOOL_RETRY_ATTEMPTS = 2
 
 
 # =============================================================
@@ -241,6 +242,50 @@ def spawn_sub_agent(envelope: SubAgentEnvelope) -> SubAgentResult:
             time.sleep(delay)
 
     # ── 7. 결과 추출 ──
+    # Tool-capable models sometimes answer in prose even though this is an
+    # execution agent. Retry only when no ToolMessage exists, so a successful
+    # side-effecting tool call is never executed twice.
+    if result_state is not None and tools:
+        available_tool_names = [tool.name for tool in tools]
+        requested_tool = next(
+            (name for name in available_tool_names if name in envelope.task),
+            None,
+        )
+        for retry_index in range(1, NO_TOOL_RETRY_ATTEMPTS + 1):
+            prior_messages = result_state.get("messages", [])
+            if any(isinstance(message, ToolMessage) for message in prior_messages):
+                break
+
+            tool_instruction = (
+                f"Call `{requested_tool}` now."
+                if requested_tool
+                else "Choose and call the single most appropriate provided tool now."
+            )
+            correction = HumanMessage(content=(
+                "Your previous response did not call a tool, so the task was not executed. "
+                "Do not explain, apologize, claim failure, or merely describe the operation. "
+                f"{tool_instruction} Available tools: {', '.join(available_tool_names)}. "
+                "Use the exact input/output paths and parameters from the parent task."
+            ))
+            logger.warning(
+                "sub-agent %s returned no tool call; forcing tool retry %d/%d",
+                role, retry_index, NO_TOOL_RETRY_ATTEMPTS,
+            )
+            try:
+                result_state = child_agent.invoke(
+                    {"messages": [*prior_messages, correction]},
+                    config={"recursion_limit": limits.max_tool_calls_per_spawn * 2},
+                )
+            except Exception as e:
+                logger.exception("sub-agent %s forced tool retry failed", role)
+                return SubAgentResult(
+                    role=role,
+                    status="error",
+                    summary=f"forced tool retry failed: {type(e).__name__}: {e}",
+                    error=str(e),
+                    duration_sec=time.monotonic() - started,
+                )
+
     return _extract_result(role, result_state, started)
 
 

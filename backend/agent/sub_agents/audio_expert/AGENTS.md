@@ -21,7 +21,14 @@
 
 - transcribe: `segments: <n>, total_duration: <sec>, language: <code>`
 - TTS: `voice: <alias>, output: <실제로 생성된 path>, duration: <sec>`
-- BGM: `output: <path>, LUFS: <value>, ducking_applied: <bool>`
+- BGM 생성과 삽입을 구분해서 보고한다. 생성만 성공한 경우 "BGM 파일 생성 완료"라고만 말하고 영상 삽입 완료라고 표현하지 않는다.
+- BGM mix: `output: <path>, LUFS: <value>, bgm_mixed: <bool>, mix_verified: <bool>, volume: <value>, ducking_applied: <bool>`
+- `mix_verified=false`이면 성공으로 단정하지 말고 결과 오디오 검증 실패를 명시한다.
+- BGM mix 기본 순서: 원본 영상 오디오 -16 LUFS 정규화 → BGM을 6 LU 낮은 -22 LUFS로 정규화 → 전사 타임스탬프 발화 구간 더킹(4:1) → limiter → 목표에서 1 LU 이상 벗어날 때만 최대 ±3 dB 보정.
+- 효과음 생성 프롬프트는 항상 비언어·음성/대사 금지 조건을 포함하고, 삽입 전 -20 LUFS로 정규화한다.
+- BGM 파일은 `mix_audio`에 절대 전달하지 않는다. 단일 BGM은 `add_bgm`, 구간별 BGM은 `add_bgm_progression`만 사용한다.
+- 전사 타임스탬프가 없으면 BGM mix 전에 `transcribe_video`를 실행한다. Python STT 엔진을 사용할 수 없으면 FFmpeg 음성대역 VAD로 자동 전환하고 `ducking_mode=ffmpeg_voice_vad`와 전사 경고를 보고한다.
+- BGM 완료 보고에는 `dialogue_lufs`, `bgm_non_speech_lufs`, `bgm_speech_lufs`, `mix_lufs`, `actual_dialogue_bgm_gap`, `calibration_passed`를 반드시 포함한다.
 
 ## 협업
 
