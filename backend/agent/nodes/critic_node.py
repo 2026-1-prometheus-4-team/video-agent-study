@@ -183,6 +183,23 @@ def critic_node(state: AgentState) -> dict[str, Any]:
     verdict["issues"].extend(objective_issues)
     verdict.setdefault("message_to_user", "")
 
+    # 이 지점에 오면 최종 영상이 이미 존재하고 계획된 step 이 전부 성공한 상태다
+    # (앞의 두 가드에서 걸러짐). LLM 이 완성도(BGM/효과음 등 기획 대비 누락)를
+    # 이유로 RETRY 를 내도, 볼 수 있는 영상을 "편집 미완료" 로 끊지 않는다.
+    # 완성으로 처리하고 LLM 지적은 안내 문구로만 남긴다.
+    if verdict.get("verdict") != "PASS":
+        note = verdict.get("message_to_user") or "; ".join(
+            str(i) for i in verdict.get("issues", [])
+        )
+        verdict["verdict"] = "PASS"
+        verdict["partial"] = True
+        verdict["message_to_user"] = (
+            "영상은 완성됐어. 다만 기획 대비 일부(예: BGM/효과음)가 덜 반영됐을 수 "
+            "있어 — 필요하면 그 부분만 추가로 요청해줘."
+            + (f" (참고: {note})" if note else "")
+        )
+        logger.info("critic: 최종 영상 존재 -> LLM RETRY 를 PASS(부분)로 완화")
+
     logger.info("critic verdict: %s, issues=%d", verdict.get("verdict"), len(verdict["issues"]))
     retries = state.get("critic_retries", 0)
     if verdict.get("verdict") != "PASS":
