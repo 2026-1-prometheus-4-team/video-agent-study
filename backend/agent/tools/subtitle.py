@@ -1094,11 +1094,13 @@ def add_title(
     duration: float = 3.0,
     anim: str = "fade",
     style: str = "",
+    output_path: str = "",
 ) -> str:
     """영상 위에 타이틀 텍스트 오버레이 — fade-in/out 지원.
 
     인트로·아웃트로 타이틀, 챕터 제목 등에 사용.
     anim='fade' 이면 0.5초 fade-in + 0.5초 fade-out 자동 적용.
+    output_path 를 주면 그 경로(상대면 outputs/)로 저장한다 — step 간 파일 전달용.
 
     Args:
         video_path: 입력 영상 파일명 (videos/ 기준)
@@ -1158,13 +1160,30 @@ def add_title(
 
         vf = "drawtext=" + ":".join(parts)
 
-        output_file = Path(input_path).with_name(f"{Path(input_path).stem}_title{Path(input_path).suffix}")
+        if output_path:
+            output_file = Path(media_paths.resolve_output(output_path))
+        else:
+            output_file = Path(input_path).with_name(
+                f"{Path(input_path).stem}_title{Path(input_path).suffix}"
+            )
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
         code, stderr = _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR if safe_font else None)
         if code != 0:
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
+
+        # 타이틀 번인은 시간축/콘텐츠 영역을 바꾸지 않는다. add_title 이 자막(add_auto_
+        # subtitle) 앞에 끼어도 origin 기반 전사 재사용이 이어지도록 origin·pad 메타를
+        # 승계한다 (없으면 다음 자막 step 이 원본 대사를 못 찾아 잘못 재전사한다).
+        for suffix in (".origin.json", ".pad.json"):
+            src_sidecar = input_path + suffix
+            if os.path.exists(src_sidecar):
+                try:
+                    shutil.copy2(src_sidecar, output_path + suffix)
+                except OSError:
+                    logger.warning("add_title sidecar 승계 실패: %s", src_sidecar)
 
         return json.dumps({
             "output": str(output_file),
