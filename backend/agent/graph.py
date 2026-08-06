@@ -77,10 +77,23 @@ def _analyze_one_video(path: str) -> tuple[str, dict]:
     filename = Path(path).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
     try:
         cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
-        if cached_json.exists():
+        source_video = Path(path) if os.path.isabs(path) else (config.VIDEOS_DIR / filename)
+        # 캐시가 원본보다 오래됐으면(영상을 새로 올림) 재분석한다. 파일명 기준
+        # 캐시라 영상을 교체해도 옛 분석(회전값·씬·자막)이 그대로 붙던 버그.
+        cache_fresh = cached_json.exists()
+        if cache_fresh and source_video.exists():
+            try:
+                cache_fresh = cached_json.stat().st_mtime >= source_video.stat().st_mtime
+            except OSError:
+                cache_fresh = False
+        if cache_fresh:
             logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
             data = _json.loads(cached_json.read_text(encoding="utf-8"))
         else:
+            if cached_json.exists():
+                logger.info(
+                    "analysis_node: 캐시가 원본보다 오래됨 -> 재분석 - %s", cached_json
+                )
             raw = analyze_video.invoke({"video_path": filename})
             data = _json.loads(raw)
 

@@ -671,6 +671,23 @@ export const useAgentStore = create<AgentState>()(
             it.endedAt = Date.now();
           }
         }
+        // 편집이 성공했고 자막(cue)이 있으면 최종본 stem 으로 자막 스타일 카드를
+        // 지금(편집 후) 띄운다. 편집 전에 미리 띄우던 예전 동작을 대체한다.
+        const finalStem =
+          outputPath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? "";
+        const hasCues = (opts?.transcript?.length ?? 0) > 0;
+        const alreadyCard = s.stream.some(
+          (x) => x.kind === "subtitle_style" && x.stem === finalStem
+        );
+        if (opts?.success !== false && hasCues && finalStem && !alreadyCard) {
+          s.stream.push({
+            kind: "subtitle_style",
+            id: nextId(),
+            createdAt: Date.now(),
+            stem: finalStem,
+            status: "pending",
+          });
+        }
       }),
 
     pushSubtitleStyle: (stem) =>

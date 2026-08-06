@@ -33,6 +33,14 @@ def _load_cached_transcript(source: Path) -> dict | None:
     path = _transcript_cache_path(source)
     if not path.exists():
         return None
+    # 캐시가 원본 영상보다 오래됐으면(같은 파일명으로 새 영상 업로드) 무효화한다.
+    # 파일명 기준 캐시라, 이게 없으면 교체된 영상에 옛 자막이 그대로 붙는다.
+    try:
+        if source.exists() and path.stat().st_mtime < source.stat().st_mtime:
+            logger.info("transcript cache stale (video newer) -> 재전사: %s", path)
+            return None
+    except OSError:
+        return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError):
