@@ -507,6 +507,101 @@ def _propagate_target_aspect_ratio(plan: dict[str, Any]) -> dict[str, Any]:
     return plan
 
 
+def _ensure_shorts_title(plan: dict[str, Any]) -> dict[str, Any]:
+    """세로(9:16) 쇼츠인데 add_title step 이 없으면 강제로 하나 주입한다.
+
+    "쇼츠면 제목 필수" 를 프롬프트로 지시해도 플래너가 자주 빠뜨려서(step 예산
+    초과 등) 코드로 보장한다. 제목은 add_auto_subtitle *앞* 에 끼워, 최종 산출물의
+    stem(=자막 cue 문서 키)이 그대로 유지되게 한다.
+    """
+    steps = plan.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return plan
+
+    # 세로 쇼츠 판정: target_aspect_ratio 9:16 또는 resize_video 가 9:16 로 감.
+    target = str(plan.get("target_aspect_ratio") or "")
+    is_vertical = target == "9:16" or any(
+        isinstance(s, dict)
+        and s.get("action") == "resize_video"
+        and str((s.get("params") or {}).get("aspect_ratio") or "") == "9:16"
+        for s in steps
+    )
+    if not is_vertical:
+        return plan
+    if any(isinstance(s, dict) and s.get("action") == "add_title" for s in steps):
+        return plan
+
+    # 제목 문구: creative_brief 에서 뽑고 없으면 무난한 기본값. 한 줄로 제한.
+    brief = plan.get("creative_brief") if isinstance(plan.get("creative_brief"), dict) else {}
+    title_text = ""
+    for src in (brief.get("title"), brief.get("hook"), brief.get("concept"), plan.get("title")):
+        if isinstance(src, str) and src.strip():
+            title_text = src.strip()
+            break
+    title_text = (title_text or "오늘의 브이로그").splitlines()[0][:24]
+
+    # 자막 step 앞에 끼운다 (없으면 마지막 영상 생성 step 뒤에).
+    sub_idx = next(
+        (i for i, s in enumerate(steps)
+         if isinstance(s, dict) and s.get("action") == "add_auto_subtitle"),
+        None,
+    )
+    anchor = steps[sub_idx] if sub_idx is not None else steps[-1]
+    anchor_params = anchor.get("params") or {}
+    base_video = anchor_params.get("video_path") or anchor_params.get("output_path")
+    if not isinstance(base_video, str) or not base_video:
+        return plan
+
+    title_out = "titled_shorts.mp4"
+    title_step = {
+        "expert": "text_expert",
+        "action": "add_title",
+        "params": {
+            "video_path": base_video,
+            "text": title_text,
+            "position": "top",
+            "start_time": 0.0,
+            # 쇼츠 상단 제목은 영상 내내 떠 있어야 한다. 큰 값으로 두면 drawtext 가
+            # 실제 영상 길이까지 표시한다(짧게 3초만 떴다 사라지던 문제 수정).
+            "duration": 100000.0,
+            "output_path": title_out,
+        },
+        "rationale": "세로 쇼츠 제목(위쪽 여백, 영상 내내 표시) - 코드 강제 주입",
+    }
+
+    if sub_idx is not None:
+        # 자막 step 의 입력을 제목 출력으로 재배선 (제목 위 -> 자막 아래 순서 보장).
+        anchor["params"] = {**anchor_params, "video_path": title_out}
+        steps.insert(sub_idx, title_step)
+    else:
+        steps.append(title_step)
+
+    # step_id 재부여 + output_path->step_id 로 depends_on 재배선(모든 경로형 파라미터).
+    for i, s in enumerate(steps, 1):
+        if isinstance(s, dict):
+            s["step_id"] = i
+    producer = {
+        str((s.get("params") or {}).get("output_path")): s["step_id"]
+        for s in steps
+        if isinstance(s, dict)
+        and isinstance((s.get("params") or {}).get("output_path"), str)
+    }
+    for s in steps:
+        if not isinstance(s, dict):
+            continue
+        deps: set[int] = set()
+        for v in (s.get("params") or {}).values():
+            candidates = v if isinstance(v, list) else [v]
+            for c in candidates:
+                if isinstance(c, str) and producer.get(c) and producer[c] != s["step_id"]:
+                    deps.add(producer[c])
+        s["depends_on"] = sorted(deps)
+
+    plan["steps"] = steps
+    logger.info("shorts 제목 강제 주입: '%s' (step %d)", title_text, title_step["step_id"])
+    return plan
+
+
 # =============================================================
 # 노드 본체
 # =============================================================
@@ -699,6 +794,7 @@ def script_node(state: AgentState) -> dict[str, Any]:
     plan = _enforce_requested_features(plan, user_request)
     plan = _constrain_cut_duration(plan, user_request, video_context)
     plan = _propagate_target_aspect_ratio(plan)
+    plan = _ensure_shorts_title(plan)
     # chat 모드인데 reply 가 없으면 edit 모드로 강등 (오분류 방어)
     if plan.get("mode") == "chat" and not str(plan.get("reply") or "").strip():
         plan["mode"] = "edit"
