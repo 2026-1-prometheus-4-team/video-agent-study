@@ -177,7 +177,18 @@ def _resolve_output_path(output_path: Optional[str], prefix: str, source_path: s
         parent = os.path.dirname(os.path.abspath(resolved))
         if parent:
             os.makedirs(parent, exist_ok=True)
-        return os.path.normpath(resolved)
+        resolved = os.path.normpath(resolved)
+        # in-place 방지: 출력이 입력과 같은 경로면 FFmpeg 이 "cannot edit existing
+        # files in-place" 로 실패한다(rc=4294967274). sub-agent(LLM)가 output=input
+        # 을 넘기는 경우가 잦아, 구분되는 이름으로 자동 우회한다.
+        try:
+            if source_path and os.path.abspath(resolved) == os.path.abspath(source_path):
+                base, ext = os.path.splitext(resolved)
+                resolved = f"{base}_{prefix}{uuid.uuid4().hex[:6]}{ext or '.mp4'}"
+                logger.info("in-place 출력 감지 -> 우회 경로 사용: %s", resolved)
+        except OSError:
+            pass
+        return resolved
 
     _ensure_outputs()
     _, ext = os.path.splitext(source_path)

@@ -8,8 +8,8 @@ import {
   DEFAULT_STYLE,
   FONT_OPTIONS,
   getSubtitleStyle,
+  patchSubtitleStyle,
   pathStem,
-  renderSubtitles,
   type SubtitlePosition,
   type SubtitleStyle,
 } from "./subtitleApi";
@@ -36,11 +36,10 @@ function normalizePosition(p: unknown): SubtitlePosition {
   return "bottom";
 }
 
-export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
+export function SubtitleStyleCard({ id, stem, status }: Props) {
   const uploadedUrl   = useAgentStore((s) => s.uploadedUrl);
   const lastFinal     = useAgentStore((s) => s.lastFinal);
   const applySubtitle = useAgentStore((s) => s.applySubtitleStyle);
-  const pushFinal     = useAgentStore((s) => s.pushFinal);
 
   // 자막 큐 문서는 자막을 입힌 *편집 결과물* stem 으로 키가 잡힌다. 카드는 계획
   // 승인 시점(원본 stem)에 만들어지므로, 결과물이 도착하면 그 stem 을 우선한다.
@@ -95,11 +94,11 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const result = await renderSubtitles(effectiveStem, style);
-      applySubtitle(id, result.output_path);
-      pushFinal(result.output_path, result.duration_sec, {
-        outputUrl: undefined,
-      });
+      // 자막을 영상에 굽지 않고 cue 문서에 스타일만 저장한다 (레이어 방식).
+      // 스테이지 오버레이가 이 스타일을 즉시 반영하고, 실제 burn 은 내보내기에서
+      // 한 번만 한다 — 편집본에 자막이 이중으로 겹치지 않는다.
+      await patchSubtitleStyle(effectiveStem, style);
+      applySubtitle(id, `${effectiveStem}.cues.json`);
     } catch (e) {
       // 에러 종류별 안내. 흔한 경우는 "아직 자막이 안 만들어짐"(에이전트 실행 중)
       // 인데 예전엔 이걸 전부 "백엔드 연결 필요"로 잘못 띄웠다. 실제 연결 오류
@@ -391,7 +390,7 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
         <div className={styles.appliedNote}>
           <Check size={12} />
           <span>
-            {outputPath ?? "렌더링 완료"} — 스테이지에서 확인해봐
+            자막 스타일 저장 완료 — 스테이지에서 확인하고 &ldquo;내보내기&rdquo;로 태워줘
           </span>
         </div>
       ) : (
@@ -416,7 +415,7 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
               onClick={handleRender}
               disabled={saving || loading}
             >
-              {saving ? "렌더링 중…" : error ? "다시 시도 →" : "적용하고 제작 시작 →"}
+              {saving ? "저장 중…" : error ? "다시 시도 →" : "자막 스타일 적용 →"}
             </button>
           </div>
         </>

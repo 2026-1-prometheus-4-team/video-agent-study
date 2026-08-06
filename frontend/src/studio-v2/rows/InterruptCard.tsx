@@ -41,18 +41,9 @@ export function InterruptCard({
       return;
     }
     // 카드 resolve 는 서버의 resume_accepted 가 처리한다 (전송 실패 시 재시도 유지).
-    // 자막 관련 스텝이 플랜에 있으면 자막 스타일 카드 표시
-    const hasSubtitleStep = item.plan.some((p) =>
-      /자막|subtitle|caption/i.test(p.action + " " + p.rationale)
-    );
-    if (hasSubtitleStep) {
-      const store = useAgentStore.getState();
-      const serverPath = store.serverVideoPath;
-      const stem = serverPath
-        ? serverPath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") ?? ""
-        : "";
-      if (stem) store.pushSubtitleStyle(stem);
-    }
+    // 자막 스타일 카드는 편집이 끝난 뒤(final 도착 시) 최종본 stem 으로 띄운다.
+    // 예전엔 승인 즉시 원본 stem 으로 띄워서 "편집도 안 했는데 자막이 먼저 뜬다"
+    // 는 혼란이 있었다 — cue 는 편집 결과 시간축 기준이라 편집 후가 맞다.
   };
 
   const submitFeedback = () => {

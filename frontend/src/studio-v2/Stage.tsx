@@ -2,9 +2,14 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { Film, Play, Pause, Volume2, VolumeX, Scissors, Upload } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useAgentStore } from "./state";
 import { formatSeconds } from "@/lib/format";
+import {
+  getSubtitleStyle,
+  pathStem,
+  type SubtitleStyle,
+} from "./subtitle/subtitleApi";
 import styles from "./stage.module.css";
 
 export function Stage() {
@@ -107,6 +112,71 @@ export function Stage() {
     if (uploadedUrl) return uploadedUrl;
     return finalUrl ?? null;
   }, [viewMode, finalUrl, uploadedUrl]);
+
+  // 자막 cue 레이어 — 편집본은 자막을 굽지 않고(cue 만 생성) 여기서 실시간 렌더.
+  // 편집본 재생(viewMode==="final") 일 때만 표시: transcript 타임스탬프가 편집된
+  // 타임라인 기준이라 원본 재생 시에는 어긋난다.
+  const subtitleCues = lastFinal?.transcript ?? videoContext?.transcript ?? [];
+  const activeSubtitle = useMemo(() => {
+    if (viewMode !== "final") return null;
+    for (const seg of subtitleCues) {
+      if (currentTime >= seg.start && currentTime <= seg.end) {
+        return seg.text;
+      }
+    }
+    return null;
+  }, [subtitleCues, currentTime, viewMode]);
+
+  // cue 문서에 저장된 자막 스타일을 오버레이에 반영해 스타일 카드와 WYSIWYG 유지.
+  // 스타일을 못 불러오면(백엔드 미연결/큐 없음) CSS 기본 룩으로 둔다.
+  const [subStyle, setSubStyle] = useState<SubtitleStyle | null>(null);
+  const finalStem = pathStem(lastFinal?.outputPath);
+  useEffect(() => {
+    if (!finalStem || !hasFinal) {
+      setSubStyle(null);
+      return;
+    }
+    let alive = true;
+    getSubtitleStyle(finalStem)
+      .then((s) => {
+        if (alive) setSubStyle(s);
+      })
+      .catch(() => {
+        if (alive) setSubStyle(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [finalStem, hasFinal]);
+
+  const subtitleOverlayStyle = useMemo<CSSProperties>(() => {
+    if (!subStyle) return {};
+    const strokeShadow = (() => {
+      if (!subStyle.stroke_width) return undefined;
+      const s = Math.ceil(subStyle.stroke_width);
+      const dirs: string[] = [];
+      for (let x = -s; x <= s; x++) {
+        for (let y = -s; y <= s; y++) {
+          if (x !== 0 || y !== 0)
+            dirs.push(`${x}px ${y}px 0 ${subStyle.stroke_color}`);
+        }
+      }
+      return dirs.join(", ");
+    })();
+    const inset = 4 + (subStyle.margin_v / 100) * 40; // % from edge
+    const placement: CSSProperties =
+      subStyle.position === "top"
+        ? { top: `${inset}%`, bottom: "auto", transform: "translateX(-50%)" }
+        : subStyle.position === "middle"
+          ? { top: "50%", bottom: "auto", transform: "translate(-50%, -50%)" }
+          : { bottom: `${inset}%`, top: "auto", transform: "translateX(-50%)" };
+    return {
+      ...placement,
+      color: subStyle.color,
+      fontWeight: subStyle.bold ? 800 : 500,
+      textShadow: strokeShadow,
+    };
+  }, [subStyle]);
 
   const displayDuration =
     videoDuration || lastFinal?.duration || videoContext?.duration || 0;
@@ -273,6 +343,23 @@ export function Stage() {
                   </div>
                 </div>
               )}
+
+              {/* 자막 cue 오버레이 (편집본 재생 시) */}
+              <AnimatePresence mode="wait">
+                {activeSubtitle && (
+                  <motion.div
+                    key={activeSubtitle}
+                    className={styles.subtitleOverlay}
+                    style={subtitleOverlayStyle}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.16 }}
+                  >
+                    {activeSubtitle}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Source / Final 토글 — 편집본이 있을 때만 표시 */}
               {hasFinal && hasSource && (

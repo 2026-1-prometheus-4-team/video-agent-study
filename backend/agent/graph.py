@@ -77,10 +77,23 @@ def _analyze_one_video(path: str) -> tuple[str, dict]:
     filename = Path(path).name  # analyze_video 는 파일명만 받음 (videos/ 기준)
     try:
         cached_json = config.VIDEOS_DIR / f"{Path(filename).stem}_analysis.json"
-        if cached_json.exists():
+        source_video = Path(path) if os.path.isabs(path) else (config.VIDEOS_DIR / filename)
+        # 캐시가 원본보다 오래됐으면(영상을 새로 올림) 재분석한다. 파일명 기준
+        # 캐시라 영상을 교체해도 옛 분석(회전값·씬·자막)이 그대로 붙던 버그.
+        cache_fresh = cached_json.exists()
+        if cache_fresh and source_video.exists():
+            try:
+                cache_fresh = cached_json.stat().st_mtime >= source_video.stat().st_mtime
+            except OSError:
+                cache_fresh = False
+        if cache_fresh:
             logger.info("analysis_node: 기존 분석 JSON 재사용 - %s", cached_json)
             data = _json.loads(cached_json.read_text(encoding="utf-8"))
         else:
+            if cached_json.exists():
+                logger.info(
+                    "analysis_node: 캐시가 원본보다 오래됨 -> 재분석 - %s", cached_json
+                )
             raw = analyze_video.invoke({"video_path": filename})
             data = _json.loads(raw)
 
@@ -826,18 +839,26 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
     # (2) 기존 state.final_output_path (3) execution trace 마지막 산출 경로.
     # 마지막 fallback 은 supervisor 가 최종 리포트 형식을 어길 때도 결과물이
     # 사라지지 않게 하는 안전망.
+    from agent.tools import media_paths
+
     final_output = _extract_final_output(last_text) or state.get("final_output_path")
-    # 추출/기존 경로가 실제 파일이 아니면(공백 잘림·상대경로·paraphrase) 버리고
-    # trace 의 실제 산출 경로로 폴백한다. trace 경로는 툴이 만든 절대경로라 정확.
-    if final_output and not _output_exists(final_output):
-        logger.warning("final_output 경로가 실재하지 않아 trace 로 폴백: %s", final_output)
+    # bare/상대 경로("video_with_subtitles.mp4")를 outputs·videos 까지 뒤져 실재하는
+    # 절대경로로 확정한다. 예전엔 PROJECT_ROOT 만 봐서 outputs/ 산출물을 "없음"으로
+    # 오판, critic 이 "편집 미완료"로 끊고 reanalysis 도 파일을 못 찾았다.
+    resolved_final = media_paths.find_media(final_output) if final_output else None
+    if resolved_final is not None:
+        final_output = str(resolved_final)
+    else:
+        if final_output:
+            logger.warning("final_output 경로가 실재하지 않아 trace 로 폴백: %s", final_output)
         final_output = None
-    if not final_output:
+        # trace 의 실제 산출 경로로 폴백. trace 경로는 툴이 만든 절대경로라 정확.
         for step in reversed(new_trace):
             paths = step.get("output_paths") or []
             for p in reversed(paths):
                 if p.lower().endswith((".mp4", ".mov")) and not _CLIP_HINT.search(p):
-                    final_output = p
+                    resolved = media_paths.find_media(p)
+                    final_output = str(resolved) if resolved is not None else p
                     break
             if final_output:
                 break

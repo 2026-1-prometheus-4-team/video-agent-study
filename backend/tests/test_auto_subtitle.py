@@ -209,3 +209,42 @@ def test_custom_output_path_is_honored(tmp_path):
 
     assert result["status"] == "success"
     assert result["output"] == str(custom)
+
+
+def test_burn_false_keeps_video_clean_and_writes_cues(tmp_path):
+    """burn=False: 영상은 굽지 않고 깨끗한 복사본 + cue 문서만 남긴다."""
+    source = tmp_path / "outputs" / "edited.mp4"
+    source.parent.mkdir()
+    source.write_bytes(b"clean-video")
+    # 원본 origin/pad 사이드카가 있으면 출력으로 승계돼야 downstream 추적이 된다.
+    (tmp_path / "outputs" / "edited.mp4.origin.json").write_text("[]", encoding="utf-8")
+    subs = tmp_path / "videos" / "subtitles"
+    subs.mkdir(parents=True)
+    transcript = [{"start": 0.2, "end": 1.4, "text": "굽지 않은 자막"}]
+    custom = tmp_path / "outputs" / "clean_out.mp4"
+
+    with patch("agent.tools.subtitle_cues.render_subtitles") as render_tool, \
+         patch.object(subtitle, "SUBTITLES_DIR", str(subs)), \
+         patch.object(subtitle, "VIDEOS_DIR", str(tmp_path / "videos")), \
+         patch.object(subtitle, "_transcript_from_origin", return_value=transcript), \
+         patch.object(subtitle_cues, "SUBTITLES_DIR", str(subs)):
+        result = json.loads(subtitle.add_auto_subtitle.invoke({
+            "video_path": str(source),
+            "output_path": str(custom),
+            "burn": False,
+        }))
+
+    # 렌더(burn)는 호출되지 않아야 한다.
+    render_tool.invoke.assert_not_called()
+    assert result["status"] == "success"
+    assert result["burned"] is False
+    assert result["output"] == str(custom)
+    # 출력은 원본과 동일한 깨끗한 영상 (자막이 구워지지 않음).
+    assert custom.read_bytes() == b"clean-video"
+    # origin 사이드카 승계.
+    assert (custom.parent / "clean_out.mp4.origin.json").exists()
+    # cue 문서 + 사이드카가 출력 stem 으로 기록돼 server 복구가 찾는다.
+    assert (subs / "clean_out.json").exists()
+    assert (subs / "clean_out.cues.json").exists()
+    saved = json.loads((subs / "clean_out.json").read_text(encoding="utf-8"))
+    assert saved["source_video"] == str(custom)

@@ -177,6 +177,29 @@
   background: var(--accent-strong);
 }
 
+/* 자막 오버레이 — 구운 자막이 아니라 cue 레이어를 렌더한다 (편집본 재생 시).
+   최종 영상은 깨끗하게 두고 여기서 실시간으로 그려, 나중에 위치/스타일 편집이
+   가능하고 씬 분석이 구운 자막을 다시 읽는 문제도 없앤다. */
+.subtitleOverlay {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  transform: translateX(-50%);
+  max-width: 86%;
+  padding: 4px 12px;
+  text-align: center;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: clamp(14px, 3.4vw, 24px);
+  line-height: 1.32;
+  text-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.9),
+    0 0 2px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
 /* ===== transport ===== */
 .transport {
   display: flex;

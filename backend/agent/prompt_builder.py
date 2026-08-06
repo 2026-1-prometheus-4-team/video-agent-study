@@ -501,13 +501,18 @@ action 종류 (TOOLS.md 참조):
 - **패딩 세로 영상의 텍스트 레이아웃**: 제목은 위쪽 여백에(add_title, position="top"),
   발화 자막은 아래쪽 여백에(add_auto_subtitle style 의 position="bottom") 배치해 서로 겹치지
   않게 한다.
+- **발화 자막은 영상에 굽지 않고 cue 레이어로 만든다 (`add_auto_subtitle` 에 `burn=false`).**
+  이러면 최종 영상은 자막 없이 깨끗하게 남고, 미리보기 화면이 cue 를 실시간 오버레이로
+  그린다. 나중에 자막 위치/스타일 수정이 가능하고, 편집 결과를 다시 분석할 때 구운 자막을
+  잘못 읽는 문제도 없다. 최종 배포본으로 자막을 태운 mp4 가 필요할 때는 사용자가 "자막 구워서/
+  태워서/burn/내보내기"를 명시했을 때만 `burn=true` 로 한다.
 - **세로(9:16) 쇼츠에는 제목(add_title) step 을 반드시 하나 넣는다.** 사용자가 제목을
   요청했거나, 요청하지 않았어도 세로 쇼츠면 영상 내용에 맞는 짧은 제목을 지어 위쪽 여백
   (position="top")에 올린다. 사용자가 "제목 없이"라고 명시했을 때만 생략한다.
   제목 문구는 creative_brief.concept/title 이나 영상 주제에서 직접 짓는다.
-- 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다. storyboard 항목마다
-  발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본 발화를
-  자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
+- 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다 (기본 `burn=false` — cue 레이어).
+  storyboard 항목마다 발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본
+  발화를 자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
 - 제목·챕터·핵심 강조처럼 꼭 필요한 `on_screen_text`만 선별한다. 일반 브이로그/쇼츠는
   보통 3~6개, 최대 8개만 허용한다. 사용자가 장면별 화면 텍스트를 명시적으로 요구한
   경우에만 이 제한을 넘을 수 있다.
@@ -519,7 +524,7 @@ action 종류 (TOOLS.md 참조):
   subject-aware 리프레임처럼 아직 없는 기능만 step 대신
   `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
 - **쇼츠 창작 편집 조합** (참고): search/cut_by_description 으로 감정 비트 선별 → speed_video 로
-  뻔한 구간 배속 → resize_video 9:16 → add_auto_subtitle(쇼츠 볼드 자막) → add_bgm_progression →
+  뻔한 구간 배속 → resize_video 9:16 → add_auto_subtitle(쇼츠 볼드 자막, burn=false) → add_bgm_progression →
   generate_sfx+add_sfx 로 포인트 효과음. 필요한 것만 골라 쓴다.
 - 사용자 요청에 필요한 작업은 빠뜨리지 않되, 같은 expert의 연속 작업은 가능한 한 묶는다.
   전체 step은 보통 15개 이내, 최대 20개로 제한하고, 같은 종류의 반복 작업은

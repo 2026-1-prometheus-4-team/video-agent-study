@@ -52,7 +52,16 @@ def _load_transcript(video_path: str) -> list[dict]:
     name = os.path.splitext(os.path.basename(video_path))[0]
     cached = os.path.join(SUBTITLES_DIR, f"{name}.json")
 
-    if os.path.exists(cached):
+    # 캐시가 원본보다 오래됐으면(영상 교체) 무시하고 재전사한다.
+    source = video_path if os.path.isabs(video_path) else os.path.join(VIDEOS_DIR, video_path)
+    cache_fresh = os.path.exists(cached)
+    if cache_fresh and os.path.exists(source):
+        try:
+            cache_fresh = os.path.getmtime(cached) >= os.path.getmtime(source)
+        except OSError:
+            cache_fresh = False
+
+    if cache_fresh:
         try:
             with open(cached, encoding="utf-8") as f:
                 data = json.load(f)
@@ -315,11 +324,14 @@ def detect_orientation(video_path: str) -> dict:
             else 0.0
         )
         frames: list[bytes] = []
+        raw_dims: tuple[int, int] | None = None  # (width, height) of raw frame
         for ratio in (0.2, 0.5, 0.8):
             cap.set(cv2.CAP_PROP_POS_FRAMES, max(0, int(frame_count * ratio)))
             ok, frame = cap.read()
             if not ok:
                 continue
+            if raw_dims is None:
+                raw_dims = (int(frame.shape[1]), int(frame.shape[0]))
 
             variants = [
                 (0, frame),
@@ -415,12 +427,28 @@ Return JSON only:
         confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
         if degrees not in (0, 90, 180, 270):
             raise ValueError(f"invalid rotation: {degrees}")
+        reason = str(parsed.get("reason", "")).strip()
+
+        # 오탐 가드: 컨테이너 회전 메타가 0이고 원본 프레임이 이미 가로(w>=h)인데
+        # 비전이 90/270(=세로로 뒤집기)을 낸 경우, 가로 브이로그를 세로로 잘못
+        # 돌리는 대표적 오탐이므로 회전을 적용하지 않는다. 진짜 회전이 필요한
+        # 휴대폰 영상은 보통 컨테이너 rotation 메타(!=0)가 있어 이 가드를 안 탄다.
+        raw_landscape = raw_dims is not None and raw_dims[0] >= raw_dims[1]
+        if metadata_rotation == 0 and raw_landscape and degrees in (90, 270):
+            logger.info(
+                "orientation guard: 가로 원본+메타0 -> 비전 %d도 무시하고 0 유지 (%s)",
+                degrees,
+                reason[:80],
+            )
+            degrees = 0
+            reason = f"guard: landscape source, zero container rotation (vision said {parsed.get('clockwise_degrees')})"
+
         return {
             "detector_version": 2,
             "clockwise_degrees": degrees,
             "confidence": confidence,
             "metadata_rotation": metadata_rotation,
-            "reason": str(parsed.get("reason", "")).strip(),
+            "reason": reason,
         }
     except Exception as exc:
         logger.warning("orientation 판정 실패: %s", exc)
