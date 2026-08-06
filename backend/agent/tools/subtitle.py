@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 from dotenv import load_dotenv
@@ -460,7 +461,7 @@ def _drawtext_xy(position: str) -> str:
     }.get(position, "x=(w-text_w)/2:y=(h-text_h)/2")
 
 
-def _run_ffmpeg(cmd: list) -> tuple[int, str]:
+def _run_ffmpeg(cmd: list, cwd: str | None = None) -> tuple[int, str]:
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -468,8 +469,37 @@ def _run_ffmpeg(cmd: list) -> tuple[int, str]:
         encoding="utf-8",
         errors="ignore",
         env=_ffmpeg_env(),
+        cwd=cwd,
     )
     return result.returncode, result.stderr
+
+
+# drawtext 의 fontfile 은 filtergraph 안에서 이스케이프되는데, 경로에 한글·공백·
+# 드라이브 콜론(C:)이 섞이면(예: OneDrive\바탕 화면\...) 어떤 이스케이프 조합으로도
+# 파서가 깨져 "could not parse fontconfig pattern" 으로 실패한다. 폰트를 ASCII 전용
+# 임시 폴더로 복사해 두고, ffmpeg 를 그 폴더를 cwd 로 실행하면서 fontfile 은 순수
+# 파일명(상대경로)만 넘기면 이 문제를 통째로 우회한다.
+_SAFE_FONT_DIR = os.path.join(tempfile.gettempdir(), "vibeedit_fonts")
+
+
+def _safe_fontfile(font_path: str | None) -> str | None:
+    """ASCII 임시 폴더로 폰트를 복사하고 그 파일명(상대)만 반환. cwd 는 _SAFE_FONT_DIR.
+
+    반환값을 drawtext 의 fontfile 에 그대로 쓰고, _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR)
+    로 실행한다. 실패(폰트 없음)면 None.
+    """
+    if not font_path or not os.path.isfile(font_path):
+        return None
+    try:
+        os.makedirs(_SAFE_FONT_DIR, exist_ok=True)
+        safe = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(font_path))
+        dest = os.path.join(_SAFE_FONT_DIR, safe)
+        if not os.path.exists(dest) or os.path.getmtime(dest) < os.path.getmtime(font_path):
+            shutil.copyfile(font_path, dest)
+        return safe
+    except OSError:
+        logger.warning("safe font 복사 실패: %s", font_path, exc_info=True)
+        return None
 
 
 # ─── Tools ────────────────────────────────────────────────────────────────────
@@ -1104,9 +1134,10 @@ def add_title(
         fade_dur = 0.5
         safe_text = _escape_drawtext(text)
 
+        safe_font = _safe_fontfile(font_path)
         parts = [f"text='{safe_text}'"]
-        if font_path:
-            parts.append(f"fontfile='{_ffmpeg_filter_path(font_path)}'")
+        if safe_font:
+            parts.append(f"fontfile={safe_font}")
         parts += [
             f"fontsize={font_size}",
             f"fontcolor={color}",
@@ -1131,7 +1162,7 @@ def add_title(
         output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
-        code, stderr = _run_ffmpeg(cmd)
+        code, stderr = _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR if safe_font else None)
         if code != 0:
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
@@ -1199,9 +1230,10 @@ def add_caption(
         t_end = at_time + duration
         safe_text = _escape_drawtext(text)
 
+        safe_font = _safe_fontfile(font_path)
         parts = [f"text='{safe_text}'"]
-        if font_path:
-            parts.append(f"fontfile='{_ffmpeg_filter_path(font_path)}'")
+        if safe_font:
+            parts.append(f"fontfile={safe_font}")
         parts += [
             f"fontsize={font_size}",
             f"fontcolor={color}",
@@ -1219,7 +1251,7 @@ def add_caption(
         output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
-        code, stderr = _run_ffmpeg(cmd)
+        code, stderr = _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR if safe_font else None)
         if code != 0:
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
@@ -1312,9 +1344,10 @@ def add_captions_batch(
                 or _resolve_font(f"{requested_font}.ttf")
                 or _resolve_font(_DEFAULT_FONT_FILE)
             )
+            safe_font = _safe_fontfile(font_path)
             parts = [f"text='{_escape_drawtext(text)}'"]
-            if font_path:
-                parts.append(f"fontfile='{_ffmpeg_filter_path(font_path)}'")
+            if safe_font:
+                parts.append(f"fontfile={safe_font}")
             parts += [
                 f"fontsize={int(s['font_size'])}",
                 f"fontcolor={s['color']}",
@@ -1342,7 +1375,9 @@ def add_captions_batch(
             "-vf", ",".join(filters),
             "-c:a", "copy", str(output_file),
         ]
-        code, stderr = _run_ffmpeg(cmd)
+        # 폰트는 _safe_fontfile 이 _SAFE_FONT_DIR 로 복사해 파일명만 참조하므로
+        # ffmpeg 를 그 폴더에서 실행한다 (한글/공백/드라이브콜론 경로 우회).
+        code, stderr = _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR)
         if code != 0:
             return json.dumps(
                 {"status": "error", "error": stderr[-1200:]}, ensure_ascii=False
@@ -1401,9 +1436,10 @@ def add_emoji_overlay(
         t_end = at_time + duration
         safe_emoji = _escape_drawtext(emoji)
 
+        safe_font = _safe_fontfile(emoji_font)
         parts = [f"text='{safe_emoji}'"]
-        if emoji_font:
-            parts.append(f"fontfile='{_ffmpeg_filter_path(emoji_font)}'")
+        if safe_font:
+            parts.append(f"fontfile={safe_font}")
         parts += [
             "fontsize=72",
             "fontcolor=white",
@@ -1419,7 +1455,7 @@ def add_emoji_overlay(
         output_path = str(output_file)
 
         cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", vf, "-c:a", "copy", output_path]
-        code, stderr = _run_ffmpeg(cmd)
+        code, stderr = _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR if safe_font else None)
         if code != 0:
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
