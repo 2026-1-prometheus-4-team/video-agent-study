@@ -42,25 +42,28 @@ export function Stage() {
   const setViewMode = useAgentStore((s) => s.setStageViewMode);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scrubRef = useRef<HTMLDivElement | null>(null);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // videoWrap 은 CSS 상 고정 비율이 아니라 남는 flex 공간을 그대로 채우는 박스라,
   // 세로(9:16) 영상이 가로로 넓은 wrap 안에서 object-fit:contain 으로 작게
   // 레터박스되어 보이는 경우가 흔하다. 자막을 "실제 보이는 영상 영역"에 맞추려면
   // wrap 크기 + 영상 원본 비율로 그 영역을 직접 계산해야 한다.
+  // videoWrap 은 hasVideo 일 때만 조건부로 렌더되는 요소라 일반 useRef + 빈 deps
+  // 이펙트로는 마운트 시점(빈 상태 → 아직 videoWrap 없음)에 el 이 null 이라
+  // ResizeObserver 가 영영 안 붙는다. 콜백 ref(state) 로 실제 DOM 이 생길 때마다
+  // 이펙트가 다시 실행되게 한다.
+  const [wrapEl, setWrapEl] = useState<HTMLDivElement | null>(null);
   const [wrapSize, setWrapSize] = useState({ w: 0, h: 0 });
   const [videoNatural, setVideoNatural] = useState<{ w: number; h: number } | null>(
     null
   );
   useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const update = () => setWrapSize({ w: el.clientWidth, h: el.clientHeight });
+    if (!wrapEl) return;
+    const update = () => setWrapSize({ w: wrapEl.clientWidth, h: wrapEl.clientHeight });
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(wrapEl);
     return () => ro.disconnect();
-  }, []);
+  }, [wrapEl]);
 
   // wrap 안에서 object-fit:contain 이 만드는 실제 영상 표시 영역(레터박스 제외).
   const frameRect = useMemo(() => {
@@ -199,6 +202,13 @@ export function Stage() {
     })();
     const inset = 4 + (subStyle.margin_v / 100) * 40; // % from edge
 
+    // motion-editor 의 EditorPreview 와 같은 공식(size * 1.5, 컨테이너 크기와
+    // 무관한 고정 배율)으로 통일 — 두 미리보기가 같은 size 값에 다른 크기를
+    // 보여주면 안 된다. 이전에는 frameRect 높이에 비례해서 계산했는데, 그러면
+    // 같은 size 값이라도 화면/패널 크기에 따라 다르게 보이고 모션 에디터보다
+    // 훨씬 크게 나왔다.
+    const fontSize = Math.round(subStyle.size * 1.5);
+
     // frameRect 를 아직 모르면(메타데이터 로드 전) 예전처럼 wrap 기준 % 로 폴백.
     if (!frameRect) {
       const placement: CSSProperties =
@@ -212,6 +222,7 @@ export function Stage() {
         color: subStyle.color,
         fontWeight: subStyle.bold ? 800 : 500,
         textShadow: strokeShadow,
+        fontSize,
       };
     }
 
@@ -244,6 +255,7 @@ export function Stage() {
       color: subStyle.color,
       fontWeight: subStyle.bold ? 800 : 500,
       textShadow: strokeShadow,
+      fontSize,
     };
   }, [subStyle, frameRect, wrapSize.h]);
 
@@ -372,7 +384,7 @@ export function Stage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className={styles.videoWrap} ref={wrapRef}>
+            <div className={styles.videoWrap} ref={setWrapEl}>
               {activeSrc && (
                 <video
                   ref={videoRef}
@@ -421,20 +433,27 @@ export function Stage() {
                 </div>
               )}
 
-              {/* 자막 cue 오버레이 (편집본 재생 시) */}
+              {/* 자막 cue 오버레이 (편집본 재생 시).
+                  위치 정렬(translateX(-50%) 등)과 등장 애니메이션(opacity/y)을 반드시
+                  분리한다 — 같은 요소에서 motion 의 animate={{y}} 와 style.transform
+                  을 같이 쓰면 motion 이 transform 을 자체 관리하며 덮어써서 중앙 정렬용
+                  translate 가 사라지고 요소가 왼쪽 끝 기준으로 붙어버린다. */}
               <AnimatePresence mode="wait">
                 {activeSubtitle && (
-                  <motion.div
+                  <div
                     key={activeSubtitle}
                     className={styles.subtitleOverlay}
                     style={subtitleOverlayStyle}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.16 }}
                   >
-                    {activeSubtitle}
-                  </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.16 }}
+                    >
+                      {activeSubtitle}
+                    </motion.div>
+                  </div>
                 )}
               </AnimatePresence>
 
