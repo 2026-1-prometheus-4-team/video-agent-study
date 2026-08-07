@@ -46,7 +46,6 @@ function shortsPrompt(seconds: number): string {
 }
 
 const SHORTS_PRESETS = [
-  { label: "15초 쇼츠", caption: "하이라이트 압축 · 9:16 · 자막 · BGM", seconds: 15 },
   { label: "30초 쇼츠", caption: "하이라이트 · 9:16 · 자막 · BGM", seconds: 30 },
   { label: "60초 쇼츠", caption: "풀 하이라이트 · 9:16 · 자막 · BGM", seconds: 60 },
 ];
