@@ -379,6 +379,27 @@ def _load_or_promote(video_path: str) -> tuple[dict | None, str]:
             logger.info(f"사이드카 승격: {sidecar} → {path}")
             return doc, path
 
+    # 최종 stem 과 큐 문서 stem 이 어긋나는 경우 폴백: supervisor 가 자막 step 이후
+    # 파일명을 바꾸면(예: subtitle_added_shorts.mp4 -> final_shorts_v1.mp4) 최종
+    # stem 으로 큐 문서를 못 찾아 스타일 카드/내보내기가 404 났다. 가장 최근에 만든
+    # 큐 문서로 폴백해 최종본의 자막 편집/번인이 이어지게 한다.
+    try:
+        if os.path.isdir(SUBTITLES_DIR):
+            candidates = [
+                os.path.join(SUBTITLES_DIR, f)
+                for f in os.listdir(SUBTITLES_DIR)
+                if f.endswith(".cues.json")
+            ]
+            if candidates:
+                newest = max(candidates, key=os.path.getmtime)
+                with open(newest, encoding="utf-8") as f:
+                    logger.info(
+                        "큐 문서 stem 불일치(%s) -> 최신 큐 문서 폴백: %s", stem, newest
+                    )
+                    return json.load(f), newest
+    except OSError:
+        logger.warning("최신 큐 문서 폴백 실패", exc_info=True)
+
     return None, doc_path
 
 
