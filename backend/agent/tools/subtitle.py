@@ -1123,6 +1123,14 @@ def add_title(
         if vh > 0 and s.get("font_size") == 48:
             s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 1.5배
 
+        # 폭 초과 방지: 세로(9:16) 영상은 높이 기준 폰트가 커서 긴 제목이 좌우로
+        # 잘린다(중앙정렬이라도 text_w > w 면 양끝이 프레임 밖). 텍스트가 영상 폭의
+        # ~88% 안에 들어오도록 폰트를 줄인다 (한글 ~1.1배폭 보수적 가정).
+        if vw > 0 and text:
+            max_by_width = int(vw * 0.88 / (len(text) * 1.1))
+            if max_by_width > 0:
+                s["font_size"] = max(16, min(int(s["font_size"]), max_by_width))
+
         font_size = s["font_size"]
         color = s["color"]
         stroke_color = s["stroke_color"]
