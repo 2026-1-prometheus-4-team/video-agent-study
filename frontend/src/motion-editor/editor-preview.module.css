@@ -18,6 +18,16 @@
   overflow: hidden;
 }
 
+/* 영상 실제 비율 박스 — videoFrame 안에서 contain 과 동일하게 레터박스되어
+   중앙 배치. 자막 오버레이가 이 박스 기준이라 실제 영상 영역에 정확히 얹힌다. */
+.videoBox {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
 .video {
   position: absolute;
   inset: 0;

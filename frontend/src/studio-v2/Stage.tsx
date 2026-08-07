@@ -26,6 +26,9 @@ export function Stage() {
   const playhead = useAgentStore((s) => s.playhead);
   const setPlayhead = useAgentStore((s) => s.setPlayhead);
   const [muted, setMuted] = useState(false);
+  // 영상 실제 비율 — 자막 오버레이를 레터박스(pillarbox) 된 영상 rect 에 정확히
+  // 맞추기 위해 영상 비율의 박스로 감싼다. 기본 9:16.
+  const [videoAspect, setVideoAspect] = useState("9 / 16");
   const [videoDuration, setVideoDurationLocal] = useState(0);
   // Timeline 이 참조할 실제 mp4 길이를 store 로 전파.
   const setStageVideoDuration = useAgentStore((s) => s.setStageVideoDuration);
@@ -302,6 +305,12 @@ export function Stage() {
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className={styles.videoWrap}>
+              {/* 영상 비율 박스 — 자막 오버레이가 레터박스된 실제 영상 rect 에
+                  정확히 얹히도록 영상과 자막을 함께 담는다. */}
+              <div
+                className={styles.videoBox}
+                style={{ aspectRatio: videoAspect }}
+              >
               {activeSrc && (
                 <video
                   ref={videoRef}
@@ -312,6 +321,9 @@ export function Stage() {
                   onLoadedMetadata={(e) => {
                     const v = e.currentTarget;
                     setVideoDuration(v.duration || 0);
+                    if (v.videoWidth > 0 && v.videoHeight > 0) {
+                      setVideoAspect(`${v.videoWidth} / ${v.videoHeight}`);
+                    }
                     // 소스 전환 중 요청됐던 시킹을 metadata 로드 후 적용.
                     if (pendingSeekRef.current != null) {
                       const dur = v.duration;
@@ -360,6 +372,7 @@ export function Stage() {
                   </motion.div>
                 )}
               </AnimatePresence>
+              </div>{/* .videoBox */}
 
               {/* Source / Final 토글 — 편집본이 있을 때만 표시 */}
               {hasFinal && hasSource && (

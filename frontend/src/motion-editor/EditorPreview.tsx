@@ -24,6 +24,8 @@ export function EditorPreview() {
   const overrides = useEditorStore((s) => s.subtitleOverrides);
 
   const [muted, setMuted] = useState(false);
+  // 영상 실제 비율 — 자막 오버레이를 레터박스된 실제 영상 rect 에 맞추기 위해.
+  const [videoAspect, setVideoAspect] = useState("9 / 16");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Prefer the agent result. The upload is only a fallback before a result exists.
@@ -83,6 +85,7 @@ export function EditorPreview() {
   return (
     <div className={styles.wrap}>
       <div className={styles.videoFrame}>
+        <div className={styles.videoBox} style={{ aspectRatio: videoAspect }}>
         {src ? (
           <video
             ref={videoRef}
@@ -90,6 +93,12 @@ export function EditorPreview() {
             className={styles.video}
             preload="metadata"
             playsInline
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              if (v.videoWidth > 0 && v.videoHeight > 0) {
+                setVideoAspect(`${v.videoWidth} / ${v.videoHeight}`);
+              }
+            }}
             onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
@@ -130,6 +139,7 @@ export function EditorPreview() {
             </motion.div>
           )}
         </AnimatePresence>
+        </div>{/* .videoBox */}
       </div>
 
       <div className={styles.transport}>
