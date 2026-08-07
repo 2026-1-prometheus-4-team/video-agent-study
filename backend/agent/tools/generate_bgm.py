@@ -270,10 +270,16 @@ def generate_bgm(
             return _music_error(response, model=model_name, mode=mode)
 
         _save_audio_response(response, output)
+        generated_verified = output.exists() and output.stat().st_size > 0
         return json.dumps(
             {
                 "status": "success",
                 "output": str(output),
+                "bgm_generated": True,
+                "generation_verified": generated_verified,
+                "bgm_mixed": False,
+                "mix_verified": False,
+                "next_action": "Call add_bgm or add_bgm_progression with this output path.",
                 "provider": provider,
                 "model": model_name,
                 "mode": mode,
@@ -294,7 +300,8 @@ def generate_bgm(
                 "report": (
                     f"output: {output}, provider: {provider}, model: {model_name}, "
                     f"mode: {mode}, duration_sec: {duration_sec}, "
-                    f"instrumental: {instrumental}"
+                    f"instrumental: {instrumental}, bgm_generated: true, "
+                    "bgm_mixed: false"
                 ),
             },
             ensure_ascii=False,

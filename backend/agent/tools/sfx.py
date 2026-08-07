@@ -54,6 +54,8 @@ def add_sfx(
     sfx_path: str,
     at_time: float,
     output_path: str = "",
+    volume: float = 1.0,
+    sfx_target_lufs: float = -20.0,
 ) -> str:
     """Insert a sound effect at a timestamp.
 
@@ -69,9 +71,12 @@ def add_sfx(
         output = resolve_output_path(output_path, "sfx", video.suffix)
         ensure_parent(output)
         delay_ms = max(0, round(at_time * 1000))
+        gain = min(1.5, max(0.05, float(volume)))
         audio_filter = (
-            f"[1:a]adelay={delay_ms}|{delay_ms}[sfx];"
-            "[0:a][sfx]amix=inputs=2:duration=first:normalize=0[mix]"
+            f"[1:a]loudnorm=I={float(sfx_target_lufs)}:TP=-2:LRA=7,"
+            f"volume={gain},adelay={delay_ms}|{delay_ms}[sfx];"
+            "[0:a][sfx]amix=inputs=2:duration=first:normalize=0,"
+            "alimiter=limit=0.95[mix]"
         )
         run_ffmpeg(
             "-i", str(video), "-i", str(sfx),
@@ -81,7 +86,13 @@ def add_sfx(
         )
         copy_video_sidecars(video, output)
         return json.dumps(
-            {"status": "success", "output": str(output), "at_time": at_time},
+            {
+                "status": "success",
+                "output": str(output),
+                "at_time": at_time,
+                "volume": gain,
+                "sfx_target_lufs": float(sfx_target_lufs),
+            },
             ensure_ascii=False,
         )
     except Exception as error:
@@ -118,8 +129,12 @@ def generate_sfx(
 
     output = _resolve_sfx_output_path(output_path)
     headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
+    safe_description = (
+        f"{text}. Non-verbal sound effect only. "
+        "No speech, no voice, no spoken words, no narration."
+    )
     payload: dict[str, Any] = {
-        "text": text,
+        "text": safe_description,
         "loop": bool(loop),
         "prompt_influence": min(1.0, max(0.0, float(prompt_influence))),
         "model_id": "eleven_text_to_sound_v2",
@@ -148,6 +163,7 @@ def generate_sfx(
                 "status": "success",
                 "output": str(output),
                 "description": text,
+                "generation_prompt": safe_description,
                 "duration_seconds": duration_seconds,
                 "report": (
                     f"output: {output}, description: {text}, "

@@ -74,3 +74,83 @@ def measure_lufs(path: Path) -> float | None:
     ])
     matches = re.findall(r"I:\s*(-?\d+(?:\.\d+)?) LUFS", result.stderr)
     return float(matches[-1]) if matches else None
+
+
+def measure_lufs_intervals(
+    path: Path,
+    intervals: list[tuple[float, float]],
+) -> float | None:
+    """Measure integrated loudness after concatenating selected time ranges."""
+    valid = [(max(0.0, float(start)), float(end)) for start, end in intervals if end > start]
+    if not valid:
+        return None
+    parts: list[str] = []
+    labels: list[str] = []
+    for index, (start, end) in enumerate(valid):
+        parts.append(
+            f"[0:a]atrim=start={start:.3f}:end={end:.3f},"
+            f"asetpts=PTS-STARTPTS[i{index}]"
+        )
+        labels.append(f"[i{index}]")
+    if len(labels) == 1:
+        meter_input = labels[0]
+    else:
+        parts.append(
+            f"{''.join(labels)}concat=n={len(labels)}:v=0:a=1[selected]"
+        )
+        meter_input = "[selected]"
+    parts.append(f"{meter_input}ebur128=framelog=verbose[meter]")
+    result = _run([
+        "ffmpeg", "-hide_banner", "-nostats", "-i", str(path),
+        "-filter_complex", ";".join(parts), "-map", "[meter]",
+        "-f", "null", "-",
+    ])
+    matches = re.findall(r"I:\s*(-?\d+(?:\.\d+)?) LUFS", result.stderr)
+    return float(matches[-1]) if matches else None
+
+
+def detect_voice_activity(path: Path) -> list[tuple[float, float]]:
+    """Return voice-band activity intervals using FFmpeg only.
+
+    This is a dependency-free fallback when Whisper/OpenAI is unavailable.
+    The 120-4000 Hz band suppresses much low-frequency ambience before
+    silencedetect determines active ranges.
+    """
+    duration = probe_duration(path)
+    if not duration or duration <= 0:
+        return []
+    result = _run([
+        "ffmpeg", "-hide_banner", "-nostats", "-i", str(path),
+        "-af", (
+            "highpass=f=120,lowpass=f=4000,"
+            "silencedetect=noise=-32dB:d=0.25"
+        ),
+        "-f", "null", "-",
+    ])
+    if result.returncode:
+        return []
+    events = re.findall(
+        r"silence_(start|end):\s*(-?\d+(?:\.\d+)?)",
+        result.stderr,
+    )
+    silence_ranges: list[tuple[float, float]] = []
+    silence_start: float | None = None
+    for kind, raw_value in events:
+        value = max(0.0, min(duration, float(raw_value)))
+        if kind == "start":
+            silence_start = value
+        elif silence_start is not None:
+            silence_ranges.append((silence_start, value))
+            silence_start = None
+    if silence_start is not None:
+        silence_ranges.append((silence_start, duration))
+
+    active: list[tuple[float, float]] = []
+    cursor = 0.0
+    for start, end in silence_ranges:
+        if start - cursor >= 0.15:
+            active.append((max(0.0, cursor - 0.08), min(duration, start + 0.12)))
+        cursor = max(cursor, end)
+    if duration - cursor >= 0.15:
+        active.append((max(0.0, cursor - 0.08), duration))
+    return active

@@ -1,0 +1,46 @@
+{
+  "clips": [
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\1.mp4",
+      "start_ms": 17809,
+      "end_ms": 26714,
+      "offset_ms": 0
+    },
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\2.mp4",
+      "start_ms": 0,
+      "end_ms": 8000,
+      "offset_ms": 8931
+    },
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\2.mp4",
+      "start_ms": 8000,
+      "end_ms": 15000,
+      "offset_ms": 16954
+    },
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\3.mp4",
+      "start_ms": 11867,
+      "end_ms": 20768,
+      "offset_ms": 23977
+    },
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\4.mp4",
+      "start_ms": 0,
+      "end_ms": 8904,
+      "offset_ms": 32933
+    },
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\5.mp4",
+      "start_ms": 0,
+      "end_ms": 5935,
+      "offset_ms": 41864
+    },
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\5.mp4",
+      "start_ms": 5935,
+      "end_ms": 11938,
+      "offset_ms": 47853
+    }
+  ]
+}

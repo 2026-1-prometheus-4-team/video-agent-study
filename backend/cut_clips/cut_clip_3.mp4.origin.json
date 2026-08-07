@@ -1,0 +1,10 @@
+{
+  "clips": [
+    {
+      "source": "C:\\Users\\dldms\\OneDrive\\바탕 화면\\video\\video-agent-study\\backend\\resized_videos\\2.mp4",
+      "start_ms": 8000,
+      "end_ms": 15000,
+      "offset_ms": 0
+    }
+  ]
+}

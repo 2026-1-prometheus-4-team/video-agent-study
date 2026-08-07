@@ -52,11 +52,11 @@ Supervisor 는 대부분의 실행을 sub-agent 에 위임하지만, 다음 2개
 | `text_to_speech`     | `(text, voice?, voice_id?, stability?, style?, speed?, output_path?, model?) -> json` | TTS / 나래이션 합성. 생성 이력은 narration.json manifest 에 자동 기록 |
 | `transcribe_video_to_speech` | `(video_path, voice?, voice_id?, output_path?, model?, stability?, style?, speed?) -> json` | 영상 발화를 전사해 그대로 다른 목소리로 재생성 (더빙 / 보이스 교체) |
 | `generate_bgm`       | `(prompt?, duration_sec?, video_path?, mood?, genre?, tempo?, energy?) -> json` | ElevenLabs Music으로 영상에 맞는 새 BGM 생성 |
-| `add_bgm`            | `(video_path, bgm_path, volume, ducking, narration_path?) -> path`    | BGM 깔기 (ducking = 발화 구간 자동 감쇠) |
-| `add_bgm_progression` | `(video_path, segments:[{bgm_path,start_sec,end_sec}], output_path?, target_lufs?, crossfade?) -> json` | 구간별 다른 BGM (도입 경쾌→갈등 개그→마무리 힐링). 더킹/loudnorm 포함 |
+| `add_bgm`            | `(video_path, bgm_path, output_path?, speech_target_lufs?, ducking?) -> json` | STT 발화 구간 기반 대사/BGM 버스 분리, 구간별 LUFS 실측·자동 재보정 후 BGM 삽입 |
+| `add_bgm_progression` | `(video_path, segments:[{bgm_path,start_sec,end_sec}], output_path?, target_lufs?, crossfade?, volume?, speech_target_lufs?, bgm_offset_lu?, bgm_target_lufs?, ducking?, ducking_threshold?, ducking_ratio?) -> json` | 대사 선 정규화 후 상대 BGM 음량, 더킹, limiter, 제한적 최종 보정 적용 |
 | `generate_sfx`       | `(description, output_path?, duration_seconds?, loop?, prompt_influence?) -> json` | 자연어로 효과음 생성 ("한숨 소리", "띠로리 실패음"). 파일이 없으면 먼저 호출, 이후 add_sfx 로 삽입 |
-| `add_sfx`            | `(video_path, sfx_path, at_time) -> path`                             | 효과음 시점 삽입. generate_sfx 산출물을 여기로 |
-| `mix_audio`          | `(video_path, audio_path, mode, output_path?, at_time_ms?, original_volume?, overlay_volume?) -> path` | 오디오 mix. 나레이션은 overlay로 원본 음성을 보존하며 기본 원본 0.85 / 나레이션 1.0 |
+| `add_sfx`            | `(video_path, sfx_path, at_time, output_path?, volume?, sfx_target_lufs?) -> json` | 효과음을 기본 -20 LUFS로 정규화하고 limiter 적용 후 시점 삽입 |
+| `mix_audio`          | `(video_path, audio_path, mode, output_path?, at_time_ms?, original_volume?, overlay_volume?) -> json` | 나레이션/더빙 전용. BGM 입력은 거부하며 add_bgm 계열을 사용해야 함 |
 | `denoise`            | `(audio_path) -> path`                                                 | 노이즈 제거                            |
 | `normalize_loudness` | `(path, target_lufs) -> path`                                          | 라우드니스 정규화 (-14 LUFS 등)        |
 
