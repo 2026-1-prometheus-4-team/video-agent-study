@@ -19,6 +19,7 @@ export function EditorTopBar() {
   const uploadedName = useAgentStore((s) => s.uploadedName);
   const serverVideoPath = useAgentStore((s) => s.serverVideoPath);
   const lastFinal = useAgentStore((s) => s.lastFinal);
+  const videoContext = useAgentStore((s) => s.videoContext);
   const dirty = useEditorStore((s) => s.dirty);
   const overrides = useEditorStore((s) => s.subtitleOverrides);
   const markSaved = useEditorStore((s) => s.markSaved);
@@ -27,6 +28,9 @@ export function EditorTopBar() {
 
   // 자막 큐 문서는 자막을 입힌 편집 결과물 stem 으로 키가 잡힌다.
   const stem = pathStem(lastFinal?.outputPath) || pathStem(serverVideoPath);
+
+  // 인스펙터/목록이 보는 것과 같은 배열이어야 index -> id 매핑이 맞는다.
+  const transcript = lastFinal?.transcript ?? videoContext?.transcript ?? [];
 
   const label =
     lastFinal?.outputPath ||
@@ -41,12 +45,29 @@ export function EditorTopBar() {
         if (o.color !== undefined) style.color = o.color;
         if (o.fontWeight !== undefined) style.bold = o.fontWeight >= 600;
         if (o.position !== undefined) style.position = o.position;
-        const update: CueUpdate = { index: Number(idx) };
+        // 빈 문자열 = "문서 기본 폰트로" 라, 큐에 빈 font 를 박지 않는다.
+        if (o.font) style.font = o.font;
+
+        // 배열 위치 대신 큐 id 로 지목한다. 목록이 한 칸이라도 어긋나면
+        // (제목이 시간순으로 끼어들 때 실제로 그렇다) 엉뚱한 큐가 수정된다.
+        const cueId = transcript[Number(idx)]?.id;
+        const update: CueUpdate = cueId
+          ? { id: cueId }
+          : { index: Number(idx) };
+
         if (o.text !== undefined) update.text = o.text;
+        if (o.start !== undefined) update.start = o.start;
+        if (o.end !== undefined) update.end = o.end;
         if (Object.keys(style).length) update.style = style;
         return update;
       })
-      .filter((u) => u.text !== undefined || u.style);
+      .filter(
+        (u) =>
+          u.text !== undefined ||
+          u.style ||
+          u.start !== undefined ||
+          u.end !== undefined
+      );
 
   const onSave = async () => {
     if (busy) return;

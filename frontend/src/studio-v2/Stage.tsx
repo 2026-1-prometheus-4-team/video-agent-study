@@ -151,9 +151,23 @@ export function Stage() {
   // 편집본 재생(viewMode==="final") 일 때만 표시: transcript 타임스탬프가 편집된
   // 타임라인 기준이라 원본 재생 시에는 어긋난다.
   const subtitleCues = lastFinal?.transcript ?? videoContext?.transcript ?? [];
+
+  // 제목과 대사를 나눠 고른다. 한 배열에서 "playhead 를 포함하는 첫 큐" 를
+  // 집으면, 영상 전체 길이를 덮는 제목 큐가 항상 먼저 잡혀 대사가 하나도
+  // 안 보인다 (제목은 start 0 이라 정렬상 늘 앞).
+  const activeTitle = useMemo(() => {
+    if (viewMode !== "final") return null;
+    const hit = subtitleCues.find(
+      (s) =>
+        s.role === "title" && currentTime >= s.start && currentTime <= s.end
+    );
+    return hit?.text ?? null;
+  }, [subtitleCues, currentTime, viewMode]);
+
   const activeSubtitle = useMemo(() => {
     if (viewMode !== "final") return null;
     for (const seg of subtitleCues) {
+      if (seg.role === "title") continue;
       if (currentTime >= seg.start && currentTime <= seg.end) {
         return seg.text;
       }
@@ -438,6 +452,22 @@ export function Stage() {
                   분리한다 — 같은 요소에서 motion 의 animate={{y}} 와 style.transform
                   을 같이 쓰면 motion 이 transform 을 자체 관리하며 덮어써서 중앙 정렬용
                   translate 가 사라지고 요소가 왼쪽 끝 기준으로 붙어버린다. */}
+              {/* 제목 오버레이 — 대사와 겹치지 않게 위쪽에 따로 건다. */}
+              <AnimatePresence mode="wait">
+                {activeTitle && (
+                  <motion.div
+                    key={activeTitle}
+                    className={styles.titleOverlay}
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    {activeTitle}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <AnimatePresence mode="wait">
                 {activeSubtitle && (
                   <div

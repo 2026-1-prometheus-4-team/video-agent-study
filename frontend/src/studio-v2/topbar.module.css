@@ -163,6 +163,34 @@
   transition: none;
 }
 
+/* 렌더는 수십 초 걸린다. 아무 변화가 없으면 눌린 건지 모르고 다시 누른다. */
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 자막 없이 나갔다 같은 결과 알림 — 실패(danger)는 아니라 색을 쓰지 않는다. */
+.notice {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-2);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .export[data-disabled] {
   /* 색은 유지하고 흐리게만. 회색으로 바꾸면 이 버튼이 무슨 색인지,
      활성화되면 어떻게 보이는지 알 수 없다. */

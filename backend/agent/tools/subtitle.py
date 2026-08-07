@@ -1252,6 +1252,7 @@ def _add_title_as_cue(
     duration: float,
     anim: str,
     style: str,
+    output_path: str = "",
 ) -> str:
     """제목을 자막 큐 문서에 "제목 큐" 로 기록한다 (굽지 않음).
 
@@ -1291,6 +1292,16 @@ def _add_title_as_cue(
         "stroke_width": merged.get("stroke_width", 3),
         "bold": bool(merged.get("bold", True)),
     }
+    # 폰트를 여기 싣지 않으면 add_title(style='{"font": "..."}') 이 조용히 버려지고
+    # 제목이 문서 기본 폰트로 나온다. 지정됐을 때만 넣어 문서 기본값을 덮지 않는다.
+    _font = merged.get("font")
+    if _font:
+        cue_style["font"] = str(_font)
+    # 제목은 위쪽/아래쪽 가장자리에 붙으면 잘린다. margin_v 가 없으면 _build_ass 가
+    # 0 으로 읽어 화면 끝에 딱 붙여버리므로 명시한다.
+    _margin_v = merged.get("margin_v")
+    if _margin_v is not None:
+        cue_style["margin_v"] = int(_margin_v)
     if anim == "fade":
         cue_style["fade"] = True
 
@@ -1306,10 +1317,31 @@ def _add_title_as_cue(
     doc["cues"].sort(key=lambda c: (float(c["start"]), float(c["end"])))
     subtitle_cues._save_cues_doc(doc)
 
+    # 플랜은 add_title 의 output_path 를 다음 step 의 입력으로 물린다. 큐 모드는
+    # 픽셀을 안 건드리지만 *파일은 만들어야* 한다 — 안 만들면 supervisor 가
+    # "실제 output 파일 확인" 규칙에 걸려 재시도하고, 결국 burn 으로 넘어가
+    # 제목이 픽셀로 구워져 다시는 편집할 수 없게 된다.
+    out = input_path
+    if output_path and os.path.abspath(output_path) != os.path.abspath(input_path):
+        try:
+            os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+            shutil.copyfile(input_path, output_path)
+            # 시간축이 그대로이므로 사이드카를 승계한다 (자막 원본 추적 유지).
+            for suffix in (".origin.json", ".pad.json"):
+                src_sidecar = input_path + suffix
+                if os.path.exists(src_sidecar):
+                    shutil.copyfile(src_sidecar, output_path + suffix)
+            from agent.tools.audio_common import copy_cue_document
+
+            copy_cue_document(Path(input_path), Path(output_path))
+            out = output_path
+        except Exception as e:
+            logger.warning(f"제목 큐 모드 output_path 생성 실패: {e}")
+
     return json.dumps({
         "status": "success",
         "mode": "cue",
-        "output": input_path,
+        "output": out,
         "cue_id": cue["id"],
         "cues_doc": doc_path,
         "style": cue_style,
@@ -1371,6 +1403,7 @@ def add_title(
                 duration=duration,
                 anim=anim,
                 style=style,
+                output_path=resolved_output_path,
             )
 
         if duration <= 0:
