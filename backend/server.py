@@ -2042,6 +2042,49 @@ def get_subtitle_style(stem: str):
     return _current_subtitle_style(stem)
 
 
+@app.get("/api/subtitles/{stem}/document")
+def get_subtitle_document(stem: str):
+    """자막 큐 + 스타일을 한 번에 반환 — 모든 화면의 단일 소스.
+
+    미리보기 · 모션 에디터 · 스타일 카드가 각자 다른 곳에서 자막을 읽어와
+    같은 영상인데도 서로 다른 자막/스타일을 보여주던 문제 때문에 만든다.
+    (미리보기는 스토어 transcript + 스타일 API, 모션 에디터는 스토어 transcript +
+    메모리 전용 globalSubtitleStyle, export 는 서버 큐 문서를 봤다.)
+
+    큐가 없으면 404 가 아니라 빈 목록 + 기본 스타일을 돌려준다. 자막이 아직
+    없는 상태와 조회 실패를 프론트가 구분할 수 있어야 한다.
+    """
+    from agent.tools.subtitle_cues import list_subtitle_cues
+
+    style = _current_subtitle_style(stem)
+    try:
+        raw = list_subtitle_cues.invoke({"video_path": stem})
+        data = json.loads(raw)
+    except Exception:
+        logger.warning("subtitle document 조회 실패: %s", stem, exc_info=True)
+        data = {"status": "error", "error": "lookup_failed"}
+
+    if data.get("status") != "success":
+        return {
+            "status": "empty",
+            "stem": stem,
+            "reason": data.get("error", "no_cues"),
+            "style_defaults": style,
+            "cues": [],
+        }
+
+    return {
+        "status": "success",
+        "stem": stem,
+        "source_video": data.get("source_video", ""),
+        "cues_doc": data.get("cues_doc", ""),
+        # 스타일은 서버가 해석한 값 하나만 내려보낸다. 프론트가 각자 기본값을
+        # 들고 있으면 화면마다 달라진다.
+        "style_defaults": style,
+        "cues": data.get("cues", []),
+    }
+
+
 @app.patch("/api/subtitles/{stem}/style")
 def patch_subtitle_style(stem: str, body: SubtitleStyleBody):
     """스타일 부분 갱신 (style_defaults 병합). 영상 반영은 render 호출."""

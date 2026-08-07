@@ -599,6 +599,9 @@ def _carry_sidecars(source: str, output: str) -> None:
     from agent.tools.audio_common import copy_video_sidecars
 
     try:
+        # copy_video_sidecars 가 .origin.json / .pad.json 과 자막 큐 문서를 함께
+        # 승계한다 (audio_common). 승계 규칙이 한 곳에만 있어야 툴이 늘어도
+        # 계보가 끊기지 않는다.
         copy_video_sidecars(_Path(source), _Path(output))
     except OSError:
         logger.warning("sidecar 승계 실패: %s -> %s", source, output, exc_info=True)

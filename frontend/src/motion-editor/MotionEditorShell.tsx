@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "motion/react";
 import { EditorTopBar } from "./EditorTopBar";
 import { SubtitleList } from "./SubtitleList";
@@ -7,6 +8,8 @@ import { EditorPreview } from "./EditorPreview";
 import { EditorInspector } from "./EditorInspector";
 import { EditorTimeline } from "./EditorTimeline";
 import { useAgentStore } from "@/studio-v2/state";
+import { useEditorStore } from "./editorState";
+import { getSubtitleDocument, pathStem } from "@/studio-v2/subtitle/subtitleApi";
 import styles from "./motion-editor-shell.module.css";
 
 /**
@@ -24,8 +27,45 @@ export function MotionEditorShell() {
   const videoContext = useAgentStore((s) => s.videoContext);
   const uploadedName = useAgentStore((s) => s.uploadedName);
   const lastFinal = useAgentStore((s) => s.lastFinal);
+  const setGlobalSubtitleStyle = useEditorStore((s) => s.setGlobalSubtitleStyle);
 
   const hasContext = !!videoContext || !!uploadedName || !!lastFinal;
+  const finalPath = lastFinal?.outputPath;
+
+  // 자막 스타일을 서버 큐 문서에서 직접 가져온다.
+  // 이전에는 globalSubtitleStyle 을 채우는 곳이 스튜디오의 자막 스타일 카드
+  // 하나뿐이었다. 그 카드는 자막 큐가 있을 때만 뜨고 메모리에만 남아서,
+  // /motion 을 직접 열거나 카드를 안 거치면 값이 null 이었다. 그러면
+  // EditorPreview 가 하드코딩 기본값(26px · 검정 외곽선 없음)으로 그려서
+  // 같은 영상인데 미리보기와 폰트가 달라 보였다.
+  useEffect(() => {
+    const stem = pathStem(finalPath);
+    if (!stem) return;
+    let alive = true;
+    getSubtitleDocument(stem)
+      .then((doc) => {
+        if (!alive) return;
+        setGlobalSubtitleStyle({
+          size: doc.style.size,
+          color: doc.style.color,
+          bold: doc.style.bold,
+          strokeColor: doc.style.stroke_color,
+          strokeWidth: doc.style.stroke_width,
+          position:
+            doc.style.position === "top"
+              ? "top"
+              : doc.style.position === "middle"
+                ? "middle"
+                : "bottom",
+        });
+      })
+      .catch(() => {
+        // 백엔드가 없으면 기존 기본값으로 둔다 — 편집 자체는 계속 가능해야 한다.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [finalPath, setGlobalSubtitleStyle]);
 
   return (
     <div className={styles.shell}>
