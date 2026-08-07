@@ -584,6 +584,26 @@ def _title_block_top(position: str, block_height: float) -> str:
     }.get(position, f"(h-{block_height:.1f})/2")
 
 
+def _carry_sidecars(source: str, output: str) -> None:
+    """편집 계보 메타(.origin.json / .pad.json)를 새 결과물로 승계한다.
+
+    drawtext 오버레이는 시간축도 콘텐츠 영역도 바꾸지 않으므로 사이드카가 그대로
+    유효하다. 그런데 이 승계를 빠뜨리면 계보가 끊겨서 자막이 통째로 사라진다:
+    add_auto_subtitle(burn=false) 이 남긴 cue 문서는 그 시점 stem 에 묶여 있고,
+    서버는 최종본 stem 의 cues.json 이 없으면 .origin.json 을 따라가 복원한다.
+    캡션 단계가 자막 단계 뒤에 오는 순간 최종본에는 둘 다 없어져 프론트가 자막을
+    못 올리고 자막 스타일 카드도 안 뜬다 (state.ts 의 hasCues 조건).
+    """
+    from pathlib import Path as _Path
+
+    from agent.tools.audio_common import copy_video_sidecars
+
+    try:
+        copy_video_sidecars(_Path(source), _Path(output))
+    except OSError:
+        logger.warning("sidecar 승계 실패: %s -> %s", source, output, exc_info=True)
+
+
 def _drawtext_xy(position: str) -> str:
     return {
         "center": "x=(w-text_w)/2:y=(h-text_h)/2",
@@ -1444,6 +1464,8 @@ def add_caption(
         if code != 0:
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
 
+        _carry_sidecars(input_path, output_path)
+
         return json.dumps({
             "output": str(output_file),
             "style": {
@@ -1572,6 +1594,8 @@ def add_captions_batch(
                 {"status": "error", "error": stderr[-1200:]}, ensure_ascii=False
             )
 
+        _carry_sidecars(input_path, str(output_file))
+
         return json.dumps(
             {
                 "status": "success",
@@ -1647,6 +1671,8 @@ def add_emoji_overlay(
         code, stderr = _run_ffmpeg(cmd, cwd=_SAFE_FONT_DIR if safe_font else None)
         if code != 0:
             return json.dumps({"error": stderr[-800:]}, ensure_ascii=False)
+
+        _carry_sidecars(input_path, output_path)
 
         return json.dumps({
             "output": str(output_file),
