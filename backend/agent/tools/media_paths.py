@@ -51,10 +51,23 @@ def find_media(
         return candidate if candidate.exists() else None
 
     search = dirs if dirs is not None else search_dirs()
-    for base in search:
-        resolved = Path(base) / candidate
-        if resolved.exists():
-            return resolved
+
+    def _newest(paths: list[Path]) -> Path | None:
+        existing = [p for p in paths if p.exists()]
+        if not existing:
+            return None
+        # generic 출력 이름(video_with_bgm.mp4, final_video.mp4 등)은 세션·run 간
+        # 재사용된다. 여러 디렉토리에 같은 이름이 있으면 검색 순서상 먼저 나온
+        # 옛 파일(예: 이전 move 세션 산출물)이 방금 쓴 최신 파일(현재 cafe 세션)을
+        # 이겨서, 편집 결과에 엉뚱한 영상이 섞였다. 항상 가장 최근 파일을 고른다.
+        try:
+            return max(existing, key=lambda p: p.stat().st_mtime)
+        except OSError:
+            return existing[0]
+
+    found = _newest([Path(base) / candidate for base in search])
+    if found is not None:
+        return found
 
     # basename 폴백: sub-agent(LLM)가 파일명에 잘못된 접두어(videos/, ./, 다른
     # 디렉토리)를 붙여도, 파일명만으로 산출물/업로드 위치에서 다시 찾는다.
@@ -62,10 +75,7 @@ def find_media(
     # 로 이어져 step 간 파일 전달이 자주 깨졌다.
     name = candidate.name
     if name and name != str(candidate):
-        for base in search:
-            resolved = Path(base) / name
-            if resolved.exists():
-                return resolved
+        return _newest([Path(base) / name for base in search])
     return None
 
 

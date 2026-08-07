@@ -16,10 +16,12 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--timeline-h);
+  /* 대화(chat)는 오른쪽에 전체 높이로 세로로 쭉 — 타임라인은 영상(center) 밑에만.
+     예전 레이아웃처럼 대화가 잘 보이게 한다. */
   grid-template-areas:
-    "topbar   topbar  topbar"
-    "history  center  chat"
-    "timeline timeline timeline";
+    "topbar   topbar   topbar"
+    "history  center   chat"
+    "history  timeline chat";
   column-gap: var(--shell-gap);
   row-gap: var(--shell-gap);
   padding: 0 var(--shell-gap) var(--shell-gap);
@@ -93,7 +95,7 @@
     grid-template-areas:
       "topbar   topbar"
       "center   chat"
-      "timeline timeline";
+      "timeline chat";
   }
 }
 

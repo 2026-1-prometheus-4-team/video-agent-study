@@ -44,16 +44,26 @@ def test_display_segments_keep_spoken_text_separate_and_style_sounds():
         }],
     }
 
+    # 기본: 효과음 캡션([쾅])은 제외 — 발화 자막과 (당황) 감정표현만 남는다.
     display = subtitle._display_segments(spoken, correction)
-
     assert spoken[0]["text"] == "이게 왜 안 되지?"
     assert [item["text"] for item in display] == [
+        "(당황) 이게 왜 안 되지?",
+        "다시 해볼게요",
+    ]
+    assert all(item.get("kind") != "sound" for item in display)
+
+    # include_sound_captions=True 면 효과음 캡션을 상단에 포함.
+    with_sound = subtitle._display_segments(
+        spoken, correction, include_sound_captions=True
+    )
+    assert [item["text"] for item in with_sound] == [
         "(당황) 이게 왜 안 되지?",
         "[쾅]",
         "다시 해볼게요",
     ]
-    assert display[1]["kind"] == "sound"
-    assert display[1]["style"]["position"] == "top"
+    assert with_sound[1]["kind"] == "sound"
+    assert with_sound[1]["style"]["position"] == "top"
 
 
 def test_absolute_output_reuses_origin_and_writes_final_sidecars(tmp_path):
