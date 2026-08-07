@@ -502,11 +502,20 @@ def _propagate_target_aspect_ratio(plan: dict[str, Any]) -> dict[str, Any]:
         if ratio not in {"9:16", "16:9", "1:1", "4:5"}:
             ratio = target
         params["aspect_ratio"] = ratio
-        params["mode"] = (
-            str(downstream_resize.get("mode") or "crop")
+        # mode 는 여기서 정하지 않는다. 예전엔 "crop" 을 박아 넣었는데, 그러면
+        # 가로 소스가 세로 캔버스에 들어갈 때 가로의 68% 가 잘려나간다. merge_video
+        # 의 기본값 "auto" 가 클립마다 판단하게 두고 (세로는 꽉, 가로는 위아래 여백),
+        # 사용자가 명시적으로 요청해 plan 에 mode 가 적힌 경우에만 그걸 존중한다.
+        downstream_mode = (
+            str(downstream_resize.get("mode") or "").strip()
             if downstream_resize
-            else "crop"
+            else ""
         )
+        explicit_mode = downstream_mode or str(params.get("mode") or "").strip()
+        if explicit_mode in {"crop", "pad"}:
+            params["mode"] = explicit_mode
+        else:
+            params.pop("mode", None)
         step["params"] = params
     return plan
 

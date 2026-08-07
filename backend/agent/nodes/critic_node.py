@@ -63,6 +63,56 @@ def _summarize_trace(state: AgentState) -> str:
     return "\n".join(lines)
 
 
+# 인코딩 오차와 마지막 프레임 처리로 목표보다 1초 미만 길어지는 것은 위반이 아니다.
+# 그 이상은 편집이 계획을 안 지킨 것이다.
+DURATION_TOLERANCE = 1.05
+
+
+def _target_duration(script_plan: Any) -> float | None:
+    """plan 이 정한 목표 길이(초). 없으면 None."""
+    if not isinstance(script_plan, dict):
+        return None
+    brief = script_plan.get("creative_brief")
+    candidates = [script_plan.get("target_duration_sec")]
+    if isinstance(brief, dict):
+        candidates.append(brief.get("target_duration_sec"))
+    for value in candidates:
+        try:
+            if value is not None and float(value) > 0:
+                return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _measure_duration(final_path: Any) -> float | None:
+    """최종 산출물의 실제 길이(초). 측정 실패 시 None — 검증을 막지는 않는다."""
+    if not final_path:
+        return None
+    path = str(final_path)
+    if not os.path.exists(path):
+        path = os.path.join(str(config.PROJECT_ROOT), path)
+        if not os.path.exists(path):
+            return None
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "quiet",
+                "-show_entries", "format=duration",
+                "-of", "csv=p=0",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        return float(result.stdout.strip())
+    except (OSError, ValueError):
+        logger.warning("critic: 길이 측정 실패 - %s", path, exc_info=True)
+        return None
+
+
 def critic_node(state: AgentState) -> dict[str, Any]:
     """결과 검증. PASS / RETRY 결정."""
     final_path = state.get("final_output_path")
@@ -147,10 +197,34 @@ def critic_node(state: AgentState) -> dict[str, Any]:
         session_memory=trace_text,
     )
 
+    # 길이는 재서 알려준다. 예전엔 critic 이 실제 영상을 재지 않고 트레이스 텍스트만
+    # 보고 판단해서, "60초 이내" 요청에 76.2초짜리가 나와도 PASS 했다.
+    measured = _measure_duration(final_path)
+    target = _target_duration(script_plan)
+    duration_line = "최종 영상 길이: 측정 실패"
+    if measured is not None:
+        duration_line = f"최종 영상 길이: {measured:.1f}초"
+        if target:
+            over = measured > target * DURATION_TOLERANCE
+            duration_line += f" (목표 {target:.0f}초 {'초과' if over else '이내'})"
+            if over:
+                objective_issues.append(
+                    f"길이 초과: 목표 {target:.0f}초, 실제 {measured:.1f}초"
+                )
+                logger.warning(
+                    "critic: 길이 초과 - 목표 %.0fs, 실제 %.1fs", target, measured
+                )
+
     user_text = "\n".join([
         "# 검증 요청",
         f"최종 영상 경로: {final_path}",
         f"파일 존재: {os.path.exists(final_path) if final_path else False}",
+        duration_line,
+        *(
+            ["", "# 기계적으로 확인된 문제", *[f"- {issue}" for issue in objective_issues]]
+            if objective_issues
+            else []
+        ),
         "",
         "위 트레이스를 보고 PASS / RETRY 를 결정하라. JSON 만 출력.",
     ])

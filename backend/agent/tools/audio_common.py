@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import shutil
 import subprocess
@@ -11,6 +13,8 @@ from typing import Sequence
 
 from agent import config
 from agent.tools import media_paths
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_input_path(path: str) -> Path:
@@ -42,6 +46,45 @@ def copy_video_sidecars(source: Path, output: Path) -> None:
         source_sidecar = Path(f"{source}{suffix}")
         if source_sidecar.exists():
             shutil.copy2(source_sidecar, Path(f"{output}{suffix}"))
+    copy_cue_document(source, output)
+
+
+def copy_cue_document(source: Path, output: Path) -> None:
+    """자막 큐 문서를 새 결과물 stem 으로 승계한다.
+
+    큐 문서는 stem 으로만 조회된다 (subtitle_cues._cues_doc_path). 영상을 새로
+    쓰는 단계마다 stem 이 바뀌는데 문서를 물려주지 않으면 최종본 stem 의 문서가
+    없어 조회가 통째로 실패한다. 그 결과가 실제로 관찰된 세 증상이다:
+    프론트가 자막을 못 올리고, 자막 스타일 카드가 안 뜨고, export 가 no_cues 로
+    떨어져 자막 없는 영상을 내려받는다.
+
+    source_video 는 일부러 그대로 둔다. 그 값은 "자막을 굽기 전 원본"을 가리키는
+    재렌더 기준점이라, 새 결과물로 덮어쓰면 이미 구워진 영상 위에 다시 굽는다.
+    """
+    source_stem = Path(source).stem
+    output_stem = Path(output).stem
+    if not source_stem or source_stem == output_stem:
+        return
+
+    cues_dir = config.VIDEOS_DIR / "subtitles"
+    source_doc = cues_dir / f"{source_stem}.cues.json"
+    target_doc = cues_dir / f"{output_stem}.cues.json"
+    # 이미 있는 문서는 덮어쓰지 않는다 — 사용자가 편집한 큐가 날아간다.
+    if not source_doc.exists() or target_doc.exists():
+        return
+
+    try:
+        doc = json.loads(source_doc.read_text(encoding="utf-8"))
+        doc["video_stem"] = output_stem
+        cues_dir.mkdir(parents=True, exist_ok=True)
+        target_doc.write_text(
+            json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        logger.info("cue 문서 승계: %s -> %s", source_stem, output_stem)
+    except (OSError, ValueError):
+        logger.warning(
+            "cue 문서 승계 실패: %s -> %s", source_stem, output_stem, exc_info=True
+        )
 
 
 def _run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:

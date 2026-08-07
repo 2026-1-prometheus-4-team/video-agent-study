@@ -35,6 +35,7 @@ import time
 from typing import Any, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
 from langgraph.checkpoint.memory import MemorySaver
@@ -66,6 +67,14 @@ logger = logging.getLogger(__name__)
 # =============================================================
 # analysis_node — 사전 영상 분석
 # =============================================================
+
+# 영상 하나 분석은 CPU 가 아니라 네트워크 대기가 대부분이다 — 전사(OpenAI
+# whisper-1) + 전사 교정(Gemini) + 시각 분석(Gemini Vision) 으로 API 왕복이
+# 3번이고, 그 사이 스레드는 놀고 있다. 워커가 3개면 영상 5개가 2웨이브로
+# 갈려서 가장 짧은 영상이 큐 뒤에 밀리는 만큼 벽시계 시간이 그대로 늘어난다
+# (실측: 5개 4분 1초, 15초짜리가 마지막에 끝남).
+_ANALYSIS_MAX_WORKERS = max(1, int(os.getenv("ANALYSIS_MAX_WORKERS", "5")))
+
 
 def _analyze_one_video(path: str) -> tuple[str, dict]:
     """영상 하나 분석 (캐시 JSON 우선). 반환: (파일명, 분석 데이터 or {'error': ...})."""
@@ -181,8 +190,13 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
 
     multi = len(video_paths) > 1
     if multi:
-        logger.info("analysis_node: 영상 %d개 병렬 분석 시작", len(video_paths))
-        with ThreadPoolExecutor(max_workers=min(3, len(video_paths))) as pool:
+        workers = min(_ANALYSIS_MAX_WORKERS, len(video_paths))
+        logger.info(
+            "analysis_node: 영상 %d개 병렬 분석 시작 (worker %d개)",
+            len(video_paths),
+            workers,
+        )
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             results = list(pool.map(_analyze_one_video, video_paths))
     else:
         results = [_analyze_one_video(video_paths[0])]
@@ -684,7 +698,7 @@ def _make_ask_user_tool(holder: dict):
     return ask_user
 
 
-def supervisor_node(state: AgentState) -> dict[str, Any]:
+def supervisor_node(state: AgentState, config: Optional[RunnableConfig] = None) -> dict[str, Any]:
     """ReAct 루프 안에서 sub-agent 들을 tool 처럼 부른다.
 
     `langchain.agents.create_agent` 의 내장 ReAct loop 사용.
@@ -780,9 +794,15 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
     user_text = "\n".join(user_parts)
 
     try:
+        # recursion_limit 만 담은 config 를 새로 만들면 부모의 callbacks 가 끊겨
+        # supervisor 가 부르는 tool 들이 로그에서 통째로 사라진다. 노드가 받은
+        # config 의 callbacks 를 그대로 이어붙인다.
         result_state = react_agent.invoke(
             {"messages": [HumanMessage(content=user_text)]},
-            config={"recursion_limit": 40},
+            config={
+                "recursion_limit": 40,
+                "callbacks": (config or {}).get("callbacks"),
+            },
         )
     except GraphInterrupt:
         # 방어적 재전파 — interrupt 를 generic except 가 삼켜 critic verdict 로

@@ -66,6 +66,54 @@ export async function getSubtitleStyle(stem: string): Promise<SubtitleStyle> {
   return res.json();
 }
 
+/** 한 영상의 자막 전체 — 큐와 스타일이 항상 같은 응답에서 온다. */
+export interface SubtitleDocument {
+  status: "success" | "empty";
+  stem: string;
+  cues: SubtitleCue[];
+  style: SubtitleStyle;
+  sourceVideo: string;
+  /** status==="empty" 일 때 이유 (no_cues 등). 조회 실패와 구분용. */
+  reason?: string;
+}
+
+export interface SubtitleCue {
+  id?: string;
+  start: number;
+  end: number;
+  text: string;
+  style?: Partial<SubtitleStyle>;
+}
+
+/**
+ * 자막 큐 + 스타일을 한 번에 조회 — 모든 화면이 여기만 본다.
+ *
+ * 이전에는 미리보기가 스토어 transcript + 스타일 API 를, 모션 에디터가 스토어
+ * transcript + 메모리 전용 globalSubtitleStyle 을, export 가 서버 큐 문서를
+ * 각각 봤다. 같은 영상인데 화면마다 자막과 폰트가 달라 보인 원인이다.
+ *
+ * 자막이 없는 상태(empty)와 조회 실패(throw)를 구분한다 — 호출부가 "자막이
+ * 아직 없다"와 "백엔드가 죽었다"에 다르게 반응해야 한다.
+ */
+export async function getSubtitleDocument(
+  stem: string
+): Promise<SubtitleDocument> {
+  const res = await fetch(
+    `${API_BASE}/api/subtitles/${encodeURIComponent(stem)}/document`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const raw = await res.json();
+  return {
+    status: raw.status === "success" ? "success" : "empty",
+    stem: raw.stem ?? stem,
+    cues: Array.isArray(raw.cues) ? raw.cues : [],
+    style: { ...DEFAULT_STYLE, ...(raw.style_defaults ?? {}) },
+    sourceVideo: raw.source_video ?? "",
+    reason: raw.reason,
+  };
+}
+
 export async function patchSubtitleStyle(
   stem: string,
   style: Partial<SubtitleStyle>

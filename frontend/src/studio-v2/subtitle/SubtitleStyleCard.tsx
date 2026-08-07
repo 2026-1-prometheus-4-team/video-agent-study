@@ -52,6 +52,10 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [saving, setSaving]   = useState(false);
+  // 저장 후에도 다시 만질 수 있어야 한다. 스타일은 cue 문서의 메타라 몇 번이든
+  // 덮어쓸 수 있는데, 카드가 한 번 applied 가 되면 입력이 전부 잠겨서 색 하나
+  // 바꾸려면 새 대화를 열어야 했다.
+  const [reopened, setReopened] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -106,6 +110,9 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
         position: style.position,
       });
       applySubtitle(id, outputPath ?? "");
+      // 재수정 후 저장하면 다시 완료 상태로 접는다 — 열어둔 채 두면 저장됐는지
+      // 아닌지 카드만 봐서는 알 수 없다.
+      setReopened(false);
     } catch (e) {
       const isNetworkError =
         e instanceof TypeError ||
@@ -122,7 +129,7 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
     }
   };
 
-  const isApplied = status === "applied";
+  const isApplied = status === "applied" && !reopened;
 
   // ── 미리보기 자막 스타일 계산 ──
   const previewFontSize = Math.max(10, Math.round(
@@ -391,9 +398,18 @@ export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
 
       {/* Footer */}
       {isApplied ? (
-        <div className={styles.appliedNote}>
-          <Check size={12} />
-          <span>자막 스타일 저장 완료</span>
+        <div className={styles.appliedRow}>
+          <span className={styles.appliedText}>
+            <Check size={12} />
+            저장 완료
+          </span>
+          <button
+            type="button"
+            className={styles.btnGhost}
+            onClick={() => setReopened(true)}
+          >
+            다시 수정
+          </button>
         </div>
       ) : (
         <>

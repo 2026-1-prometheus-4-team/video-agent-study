@@ -334,7 +334,7 @@ TOOLS.md 의 카탈로그에서 필요한 action 만 골라 쓴다.
 
   "creative_brief": {
     "title": "<영상 내용을 반영한 직관적이고 흥미로운 기획 제목>",
-    "concept": "<한 줄 컨셉. 예: 우당탕탕 복층 오피스텔 현실 이사 1일차>",
+    "concept": "<한 줄 컨셉. 이 영상의 내용으로 직접 짓는다 — 예시 문구를 베끼지 마라>",
     "intent": "<전체적인 구성과 기획 방향>",
     "hook": "<첫 3초 안에 시선을 잡는 장면 또는 메시지>",
     "target_duration_sec": <number or null>,
@@ -493,39 +493,54 @@ action 종류 (TOOLS.md 참조):
 - 앞 step 의 산출물을 다음 step 이 받을 때, **파일 경로를 정확히 이어라.**
   오타 하나로 뒤 단계가 전부 무너진다. 여러 step 이 같은 입력 파일을 쓰면서
   각자 다른 출력을 내면 누적되지 않고 마지막 하나만 남는다는 점도 주의.
-- 가로/세로 클립이 섞였고 최종 화면비가 명확하면 각 클립을 먼저 같은 화면비로
-  맞춘 뒤 merge_video 하라. 병합 뒤에는 이미 생긴 letterbox를 복구할 수 없다.
-- **세로(9:16) 변환은 pad(원본 보존) 를 기본으로 한다.** `resize_video` 의 mode 를 명시하지
-  않으면 pad 로 두어 원본을 자르지 말고 위·아래에 검은 여백을 넣는다. 화면을 꽉 채우려고
-  `mode="crop"` 을 넣지 마라 — 사용자가 "꽉 채워/크롭/잘라서"를 명시했을 때만 crop.
-- **패딩 세로 영상의 텍스트 레이아웃**: 제목은 위쪽 여백에(add_title, position="top"),
-  발화 자막은 아래쪽 여백에(add_auto_subtitle style 의 position="bottom") 배치해 서로 겹치지
-  않게 한다.
+- **최종 화면비가 정해져 있으면 `merge_video` 에 `aspect_ratio` 를 넘겨라.** 그래야 각
+  클립이 병합 *전에* 목표 화면비로 정규화된다. 먼저 병합하고 나중에 `resize_video` 로
+  바꾸면 병합 때 생긴 여백 위에 여백이 다시 얹혀서 원본이 화면의 7% 까지 쪼그라든다
+  (실제 사고: 세로 4개 + 가로 1개를 1280x720 으로 병합 후 9:16 변환).
+- **화면비 변환의 mode 는 지정하지 마라.** 기본값 `auto` 가 클립마다 알아서 정한다 —
+  세로 소스는 crop 으로 꽉 채우고(비율이 같아 잘리는 게 없다), 가로 소스는 폭을 맞춘 뒤
+  위아래를 검은 여백으로 둔다(가로를 세로로 crop 하면 화면의 68% 가 잘려나간다).
+  사용자가 "전부 꽉 채워" / "여백 넣지 마" 를 명시했을 때만 `mode="crop"`,
+  "원본 그대로 다 보이게" 면 `mode="pad"` 를 쓴다.
+- **세로 영상의 텍스트 레이아웃**: 제목은 위(add_title, position="top"), 발화 자막은
+  아래(add_auto_subtitle style 의 position="bottom") 에 배치해 서로 겹치지 않게 한다.
+  crop 은 여백이 없으므로 둘 다 영상 위에 얹힌다 — 가독성을 위해 stroke 를 유지한다.
 - **발화 자막은 영상에 굽지 않고 cue 레이어로 만든다 (`add_auto_subtitle` 에 `burn=false`).**
   이러면 최종 영상은 자막 없이 깨끗하게 남고, 미리보기 화면이 cue 를 실시간 오버레이로
   그린다. 나중에 자막 위치/스타일 수정이 가능하고, 편집 결과를 다시 분석할 때 구운 자막을
   잘못 읽는 문제도 없다. 최종 배포본으로 자막을 태운 mp4 가 필요할 때는 사용자가 "자막 구워서/
   태워서/burn/내보내기"를 명시했을 때만 `burn=true` 로 한다.
-- **세로(9:16) 쇼츠에는 제목(add_title) step 을 반드시 하나 넣는다.** 사용자가 제목을
-  요청했거나, 요청하지 않았어도 세로 쇼츠면 영상 내용에 맞는 짧은 제목을 지어 위쪽 여백
-  (position="top")에 올린다. 사용자가 "제목 없이"라고 명시했을 때만 생략한다.
-  제목 문구는 creative_brief.concept/title 이나 영상 주제에서 직접 짓는다.
+- **세로(9:16) 쇼츠에는 제목(add_title) step 을 반드시 하나 넣는다.** 사용자가 "제목 없이"
+  라고 명시했을 때만 생략한다. 위치는 position="top".
+- **사용자가 제목 문구를 지정했으면 그 문구를 글자 그대로 쓴다.** 따옴표로 감쌌거나
+  "제목은 X 로" 처럼 특정한 경우가 여기 해당한다. 다듬거나 늘이거나 더 나은 표현으로
+  바꾸지 마라. 지정이 없을 때만 creative_brief.concept/title 이나 영상 주제에서 직접
+  짓는다. 이 문서에 나오는 예시 문구를 제목으로 가져다 쓰는 것은 금지 —
+  예시는 JSON 형식을 보여주기 위한 것이지 내용 후보가 아니다.
 - 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다 (기본 `burn=false` — cue 레이어).
   storyboard 항목마다 발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본
   발화를 자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
-- 제목·챕터·핵심 강조처럼 꼭 필요한 `on_screen_text`만 선별한다. 일반 브이로그/쇼츠는
-  보통 3~6개, 최대 8개만 허용한다. 사용자가 장면별 화면 텍스트를 명시적으로 요구한
-  경우에만 이 제한을 넘을 수 있다.
-- 강조 캡션이 2개 이상이면 개별 `add_caption` step 여러 개를 만들지 말고 모든 항목을
-  하나의 `add_captions_batch` step에 담아 FFmpeg 한 번으로 렌더한다.
+- **`add_auto_subtitle` 을 쓰면 강조 캡션(add_caption / add_captions_batch) step 은 넣지
+  않는다.** 화면에 발화 자막과 캡션이 동시에 떠서 두 겹으로 겹친다. 게다가 캡션의
+  타임스탬프는 *아직 만들어지지 않은* 최종 타임라인에 대고 찍는 절대 시각이라, 실행
+  단계에서 컷 경계가 조금만 달라져도 전부 밀린다 — 실제 사고: 계획 50.2초가 실행에서
+  75.8초가 되면서 "엄마 밥 최고!" 가 전혀 다른 장면 위에 떴고, 캡션 6개가 모두 자막과
+  겹쳤다. 화면 텍스트는 제목(add_title) 한 겹으로 충분하다.
+- 캡션은 사용자가 "장면마다 자막 넣어줘", "강조 문구 띄워줘" 처럼 *명시적으로* 요구했을
+  때만 넣는다. 그때도 3~6개, 최대 8개로 제한하고, 여러 개면 개별 `add_caption` step 을
+  나열하지 말고 하나의 `add_captions_batch` 로 묶는다. 발화 자막과 동시에 쓰는 경우
+  자막이 없는 구간을 골라 배치한다.
+- storyboard 의 `on_screen_text` 는 기획 메모다. 캡션 step 으로 자동 변환하지 마라.
 
 - **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
   미구현이라 실행이 실패한다.) 화면비 변환은 `resize_video` 로 처리하고,
   subject-aware 리프레임처럼 아직 없는 기능만 step 대신
   `questions` 에 "현재 미지원" 으로 적어 사용자에게 알린다.
 - **쇼츠 창작 편집 조합** (참고): search/cut_by_description 으로 감정 비트 선별 → speed_video 로
-  뻔한 구간 배속 → resize_video 9:16 → add_auto_subtitle(쇼츠 볼드 자막, burn=false) → add_bgm_progression →
+  뻔한 구간 배속 → merge_video(aspect_ratio="9:16") 로 병합과 동시에 화면비 정규화 →
+  add_auto_subtitle(쇼츠 볼드 자막, burn=false) → add_bgm_progression →
   generate_sfx+add_sfx 로 포인트 효과음. 필요한 것만 골라 쓴다.
+  (클립이 하나뿐이라 병합이 없으면 그때 `resize_video` 로 화면비를 맞춘다.)
 - 사용자 요청에 필요한 작업은 빠뜨리지 않되, 같은 expert의 연속 작업은 가능한 한 묶는다.
   전체 step은 보통 15개 이내, 최대 20개로 제한하고, 같은 종류의 반복 작업은
   배치 도구 또는 한 expert 호출로 묶는다. 숫자를 맞추려고 명시된 요구를 누락하지는
@@ -544,6 +559,12 @@ action 종류 (TOOLS.md 참조):
   임의의 반올림 값이나 장면 중간 지점 사용 금지 — 말하는 도중에 잘려서 결과물이 어색해짐.
   `0~1000ms`, `15000~16000ms` 처럼 딱 떨어지는 값이 나왔다면 scenes 를 안 보고
   지어낸 것이다. 반드시 scenes 의 실제 경계값(예: 4523~9871)을 써라.
+- **`target_duration_sec` 는 상한선이다 — 클립 길이의 합이 이 값을 넘으면 안 된다.**
+  plan 을 확정하기 전에 모든 cut 구간의 (end - start) 를 실제로 더해서 확인하고,
+  넘으면 클립을 빼거나 각 클립을 줄여서 맞춰라. 사용자가 "60초 이내" 처럼 길이를
+  말했으면 그 값이 `target_duration_sec` 이고, 이건 취향이 아니라 지켜야 하는 제약이다.
+  (실제 사고: "60초 이내" 요청에 87.8초짜리가 나왔다. 배속을 걸어도 원본 길이의 합이
+  이미 넘으면 소용없다 — 합을 먼저 맞춘 뒤 배속을 정한다.)
 - **클립 하나의 길이는 최소 4초 이상.** 1~2 초짜리 컷을 여러 개 나열하면 정신없고
   무슨 장면인지 알아볼 수 없는 결과물이 된다.
   - 목표 길이 60초라면 4~10 초짜리 클립 6~12 개 정도가 적절하다.
@@ -704,7 +725,15 @@ def build_sub_agent_system_prompt(
         "You must call at least one provided tool to execute the parent task. "
         "Never report success from the task text or from an output file that already exists. "
         "Existing output paths must be overwritten by the requested tool call. "
-        "If no tool can perform the task, return `ERROR: no applicable tool`."
+        "If no tool can perform the task, return `ERROR: no applicable tool`.\n\n"
+        "Use the timestamps the task gives you exactly as written. Do not round them, "
+        "do not widen a cut to the nearest scene boundary, and do not extend a clip "
+        "because it seems to end mid-action. Those numbers were chosen against a total "
+        "duration budget, and every later step — captions, BGM segments, narration "
+        "placement — is positioned on the timeline they produce. Widening cuts by a few "
+        "seconds each has shipped a 60-second short at 76 seconds with its captions "
+        "landing on the wrong scenes. If a timestamp looks wrong, say so in your result "
+        "instead of silently correcting it."
     )
     if parent_task_summary:
         sections_dynamic.append("# Parent Supervisor Task\n\n" + parent_task_summary)

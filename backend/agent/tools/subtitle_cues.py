@@ -31,6 +31,7 @@ import uuid
 
 from langchain_core.tools import tool
 
+from agent.tools import media_paths
 from agent.tools.subtitle import (
     FONTS_DIR,
     SUBTITLES_DIR,
@@ -285,7 +286,29 @@ _FONT_WEIGHT_SUFFIX = re.compile(
 # ─── 경로 / 문서 헬퍼 ─────────────────────────────────────────────────────────
 
 def _resolve_video_path(video_path: str) -> str:
-    """edit.py 컨벤션: 절대 경로 → 그대로, 아니면 프로젝트 루트 → videos/ 순."""
+    """edit.py 컨벤션: 절대 경로 → 그대로, 아니면 프로젝트 루트 → videos/ 순.
+
+    편집 산출물은 outputs/ 에 있는데 이 해석기만 그곳을 못 봐서, 승격된 큐 문서가
+    존재하지 않는 source_video 를 기록해왔다 (디스크에서 확인: add_bgm_16.cues.json
+    이 backend/add_bgm_16.mp4 를 가리키지만 실제 파일은 backend/outputs/ 에 있다).
+    공용 규칙(media_paths)에 위임하고, 못 찾을 때만 기존 위치를 그대로 돌려준다.
+    """
+    if os.path.isabs(video_path) and os.path.exists(video_path):
+        return os.path.normpath(video_path)
+
+    found = media_paths.find_media(video_path)
+    if found is not None:
+        return os.path.normpath(str(found))
+
+    # 서버 엔드포인트는 확장자 없는 stem 을 넘긴다 ("final_video"). 큐 문서의
+    # source_video 도 확장자 없이 저장된 사례가 있어 (_____.cues.json) 확장자를
+    # 붙여 한 번 더 찾아본다.
+    if not os.path.splitext(video_path)[1]:
+        for ext in (".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"):
+            found = media_paths.find_media(f"{video_path}{ext}")
+            if found is not None:
+                return os.path.normpath(str(found))
+
     if os.path.isabs(video_path):
         return os.path.normpath(video_path)
     direct = os.path.join(_PROJECT_ROOT, video_path)
