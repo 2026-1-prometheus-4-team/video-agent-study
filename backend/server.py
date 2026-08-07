@@ -68,8 +68,13 @@ from langchain_core.messages import ToolMessage
 import media_library
 from agent import config as agent_config
 from agent.graph import build_graph
+from agent.observability import AgentTracer, setup_logging
 from agent.state import VideoContext
 from db import SessionRepo, dispose_db, init_db
+
+# uvicorn 이 자기 핸들러를 붙이기 전에 포맷/레벨을 잡는다. 이게 없으면 에이전트
+# 로그가 uvicorn 기본 포맷으로 섞여 나오고 서드파티 라이브러리 로그에 묻힌다.
+setup_logging()
 
 logger = logging.getLogger("server")
 
@@ -194,6 +199,8 @@ class Session:
         self.checkpointer = MemorySaver()
         self.graph = build_graph(checkpointer=self.checkpointer)
         self.created_at = time.time()
+        # 로그 줄 주체 표시. 세션이 여러 개 붙어 있어도 어느 대화의 실행인지 구분된다.
+        self.tracer = AgentTracer(session_id[:6])
         # 그래프 실행 직렬화 (WS+WS / WS+REST 동시 접근 시 checkpointer 경합 방지)
         self.run_lock = asyncio.Lock()
         # run_lock 은 await 로만 잡히므로 "task 생성 ~ 락 획득" 사이에 다른
@@ -230,7 +237,13 @@ class Session:
 
     @property
     def config(self) -> dict:
-        return {"configurable": {"thread_id": self.session_id}}
+        # tracer 를 여기 달아두면 이 config 를 쓰는 모든 그래프 실행(stream/resume/
+        # get_state)이 노드·LLM·툴 경계를 로그로 흘린다. 세션마다 하나를 재사용해
+        # run_id 짝짓기가 turn 을 넘어가도 유지되게 한다.
+        return {
+            "configurable": {"thread_id": self.session_id},
+            "callbacks": [self.tracer],
+        }
 
     def pending_interrupt(self) -> Optional[dict]:
         """체크포인트에 남아 있는 미해결 interrupt payload. 없으면 None.

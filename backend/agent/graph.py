@@ -35,6 +35,7 @@ import time
 from typing import Any, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langgraph.types import interrupt
 from langgraph.checkpoint.memory import MemorySaver
@@ -697,7 +698,7 @@ def _make_ask_user_tool(holder: dict):
     return ask_user
 
 
-def supervisor_node(state: AgentState) -> dict[str, Any]:
+def supervisor_node(state: AgentState, config: Optional[RunnableConfig] = None) -> dict[str, Any]:
     """ReAct 루프 안에서 sub-agent 들을 tool 처럼 부른다.
 
     `langchain.agents.create_agent` 의 내장 ReAct loop 사용.
@@ -793,9 +794,15 @@ def supervisor_node(state: AgentState) -> dict[str, Any]:
     user_text = "\n".join(user_parts)
 
     try:
+        # recursion_limit 만 담은 config 를 새로 만들면 부모의 callbacks 가 끊겨
+        # supervisor 가 부르는 tool 들이 로그에서 통째로 사라진다. 노드가 받은
+        # config 의 callbacks 를 그대로 이어붙인다.
         result_state = react_agent.invoke(
             {"messages": [HumanMessage(content=user_text)]},
-            config={"recursion_limit": 40},
+            config={
+                "recursion_limit": 40,
+                "callbacks": (config or {}).get("callbacks"),
+            },
         )
     except GraphInterrupt:
         # 방어적 재전파 — interrupt 를 generic except 가 삼켜 critic verdict 로
