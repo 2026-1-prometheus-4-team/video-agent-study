@@ -1331,14 +1331,24 @@ def _load_transcript_sidecar(
         cleaned_final = final_path.strip().strip("`'\"*").strip()
         final_candidate = Path(cleaned_final)
         final_stem = final_candidate.stem
+        session_start = getattr(session, "created_at", 0) or 0
         for exact in (
             subtitles_dir / f"{final_stem}.cues.json",
             subtitles_dir / f"{final_stem}.json",
         ):
-            if exact.exists():
-                transcript = _read_transcript_sidecar(exact)
-                if transcript:
-                    return transcript
+            if not exact.exists():
+                continue
+            # generic 출력 이름(video_with_bgm 등)은 세션 간 재사용된다. 옛 세션의
+            # 동명 큐 문서가 남아 있으면 새 세션(다른 영상)이 옛 자막을 집는다
+            # (예: 카페 영상에 이사 영상 자막). 이번 세션 시작 이후 것만 신뢰한다.
+            try:
+                if exact.stat().st_mtime < session_start:
+                    continue
+            except OSError:
+                continue
+            transcript = _read_transcript_sidecar(exact)
+            if transcript:
+                return transcript
 
         # 자막 번인 전 결과라도 cut/merge origin이 있으면 원본 Whisper를 결과
         # 시간축으로 재구성할 수 있다. 최종 영상을 다시 전사하지 않는다.
