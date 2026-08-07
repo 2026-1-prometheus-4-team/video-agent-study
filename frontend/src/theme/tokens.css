@@ -38,14 +38,17 @@
   --text-tertiary: #82858C;
   --text-muted: #54575D;
   --text-disabled: #3A3C42;
-  --text-on-accent: #ffffff;
+  --text-on-accent: #140f00;
   --text-inverse: #0A0A0B;
 
-  /* ---------- Accent (indigo) ---------- */
-  --accent: #7c8df1;
-  --accent-hover: #99a5ff;
-  --accent-pressed: #6b7de8;
-  --accent-subtle-bg: rgba(124, 141, 241, 0.14);
+  /* ---------- Accent (violet) ----------
+     globals.css 의 :root 와 같은 값을 유지한다. 이 선택자는
+     :root[data-theme="dark"] 라 특이도가 (0,2,0) 이고 globals 의 :root (0,1,0) 를
+     이긴다. 값이 어긋나면 화면마다 다른 보라가 나온다. */
+  --accent: #fdc02d;
+  --accent-hover: #ffd25c;
+  --accent-pressed: #e0a718;
+  --accent-subtle-bg: rgba(253, 192, 45, 0.18);
   --accent-subtle-fg: #99a5ff;
   --accent-secondary: #6B7280;
   --accent-secondary-hover: #7D848D;
@@ -74,9 +77,11 @@
   --node-edit: #E08A3C;
   --node-critic: #3ECF8E;
 
-  /* ---------- Typography scale ---------- */
-  --font-ui: 'Pretendard Variable', Pretendard, -apple-system,
-    BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* ---------- Typography scale ----------
+     --font-ui 는 여기서 정의하지 않는다. layout.tsx 의 next/font(localFont)가
+     같은 이름으로 실제 로드된 Pretendard 핸들을 넣어주는데, 여기서 다시 쓰면
+     그 핸들을 가려버린다. 그동안 Pretendard 를 preload 해놓고 정작 화면에는
+     시스템 폰트가 렌더되고 있었다. */
   --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
 
   --fs-display: 48px;
@@ -200,7 +205,8 @@
   --sidebar-w-default: 360px;
   --sidebar-w-max: 520px;
 
-  --timeline-h: 184px;
+  /* --timeline-h 는 globals.css 가 정한다. 여기(:root[data-theme])가
+     특이도로 이겨서 레이아웃 값이 조용히 덮이던 문제. */
   --timeline-lane-h: 44px;
   --timeline-ruler-h: 28px;
   --playhead-w: 1.5px;

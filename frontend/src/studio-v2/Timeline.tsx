@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AudioLines,
   Film,
   Type as TypeIcon,
   ZoomIn,
@@ -13,7 +14,23 @@ import { useAgentStore } from "./state";
 import { formatSeconds } from "@/lib/format";
 import styles from "./timeline.module.css";
 
-const TRACK_ROW_HEIGHT = 30;
+/* 레인 높이 차등 — 비디오가 가장 두껍다. 세 줄이 같은 높이면 목록처럼 보이고
+   어느 것이 주 트랙인지 안 읽힌다. */
+const LANE_H = { video: 64, audio: 58, subtitle: 54 } as const;
+
+/* 편집기 타임코드 표기 HH:MM:SS:FF. 초 단위만 보여주면 프레임 단위로
+   맞추는 작업에서 쓸모가 없다. fps 를 모를 때는 30 으로 가정한다. */
+const TIMECODE_FPS = 30;
+function timecode(sec: number): string {
+  const total = Math.max(0, sec);
+  const f = Math.floor((total % 1) * TIMECODE_FPS);
+  const s = Math.floor(total) % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(h)}:${p(m)}:${p(s)}:${p(f)}`;
+}
+const TRACK_ROW_HEIGHT = LANE_H.video;
 
 export function Timeline() {
   const videoContext = useAgentStore((s) => s.videoContext);
@@ -94,6 +111,10 @@ export function Timeline() {
 
   const finalNotReanalyzed =
     showingFinal && (scenesLookStale || transcriptLooksStale);
+
+  // 오디오 스트림 정보를 따로 받지 않으므로, 재생 중인 소스가 있으면 오디오도
+  // 있다고 본다. 파형이나 볼륨 같은 없는 데이터를 그려내지는 않는다.
+  const hasAudio = duration > 0;
 
   // ───────── scrubber (playhead 드래그 seek) ─────────
   const scrubRef = useRef<HTMLDivElement | null>(null);
@@ -239,7 +260,7 @@ export function Timeline() {
             >
               {showingFinal ? "편집본" : "원본"}
             </span>
-            <span className={styles.tabular}>{formatSeconds(playhead)}</span>
+            <span className={styles.nowCode}>{formatSeconds(playhead)}</span>
             <span className={styles.headerMetaSuffix}>/</span>
             <span className={styles.tabular}>{formatSeconds(duration)}</span>
             <span className={styles.headerSep} />
@@ -302,13 +323,33 @@ export function Timeline() {
         <div className={styles.content} style={{ width: contentWidth }}>
           <div className={styles.labelCol}>
             <div className={styles.labelRuler} />
-            <div className={styles.labelRow}>
-              <Film size={11} strokeWidth={2.2} />
-              <span>씬</span>
+            <div className={styles.labelRail}>
+
+            {/* 레인 구분은 색 하나에 기대지 않는다 — 높이 · 아이콘 · 라벨 · 개수가
+                같이 말한다. 색만으로 나누면 흑백으로 보거나 색각이 다르면 무너진다. */}
+            <div
+              className={styles.labelRow}
+              style={{ height: LANE_H.video }}
+              title={`비디오 · ${scenes.length}개`}
+            >
+              <Film size={15} strokeWidth={2} />
             </div>
-            <div className={styles.labelRow}>
-              <TypeIcon size={11} strokeWidth={2.2} />
-              <span>자막</span>
+
+            <div
+              className={styles.labelRow}
+              style={{ height: LANE_H.audio }}
+              title="오디오"
+            >
+              <AudioLines size={15} strokeWidth={2} />
+            </div>
+
+            <div
+              className={styles.labelRow}
+              style={{ height: LANE_H.subtitle }}
+              title={`자막 · ${transcript.length}개`}
+            >
+              <TypeIcon size={15} strokeWidth={2} />
+            </div>
             </div>
           </div>
 
@@ -321,6 +362,7 @@ export function Timeline() {
               onPointerMove={onScrubHover}
               onPointerLeave={() => setHovering(null)}
             >
+              <span className={styles.nowBadge}>{timecode(playhead)}</span>
               {rulerTicks.map((t) => (
                 <div
                   key={t}
@@ -329,9 +371,7 @@ export function Timeline() {
                     left: `${duration ? (t / duration) * 100 : 0}%`,
                   }}
                 >
-                  <span className={styles.rulerLabel}>
-                    {formatSeconds(t, false)}
-                  </span>
+                  <span className={styles.rulerLabel}>{timecode(t)}</span>
                 </div>
               ))}
               {hovering && (
@@ -353,20 +393,13 @@ export function Timeline() {
               </div>
             </div>
 
-            {/* Scenes track */}
+            {/* 비디오 레인 */}
             <div
               className={styles.trackRow}
-              style={{ height: TRACK_ROW_HEIGHT }}
+              data-lane="video"
+              style={{ height: LANE_H.video }}
             >
-              {duration <= 0 || scenes.length === 0 ? (
-                <div className={styles.trackEmpty}>
-                  <span>
-                    {scenesLookStale
-                      ? "편집본 씬 재분석 대기 중 · 백엔드가 새 mp4 를 다시 분석해야 표시"
-                      : "씬 정보 없음"}
-                  </span>
-                </div>
-              ) : (
+              {duration <= 0 || scenes.length === 0 ? null : (
                 scenes.map((sc, i) => {
                   const left = (sc.start / duration) * 100;
                   const width = Math.max(
@@ -395,32 +428,54 @@ export function Timeline() {
                           : `씬 ${i + 1}`
                       }
                     >
+                      <span className={styles.clipGrip} aria-hidden>
+                        &laquo;
+                      </span>
+                      <Film size={11} strokeWidth={2.4} className={styles.clipIcon} />
                       <span className={styles.sceneIdx}>{i + 1}</span>
                       {sc.description && (
                         <span className={styles.sceneDesc}>
                           {sc.description}
                         </span>
                       )}
+                      <span className={styles.clipGrip} aria-hidden>
+                        &raquo;
+                      </span>
                     </motion.button>
                   );
                 })
               )}
             </div>
 
-            {/* Subtitles track */}
+            {/* 오디오 레인 — 편집본에 실제 오디오가 있으면 한 덩어리로 표시한다.
+                파형은 아직 없다. 없는 데이터를 그럴듯하게 그리지 않는다. */}
             <div
               className={styles.trackRow}
-              style={{ height: TRACK_ROW_HEIGHT }}
+              data-lane="audio"
+              style={{ height: LANE_H.audio }}
             >
-              {duration <= 0 || transcript.length === 0 ? (
-                <div className={styles.trackEmpty}>
-                  <span>
-                    {transcriptLooksStale
-                      ? "편집본 자막 재분석 대기 중"
-                      : '자막 없음 — 채팅에 "자막 달아줘" 로 요청'}
+              {duration <= 0 || !hasAudio ? null : (
+                <div
+                  className={styles.audioBlock}
+                  style={{ left: 0, width: "100%" }}
+                  title="편집본 오디오"
+                >
+                  <span className={styles.clipGrip} aria-hidden>
+                    &laquo;
                   </span>
+                  <AudioLines size={11} strokeWidth={2.4} className={styles.clipIcon} />
+                  <span className={styles.audioLabel}>오디오</span>
                 </div>
-              ) : (
+              )}
+            </div>
+
+            {/* 자막 레인 */}
+            <div
+              className={styles.trackRow}
+              data-lane="subtitle"
+              style={{ height: LANE_H.subtitle }}
+            >
+              {duration <= 0 || transcript.length === 0 ? null : (
                 transcript.map((sg, i) => {
                   const left = (sg.start / duration) * 100;
                   const width = Math.max(

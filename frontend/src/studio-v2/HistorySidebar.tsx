@@ -8,9 +8,12 @@ import {
   History,
   Loader2,
   MessageSquare,
+  MessageSquarePlus,
   PanelLeftClose,
   Plus,
+  SlidersHorizontal,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   fetchSessions,
   loadSession,
@@ -34,6 +37,7 @@ const COLLAPSE_KEY = "studio.histCollapsed";
  * '새 대화' → startNewSession(초기화 → EmptyState).
  */
 export function HistorySidebar() {
+  const router = useRouter();
   const sessionId = useAgentStore((s) => s.sessionId);
   const sessionStatus = useAgentStore((s) => s.sessionStatus);
 
@@ -54,6 +58,13 @@ export function HistorySidebar() {
       return !c;
     });
   }, []);
+
+  // 상단바 버튼도 같은 토글을 쓴다 (단축키와 동작이 갈라지지 않게).
+  useEffect(() => {
+    const onToggle = () => toggleCollapsed();
+    window.addEventListener("va:toggle-history", onToggle);
+    return () => window.removeEventListener("va:toggle-history", onToggle);
+  }, [toggleCollapsed]);
 
   useHotkeys("meta+shift+b, ctrl+shift+b", (e) => {
     e.preventDefault();
@@ -191,6 +202,8 @@ export function HistorySidebar() {
           >
             <History size={15} strokeWidth={2} />
           </button>
+          {/* 이 레일은 "기록" 패널이다. 여기서 할 수 있는 일은 두 가지뿐이라
+              그 두 개만 둔다. 다른 기능 버튼을 얹으면 패널의 역할이 흐려진다. */}
           <button
             type="button"
             className={`${styles.iconBtn} ${styles.iconBtnAccent}`}

@@ -1,12 +1,20 @@
+/* 타임라인 — 전체 폭 하단 카드. 프리뷰가 제어하는 대상이라 바로 아래 붙는다. */
 .wrap {
+  grid-area: timeline;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 12px 14px 12px 16px;
-  background: var(--bg-panel);
-  border-radius: 12px;
-  box-shadow: 0 0 0 1px var(--hairline);
+  /* 하단 여백을 위쪽보다 조금 더 준다. 마지막 레인이 카드 모서리에 붙으면
+     잘린 것처럼 보이고, 애플 라운드는 아래쪽에서 안쪽으로 더 파고든다. */
+  padding: 12px 14px 26px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--rad-5);
+  corner-shape: squircle;
+  background:
+    linear-gradient(var(--bg-panel), var(--bg-panel)) padding-box,
+    var(--rim) border-box;
 }
 
 .header {
@@ -70,7 +78,7 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 5px;
+  border-radius: var(--rad-2);
   background: transparent;
   color: var(--text-3);
   transition:
@@ -106,7 +114,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 4px 0;
-  border-radius: 6px;
+  border-radius: var(--rad-2);
 }
 
 .scrollArea::-webkit-scrollbar {
@@ -124,8 +132,9 @@
 
 .content {
   position: relative;
+  padding-bottom: 10px;
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 76px 1fr;
   min-width: 100%;
 }
 
@@ -135,27 +144,78 @@
   z-index: 3;
   display: flex;
   flex-direction: column;
-  padding-right: 8px;
-  background: linear-gradient(
-    to right,
-    var(--bg-panel) 85%,
-    transparent
-  );
+  margin-right: 14px;
+  padding: 0 6px 8px;
+}
+
+/* 눈금자 높이만큼은 배경을 깔지 않는다. 카드가 눈금자 위까지 올라오면
+   첫 아이콘 위에만 빈 공간이 생겨 위아래가 어긋나 보인다. */
+.labelRail {
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px 10px;
+  border-radius: var(--rad-5);
+  corner-shape: squircle;
+  background: var(--bg-inset);
 }
 
 .labelRuler {
-  height: 22px;
+  height: 30px;
 }
 
 .labelRow {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 5px;
-  height: 30px;
-  padding-left: 2px;
-  font-size: 10.5px;
-  font-weight: 500;
+  justify-content: center;
+  margin-top: 8px;
+  color: var(--text-3);
+}
+
+/* 레인 색 칩 — 색은 보조 신호다. 아이콘·이름·개수가 먼저 구분한다. */
+.laneChip {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.laneChip[data-lane="video"] { background: var(--lane-video); }
+.laneChip[data-lane="audio"] { background: var(--lane-audio); }
+.laneChip[data-lane="subtitle"] { background: var(--lane-sub); }
+
+.laneName {
+  color: var(--text-2);
+  letter-spacing: -0.01em;
+}
+
+.laneCount {
+  margin-left: auto;
+  padding-right: 10px;
+  font-family: var(--font-mono-stack);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-4);
+}
+
+/* 오디오 레인 클립 */
+.audioBlock {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 13px;
+  corner-shape: squircle;
+  background: var(--lane-audio);
+  color: #08210A;
+  font-size: 10px;
+  overflow: hidden;
+}
+
+.audioLabel {
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .labelRow > svg {
@@ -188,17 +248,17 @@
 .rulerTick::before {
   content: "";
   position: absolute;
-  top: 14px;
-  bottom: -1px;
+  top: 12px;
+  bottom: 8px;
   left: 50%;
   width: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .rulerLabel {
   position: absolute;
   left: 4px;
-  top: 1px;
+  top: 9px;
   font-family: var(--font-mono-stack);
   font-size: 9.5px;
   color: var(--text-4);
@@ -222,11 +282,11 @@
   top: -2px;
   left: 4px;
   padding: 2px 6px;
-  background: rgba(20, 22, 40, 0.94);
+  background: var(--bg-float);
   color: var(--text-1);
   font-family: var(--font-mono-stack);
   font-size: 10px;
-  border-radius: 4px;
+  border-radius: var(--rad-2);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -244,14 +304,13 @@
 
 .playheadCap {
   position: absolute;
-  top: 0;
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 11px;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
-  background: var(--accent-strong);
-  filter: drop-shadow(0 0 6px rgba(124, 141, 241, 0.35));
+  background: var(--accent);
 }
 
 .playheadLine {
@@ -260,9 +319,8 @@
   bottom: -1px;
   left: 50%;
   width: 1.5px;
-  background: var(--accent-strong);
+  background: var(--accent);
   transform: translateX(-50%);
-  box-shadow: 0 0 6px rgba(124, 141, 241, 0.35);
 }
 
 /* playhead extension 세로 track 위까지 */
@@ -271,10 +329,9 @@
   top: 22px;
   bottom: 0;
   width: 1.5px;
-  background: var(--accent-strong);
+  background: var(--accent);
   transform: translateX(-50%);
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(124, 141, 241, 0.3);
   z-index: 3;
 }
 
@@ -282,9 +339,10 @@
 
 .trackRow {
   position: relative;
-  margin-top: 4px;
-  background: var(--bg-inset);
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  background: none;
   overflow: visible;
 }
 
@@ -295,29 +353,24 @@
   align-items: center;
   justify-content: center;
   padding: 0 12px;
-  background:
-    repeating-linear-gradient(
-      45deg,
-      rgba(255, 255, 255, 0.02) 0 6px,
-      rgba(255, 255, 255, 0.005) 6px 12px
-    );
-  border-radius: 4px;
+  border-radius: var(--rad-3);
   color: var(--text-4);
   font-size: 10.5px;
   letter-spacing: -0.005em;
+  opacity: 0.4;
 }
 
 /* Scene blocks */
 
 .sceneBlock {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  background: rgba(124, 141, 241, 0.18);
-  color: var(--text-1);
-  border-radius: 3px;
-  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.32);
-  padding: 0 5px;
+  top: 2px;
+  bottom: 2px;
+  background: var(--lane-video);
+  color: #FFFFFF;
+  border-radius: 13px;
+  corner-shape: squircle;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -331,21 +384,21 @@
 }
 
 .sceneBlock:hover {
-  background: rgba(124, 141, 241, 0.3);
+  background: var(--lane-video-fill);
   filter: brightness(1.15);
 }
 
 .sceneBlock[data-active] {
-  background: rgba(124, 141, 241, 0.32);
-  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.6);
+  background: var(--lane-video-fill);
+  box-shadow: inset 0 0 0 1px var(--lane-video);
 }
 
 .sceneBlock[data-selected] {
-  background: rgba(124, 141, 241, 0.5);
+  background: var(--accent-outline);
   box-shadow:
-    inset 0 0 0 1px rgba(124, 141, 241, 0.8),
+    inset 0 0 0 1px var(--lane-video),
     0 0 0 1px var(--bg-panel),
-    0 0 0 2px rgba(124, 141, 241, 0.7);
+    0 0 0 2px var(--lane-video);
   z-index: 2;
 }
 
@@ -355,8 +408,8 @@
   font-weight: 600;
   color: var(--accent-strong);
   padding: 1px 4px;
-  border-radius: 3px;
-  background: rgba(10, 11, 24, 0.5);
+  border-radius: var(--rad-2);
+  background: var(--bg-inset);
   flex-shrink: 0;
   line-height: 1.1;
 }
@@ -378,7 +431,7 @@
   bottom: 6px;
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-1);
-  border-radius: 3px;
+  border-radius: var(--rad-2);
   padding: 0 6px;
   display: flex;
   align-items: center;
@@ -394,13 +447,13 @@
 }
 
 .subBlock[data-active] {
-  background: rgba(240, 214, 108, 0.28);
+  background: var(--lane-sub-fill);
   box-shadow: inset 0 0 0 1px rgba(240, 214, 108, 0.45);
   color: #f9e79f;
 }
 
 .subBlock[data-selected] {
-  background: rgba(240, 214, 108, 0.42);
+  background: var(--lane-sub-fill);
   box-shadow:
     inset 0 0 0 1px rgba(240, 214, 108, 0.7),
     0 0 0 1px var(--bg-panel),
@@ -423,7 +476,7 @@
   margin-top: 8px;
   padding: 8px 10px 10px;
   background: rgba(0, 0, 0, 0.24);
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
   display: flex;
   flex-direction: column;
@@ -456,15 +509,15 @@
 }
 
 .inspectorTag[data-kind="subtitle"] {
-  background: rgba(240, 214, 108, 0.12);
+  background: var(--lane-sub-fill);
   color: #f9e79f;
   box-shadow: inset 0 0 0 1px rgba(240, 214, 108, 0.28);
 }
 
 .inspectorTag[data-kind="scene"] {
-  background: rgba(124, 141, 241, 0.12);
+  background: var(--bg-elevated);
   color: var(--accent-strong);
-  box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.24);
+  box-shadow: inset 0 0 0 1px var(--accent-muted);
 }
 
 .inspectorIdx {
@@ -476,7 +529,7 @@
 .inspectorClear {
   padding: 2px 8px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--rad-2);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-3);
   font-size: 10px;
@@ -528,7 +581,7 @@
 }
 
 .sourceBadge[data-final] {
-  background: rgba(62, 207, 142, 0.14);
+  background: var(--bg-elevated);
   color: #3ecf8e;
   box-shadow: inset 0 0 0 1px rgba(62, 207, 142, 0.28);
 }
@@ -541,8 +594,122 @@
   border-radius: 999px;
   font-size: 10px;
   color: #f0a76f;
-  background: rgba(240, 167, 111, 0.1);
+  background: var(--bg-elevated);
   box-shadow: inset 0 0 0 1px rgba(240, 167, 111, 0.28);
   margin-left: 6px;
   cursor: help;
+}
+
+
+/* ── 클립 핸들 (레퍼런스의 « » 그립) ──
+   실제 트림 기능은 아직 없다. 그래서 장식이 아니라 "이 클립의 범위"를 읽히게
+   하는 표시로만 쓰고, 커서도 바꾸지 않는다. */
+.clipGrip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.45;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.1em;
+  pointer-events: none;
+}
+
+.clipIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+/* ── 타임라인 좌측 세로 툴 레일 ──
+   여기 놓는 것은 전부 실제로 동작하는 것뿐이다. 자르기·되돌리기처럼 아직
+   없는 기능을 아이콘으로 깔면 눌러본 사람이 고장으로 받아들인다. */
+.toolRail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  margin-right: 10px;
+  border-radius: var(--rad-4);
+  corner-shape: squircle;
+  background: var(--bg-inset);
+  align-self: flex-start;
+}
+
+.toolBtn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--rad-3);
+  corner-shape: squircle;
+  color: var(--text-3);
+  transition: background var(--dur-hover-out) var(--ease-pop),
+    color var(--dur-hover-out) var(--ease-pop);
+}
+
+.toolBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  transition: none;
+}
+
+.toolBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.toolSep {
+  width: 14px;
+  height: 1px;
+  margin: 3px 0;
+  background: var(--hairline);
+}
+
+/* 현재 타임코드 — 레퍼런스처럼 노랑. 화면에서 가장 자주 읽는 숫자다. */
+.nowCode {
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+
+
+/* 트랙 바닥 대신 가운데 가로선 하나. 클립이 그 위에 얹힌 것처럼 보인다.
+   배경 박스를 깔면 빈 트랙이 화면을 채워 지저분해진다. */
+.trackRow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+
+/* 현재 타임코드 — 눈금자 왼쪽에 고정된 노란 배지.
+   화면에서 가장 자주 읽는 값이라 유일하게 색을 준다. */
+.nowBadge {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin: 4px 0 0 4px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  pointer-events: none;
 }

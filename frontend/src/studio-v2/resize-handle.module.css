@@ -1,0 +1,66 @@
+/* 리사이즈 핸들.
+   평소엔 보이지 않고, 커서를 가져가면 그 자리에 얇은 선이 나타난다.
+   항상 보이는 구분선을 두면 카드 사이가 선으로 갈라져 지저분해진다. */
+
+.handle {
+  position: absolute;
+  z-index: 12;
+  background: transparent;
+  touch-action: none;
+}
+
+/* 실제로 잡히는 영역은 눈에 보이는 선보다 넓어야 한다 (6px 미만이면 놓치기 쉽다). */
+.handle[data-axis="x"] {
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: col-resize;
+}
+
+.handle[data-axis="y"] {
+  left: 0;
+  right: 0;
+  height: 10px;
+  cursor: row-resize;
+}
+
+/* 보이는 선 — 가운데 1.5px 만 */
+.handle::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: transparent;
+  transition: background var(--dur-hover-out) var(--ease-pop);
+}
+
+.handle[data-axis="x"]::after {
+  top: 14px;
+  bottom: 14px;
+  left: 50%;
+  width: 1.5px;
+  transform: translateX(-50%);
+}
+
+.handle[data-axis="y"]::after {
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  height: 1.5px;
+  transform: translateY(-50%);
+}
+
+.handle:hover::after,
+.handle[data-dragging="true"]::after {
+  background: var(--hairline-strong);
+  transition: none;
+}
+
+.handle[data-dragging="true"]::after {
+  background: var(--accent);
+}
+
+@media (max-width: 767px) {
+  .handle {
+    display: none;
+  }
+}

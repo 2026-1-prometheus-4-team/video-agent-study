@@ -3,9 +3,9 @@
   top: 12px;
   right: 12px;
   padding: 10px 12px 8px;
-  background: rgba(10, 11, 13, 0.72);
+  background: var(--bg-panel);
   backdrop-filter: blur(10px) saturate(1.4);
-  border-radius: 12px;
+  border-radius: var(--rad-3);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.05),
     0 12px 32px -12px rgba(0, 0, 0, 0.6);
@@ -48,7 +48,7 @@
 }
 
 .node[data-active] {
-  background: rgba(124, 141, 241, 0.18);
+  background: var(--bg-elevated);
   color: var(--accent-strong);
 }
 
@@ -77,7 +77,7 @@
 }
 
 .connector[data-lit] {
-  background: rgba(124, 141, 241, 0.4);
+  background: var(--bg-elevated);
 }
 
 .tabular {

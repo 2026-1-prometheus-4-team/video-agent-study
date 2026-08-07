@@ -2,13 +2,13 @@
   /* 카드 내부에서만 액센트를 보라/인디고로 고정 */
   --accent:          #7c8df1;
   --accent-strong:   #99a5ff;
-  --accent-muted:    rgba(124, 141, 241, 0.14);
+  --accent-muted:    var(--accent-muted);
   --accent-outline:  rgba(124, 141, 241, 0.50);
   --accent-hover:    #99a5ff;
   --accent-pressed:  #6b7de8;
-  --accent-subtle-bg: rgba(124, 141, 241, 0.14);
+  --accent-subtle-bg: var(--accent-muted);
   --accent-subtle-fg: #99a5ff;
-  --border-focus-glow: rgba(124, 141, 241, 0.25);
+  --border-focus-glow: var(--accent-muted);
 
   background: var(--surface-default);
   border: 1px solid var(--accent-muted);
@@ -36,7 +36,7 @@
 .headerIcon {
   width: 20px;
   height: 20px;
-  border-radius: var(--r-3);
+  border-radius: var(--rad-3);
   background: var(--accent-muted);
   border: 1px solid var(--accent-outline);
   display: grid;
@@ -242,7 +242,7 @@
   flex: 1;
   background: var(--surface-subtle);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--r-3);
+  border-radius: var(--rad-3);
   color: var(--text-primary);
   font-size: var(--fs-micro);
   padding: 4px 24px 4px var(--sp-2);
@@ -265,7 +265,7 @@
 .swatch {
   width: 22px;
   height: 22px;
-  border-radius: var(--r-2);
+  border-radius: var(--rad-2);
   border: 1.5px solid var(--border-default);
   cursor: pointer;
   flex-shrink: 0;
@@ -308,7 +308,7 @@
   align-items: center;
   gap: var(--sp-1);
   padding: 3px 9px;
-  border-radius: var(--r-3);
+  border-radius: var(--rad-3);
   border: 1px solid var(--border-subtle);
   background: var(--surface-subtle);
   cursor: pointer;

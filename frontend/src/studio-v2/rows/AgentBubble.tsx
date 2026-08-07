@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Check, X, Sparkles } from "lucide-react";
+import { Check, X, Bot } from "lucide-react";
 import type { StreamItem } from "../state";
 import { Markdown } from "../Markdown";
 import styles from "./rows.module.css";
@@ -72,7 +72,7 @@ export function AgentBubble({
             )}
           </div>
           <div className={styles.expertLabel}>
-            <Sparkles
+            <Bot
               size={10}
               strokeWidth={2.2}
               className={styles.expertSpark}

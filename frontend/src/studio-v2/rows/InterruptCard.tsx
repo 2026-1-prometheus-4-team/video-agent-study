@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Check, HelpCircle, MessageSquare, Sparkles } from "lucide-react";
+import { Check, HelpCircle, ListChecks, MessageSquare } from "lucide-react";
 import type { StreamItem } from "../state";
 import { useAgentStore } from "../state";
 import { tryResumeInterrupt } from "../backend";
@@ -131,7 +131,7 @@ export function InterruptCard({
       ) : (
         <>
           <div className={styles.interruptSub}>
-            <Sparkles size={11} className={styles.interruptSubIcon} />
+            <ListChecks size={11} className={styles.interruptSubIcon} />
             <span>
               총 {item.plan.length}단계 · 예상 실행 시간 약 {estTotal(item.plan)}초
             </span>
