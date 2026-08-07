@@ -817,10 +817,18 @@ PHASE_RUNNING_TEXT: dict[str, tuple[str, str]] = {
     ),
 }
 
+# 트렌드 리서치는 graph.py 에서 ENABLE_TREND_RESEARCH 가 켜져 있을 때만 실제로
+# 동작하고, 꺼져 있으면 노드가 즉시 return 한다. 그런데 카드는 analysis 가 끝나는
+# 순간 열려서 다음 단계(기획)가 끝날 때까지 살아있었고, 아무 일도 하지 않는 단계가
+# "트렌드 리서치 중 · 60s 경과" 로 표시됐다. 꺼져 있으면 카드도 만들지 않는다.
+TREND_RESEARCH_ENABLED = (
+    os.getenv("ENABLE_TREND_RESEARCH", "false").strip().lower() == "true"
+)
+
 # 어떤 노드가 끝나면 다음에 어떤 노드가 실행되는지. interrupt_gate 는 phase
 # 이벤트가 아니라 interrupt 이벤트로 대체하므로 매핑에서 skip.
 NEXT_PHASE: dict[str, Optional[str]] = {
-    "analysis": "research_prepass",
+    "analysis": "research_prepass" if TREND_RESEARCH_ENABLED else "script",
     "research_prepass": "script",
     "script": None,   # 다음은 interrupt_gate → interrupt 이벤트가 대체
     "supervisor": "critic",
@@ -1120,7 +1128,10 @@ async def _relay_stream(websocket: WebSocket, session: Session, stream_input) ->
                 progress = _node_progress_text(node_name, state)
                 # 노드가 완료 chunk 를 뱉었다 = 그 노드가 방금 끝났다.
                 # PHASE_RUNNING_TEXT 에 있는 노드만 phase 카드로 표시.
-                if node_name in PHASE_RUNNING_TEXT:
+                # 리서치가 꺼져 있으면 카드를 연 적이 없으므로 닫지도 않는다.
+                if node_name in PHASE_RUNNING_TEXT and not (
+                    node_name == "research_prepass" and not TREND_RESEARCH_ENABLED
+                ):
                     await _finish_phase(node_name, done_label=progress)
 
                 # analysis 노드 완료 즉시 video_context 를 프론트에 흘려서

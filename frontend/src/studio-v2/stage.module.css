@@ -73,17 +73,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 
-/* 영상 실제 비율의 박스 — videoWrap 안에서 object-fit:contain 과 동일하게
-   레터박스(pillarbox) 되도록 중앙에 최대 크기로 배치. 자막 오버레이가 이 박스
-   기준이라 실제 영상 영역에 정확히 얹힌다. */
-.videoBox {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  max-width: 100%;
-  max-height: 100%;
-}
-
 .video {
   position: absolute;
   inset: 0;

@@ -67,6 +67,11 @@ def _resolve_video_file(video_path: str) -> Path:
 # 반응형 자막 비율 상수 (PlayResY=288 기준 ASS 캔버스 / drawtext 는 실제 픽셀)
 _FONT_SIZE_PCT = 0.05          # 화면 높이의 5%
 _MARGIN_LANDSCAPE_PCT = 0.08   # 가로형 하단 마진 (8%)
+# 타이틀이 쓸 수 있는 가로 폭 (좌우 7% 씩 여백). 세로 쇼츠에서 글자가 가장자리에
+# 딱 붙으면 잘려 보이고, 플랫폼 UI(프로필·버튼)와도 겹친다.
+_TITLE_SAFE_WIDTH_PCT = 0.86
+_TITLE_MAX_LINES = 2           # 넘으면 폰트를 줄여서라도 2줄 안에
+_TITLE_LINE_HEIGHT = 1.25      # 줄 간격 (폰트 크기 배수)
 _MARGIN_PORTRAIT_PCT = 0.15    # 세로형 하단 마진 (15%)
 
 
@@ -100,6 +105,21 @@ def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
         return int(w), int(h)
     except (ValueError, IndexError):
         return 0, 0
+
+
+def _get_video_duration_ffprobe(video_path: str) -> float:
+    """ffprobe 로 영상 길이(초) 반환. 실패 시 0.0."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-show_entries", "format=duration",
+        "-of", "csv=p=0",
+        video_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return float(result.stdout.strip())
+    except (ValueError, TypeError):
+        return 0.0
 
 
 def _resolve_video_path(video_path: str) -> str:
@@ -447,6 +467,121 @@ def _srt_force_style(style: dict, font_name: str) -> str:
         f"Alignment={_ass_alignment(style.get('position', 'bottom'))},"
         f"MarginV={style.get('margin_v', 40)}"
     )
+
+
+def _text_width_px(text: str, font_path: str | None, font_size: int) -> float:
+    """렌더 폭(px) 측정.
+
+    Pillow 가 있으면 폰트 파일로 실측한다. 폰트마다 자간·글리프 폭이 달라서
+    (같은 96px 이라도 Black Han Sans 와 Noto Sans KR 의 한 줄 길이가 다르다)
+    글자 수 기반 추정으로는 잘림을 못 막는다.
+
+    Pillow 가 없으면 CJK 1.0em / ASCII 0.5em 근사로 폴백한다. 실측보다 살짝
+    크게 잡혀 안전한 쪽(더 일찍 줄바꿈)으로 기운다.
+    """
+    if not text:
+        return 0.0
+    if font_path:
+        try:
+            from PIL import ImageFont
+
+            return float(ImageFont.truetype(font_path, font_size).getlength(text))
+        except Exception:
+            logger.debug("Pillow 실측 실패, 근사 사용: %s", font_path, exc_info=True)
+
+    width = 0.0
+    for ch in text:
+        if ch == " ":
+            width += font_size * 0.5
+        elif ord(ch) > 0x2E7F:  # CJK · 한글 · 전각 기호
+            width += font_size
+        else:
+            width += font_size * 0.55
+    return width
+
+
+def _wrap_to_width(
+    text: str, font_path: str | None, font_size: int, max_width: float
+) -> list[str]:
+    """어절 단위 줄바꿈. 한 어절이 통째로 넘치면 글자 단위로 쪼갠다."""
+    lines: list[str] = []
+    current = ""
+
+    def split_overflow(chunk: str) -> str:
+        """한 줄을 넘는 덩어리를 글자 단위로 잘라 넣고 남은 꼬리를 돌려준다.
+
+        공백 없는 긴 문자열(해시태그·영단어·URL)은 어절 분리로 못 줄인다.
+        """
+        while (
+            _text_width_px(chunk, font_path, font_size) > max_width and len(chunk) > 1
+        ):
+            cut = len(chunk) - 1
+            while cut > 1 and _text_width_px(chunk[:cut], font_path, font_size) > max_width:
+                cut -= 1
+            lines.append(chunk[:cut])
+            chunk = chunk[cut:]
+        return chunk
+
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if not current or _text_width_px(candidate, font_path, font_size) <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+        # 어절 하나가 이미 한 줄을 넘기는 경우를 매번 확인한다. 마지막 어절도
+        # 여기를 거쳐야 통째로 남아 화면을 넘어가지 않는다.
+        current = split_overflow(current)
+
+    if current:
+        lines.append(current)
+    return lines or [text]
+
+
+def fit_text_to_width(
+    text: str,
+    font_path: str | None,
+    font_size: int,
+    max_width: float,
+    *,
+    max_lines: int = 2,
+    min_font_size: int = 16,
+) -> tuple[list[str], int]:
+    """주어진 폭 안에 들어가는 (줄 목록, 폰트 크기) 계산.
+
+    먼저 줄바꿈으로 맞춰보고, 줄 수가 넘치면 폰트를 10%씩 줄이며 다시 시도한다.
+    최소 크기에서도 안 맞으면 그 상태로 반환한다 — 텍스트를 잘라내는 것보다
+    조금 작게라도 다 보여주는 편이 낫다.
+    """
+    size = max(min_font_size, int(font_size))
+    lines = _wrap_to_width(text, font_path, size, max_width)
+
+    while size > min_font_size:
+        widest = max(_text_width_px(line, font_path, size) for line in lines)
+        if len(lines) <= max_lines and widest <= max_width:
+            break
+        size = max(min_font_size, int(size * 0.9))
+        lines = _wrap_to_width(text, font_path, size, max_width)
+
+    return lines, size
+
+
+def _title_block_top(position: str, block_height: float) -> str:
+    """여러 줄 타이틀의 첫 줄 y 좌표(ffmpeg 표현식).
+
+    한 줄일 때와 같은 자리에 "블록 전체"가 놓이도록 블록 높이만큼 보정한다.
+    보정이 없으면 두 줄짜리 제목이 아래로 밀려 중앙/하단 배치가 어긋난다.
+    """
+    half = block_height / 2
+    return {
+        "center": f"(h-{block_height:.1f})/2",
+        "top": "h*0.05",
+        "bottom": f"h*0.85-{block_height:.1f}",
+        "top-left": "h*0.05",
+        "top-right": "h*0.05",
+        "bottom-left": f"h*0.85-{block_height:.1f}",
+        "bottom-right": f"h*0.85-{block_height:.1f}",
+    }.get(position, f"(h-{block_height:.1f})/2")
 
 
 def _drawtext_xy(position: str) -> str:
@@ -1089,9 +1224,9 @@ def add_auto_subtitle(
 def add_title(
     video_path: str,
     text: str,
-    position: str = "center",
+    position: str = "top",
     start_time: float = 0.0,
-    duration: float = 3.0,
+    duration: float = 0,
     anim: str = "fade",
     style: str = "",
     output_path: str = "",
@@ -1102,34 +1237,33 @@ def add_title(
     anim='fade' 이면 0.5초 fade-in + 0.5초 fade-out 자동 적용.
     output_path 를 주면 그 경로(상대면 outputs/)로 저장한다 — step 간 파일 전달용.
 
+    기본값: 상단 중앙(top), 자막보다 1.5배 큰 폰트, stroke_width=3(굵게).
+    위치를 바꾸려면 position='center'|'bottom'으로 지정.
+
     Args:
         video_path: 입력 영상 파일명 (videos/ 기준)
         text: 타이틀 텍스트
-        position: 'center'|'top'|'bottom' (기본 'center')
+        position: 'top'|'center'|'bottom' (기본 'top' — 상단 중앙)
         start_time: 타이틀 시작 시간(초) (기본 0.0)
-        duration: 타이틀 표시 시간(초) (기본 3.0)
+        duration: 타이틀 표시 시간(초). 0 이하면 영상 끝까지 고정 (기본값).
         anim: 'fade'|'none' (기본 'fade')
-        style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':2}
+        style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':3}
     """
     try:
         input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
-        s = _merge_style(style, tool_defaults={"font_size": 48, "position": position})
+        if duration <= 0:
+            vid_dur = _get_video_duration_ffprobe(input_path)
+            duration = max(1.0, vid_dur - start_time) if vid_dur > 0 else 3600.0
+
+        s = _merge_style(style, tool_defaults={"font_size": 48, "position": position, "stroke_width": 3})
 
         # drawtext 는 실제 픽셀값 — 영상 높이에 비례해 폰트 크기 조정
         vw, vh = _get_video_size_ffprobe(input_path)
         if vh > 0 and s.get("font_size") == 48:
-            s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 1.5배
-
-        # 폭 초과 방지: 세로(9:16) 영상은 높이 기준 폰트가 커서 긴 제목이 좌우로
-        # 잘린다(중앙정렬이라도 text_w > w 면 양끝이 프레임 밖). 텍스트가 영상 폭의
-        # ~88% 안에 들어오도록 폰트를 줄인다 (한글 ~1.1배폭 보수적 가정).
-        if vw > 0 and text:
-            max_by_width = int(vw * 0.88 / (len(text) * 1.1))
-            if max_by_width > 0:
-                s["font_size"] = max(16, min(int(s["font_size"]), max_by_width))
+            s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 자막 1.5배
 
         font_size = s["font_size"]
         color = s["color"]
@@ -1142,31 +1276,59 @@ def add_title(
 
         t_end = start_time + duration
         fade_dur = 0.5
-        safe_text = _escape_drawtext(text)
+
+        # 화면 밖으로 잘리지 않게 실측 폭 기준으로 줄바꿈 + 필요 시 축소.
+        # drawtext 의 x=(w-text_w)/2 는 text_w 가 w 보다 크면 음수가 되어
+        # 제목 좌우가 통째로 잘려나간다 (720px 화면에 1080px 짜리 한 줄 등).
+        if vw > 0:
+            lines, font_size = fit_text_to_width(
+                text,
+                font_path,
+                font_size,
+                max_width=vw * _TITLE_SAFE_WIDTH_PCT,
+                max_lines=_TITLE_MAX_LINES,
+            )
+        else:
+            lines = [text]
 
         safe_font = _safe_fontfile(font_path)
-        parts = [f"text='{safe_text}'"]
-        if safe_font:
-            parts.append(f"fontfile={safe_font}")
-        parts += [
-            f"fontsize={font_size}",
-            f"fontcolor={color}",
-            f"borderw={stroke_width}",
-            f"bordercolor={stroke_color}",
-            _drawtext_xy(s.get("position", position)),
-            f"enable='between(t,{start_time},{t_end})'",
-        ]
-
+        alpha_expr = None
         if anim == "fade":
             # 등장: 0 → 1 (fade_dur초), 퇴장: 1 → 0 (fade_dur초)
-            parts.append(
+            alpha_expr = (
                 f"alpha='if(lt(t,{start_time + fade_dur}),"
                 f"(t-{start_time})/{fade_dur},"
                 f"if(gt(t,{t_end - fade_dur}),"
                 f"({t_end}-t)/{fade_dur},1))'"
             )
 
-        vf = "drawtext=" + ":".join(parts)
+        # 줄마다 drawtext 를 하나씩 만들고 y 를 직접 계산한다.
+        # drawtext 의 text= 안에서는 "\n" 이 개행이 아니라 글자 n 으로 그려져
+        # ("헬스룩을n위한") 여러 줄을 한 필터로 처리할 수 없다.
+        line_height = font_size * _TITLE_LINE_HEIGHT
+        block_height = line_height * len(lines)
+        base_y = _title_block_top(s.get("position", position), block_height)
+
+        filters: list[str] = []
+        for index, line in enumerate(lines):
+            # x 는 줄마다 자기 폭 기준 중앙정렬 (text_w 는 ffmpeg 가 계산).
+            line_parts = [f"text='{_escape_drawtext(line)}'"]
+            if safe_font:
+                line_parts.append(f"fontfile={safe_font}")
+            line_parts += [
+                f"fontsize={font_size}",
+                f"fontcolor={color}",
+                f"borderw={stroke_width}",
+                f"bordercolor={stroke_color}",
+                "x=(w-text_w)/2",
+                f"y={base_y}+{index * line_height:.1f}",
+                f"enable='between(t,{start_time},{t_end})'",
+            ]
+            if alpha_expr:
+                line_parts.append(alpha_expr)
+            filters.append("drawtext=" + ":".join(line_parts))
+
+        vf = ",".join(filters)
 
         if output_path:
             output_file = Path(media_paths.resolve_output(output_path))

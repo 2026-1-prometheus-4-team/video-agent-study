@@ -245,6 +245,9 @@ export interface AgentState {
   // 외부(채팅 카드·타임스탬프 칩)에서 요청한 시킹. nonce 로 같은 t 재요청도 감지.
   // Stage 가 이 값을 보고 playing 여부와 무관하게 video.currentTime 을 이동.
   seekRequest: { t: number; nonce: number } | null;
+  // 자막 스타일 카드에서 "저장"할 때마다 증가. Stage 가 이 값을 구독해 새로고침
+  // 없이 자막 스타일을 즉시 재조회하도록 한다.
+  subtitleStyleVersion: number;
 
   // ---- actions ----
   setConnection: (c: ConnectionStatus) => void;
@@ -431,6 +434,7 @@ export const useAgentStore = create<AgentState>()(
     stageViewMode: "source",
     stageVideoDuration: 0,
     seekRequest: null,
+    subtitleStyleVersion: 0,
 
     setConnection: (c) =>
       set((s) => {
@@ -710,6 +714,7 @@ export const useAgentStore = create<AgentState>()(
           item.status = "applied";
           item.outputPath = outputPath;
         }
+        s.subtitleStyleVersion += 1;
       }),
 
     pushInfo: (text) =>

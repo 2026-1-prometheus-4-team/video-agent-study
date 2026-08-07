@@ -26,9 +26,6 @@ export function Stage() {
   const playhead = useAgentStore((s) => s.playhead);
   const setPlayhead = useAgentStore((s) => s.setPlayhead);
   const [muted, setMuted] = useState(false);
-  // 영상 실제 비율 — 자막 오버레이를 레터박스(pillarbox) 된 영상 rect 에 정확히
-  // 맞추기 위해 영상 비율의 박스로 감싼다. 기본 9:16.
-  const [videoAspect, setVideoAspect] = useState("9 / 16");
   const [videoDuration, setVideoDurationLocal] = useState(0);
   // Timeline 이 참조할 실제 mp4 길이를 store 로 전파.
   const setStageVideoDuration = useAgentStore((s) => s.setStageVideoDuration);
@@ -45,6 +42,40 @@ export function Stage() {
   const setViewMode = useAgentStore((s) => s.setStageViewMode);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scrubRef = useRef<HTMLDivElement | null>(null);
+
+  // videoWrap 은 CSS 상 고정 비율이 아니라 남는 flex 공간을 그대로 채우는 박스라,
+  // 세로(9:16) 영상이 가로로 넓은 wrap 안에서 object-fit:contain 으로 작게
+  // 레터박스되어 보이는 경우가 흔하다. 자막을 "실제 보이는 영상 영역"에 맞추려면
+  // wrap 크기 + 영상 원본 비율로 그 영역을 직접 계산해야 한다.
+  // videoWrap 은 hasVideo 일 때만 조건부로 렌더되는 요소라 일반 useRef + 빈 deps
+  // 이펙트로는 마운트 시점(빈 상태 → 아직 videoWrap 없음)에 el 이 null 이라
+  // ResizeObserver 가 영영 안 붙는다. 콜백 ref(state) 로 실제 DOM 이 생길 때마다
+  // 이펙트가 다시 실행되게 한다.
+  const [wrapEl, setWrapEl] = useState<HTMLDivElement | null>(null);
+  const [wrapSize, setWrapSize] = useState({ w: 0, h: 0 });
+  const [videoNatural, setVideoNatural] = useState<{ w: number; h: number } | null>(
+    null
+  );
+  useEffect(() => {
+    if (!wrapEl) return;
+    const update = () => setWrapSize({ w: wrapEl.clientWidth, h: wrapEl.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(wrapEl);
+    return () => ro.disconnect();
+  }, [wrapEl]);
+
+  // wrap 안에서 object-fit:contain 이 만드는 실제 영상 표시 영역(레터박스 제외).
+  const frameRect = useMemo(() => {
+    if (!videoNatural || !wrapSize.w || !wrapSize.h) return null;
+    const scale = Math.min(
+      wrapSize.w / videoNatural.w,
+      wrapSize.h / videoNatural.h
+    );
+    const w = videoNatural.w * scale;
+    const h = videoNatural.h * scale;
+    return { w, h, left: (wrapSize.w - w) / 2, top: (wrapSize.h - h) / 2 };
+  }, [videoNatural, wrapSize]);
 
   // Timeline 이 playhead 바꾸면 video seek. 재생 중이 아닐 때만 (재생 중엔
   // onTimeUpdate 가 이미 store 를 갱신 중이라 재바인딩 하면 stutter).
@@ -134,6 +165,9 @@ export function Stage() {
   // 스타일을 못 불러오면(백엔드 미연결/큐 없음) CSS 기본 룩으로 둔다.
   const [subStyle, setSubStyle] = useState<SubtitleStyle | null>(null);
   const finalStem = pathStem(lastFinal?.outputPath);
+  // 자막 스타일 카드에서 "저장"할 때마다 subtitleStyleVersion 이 증가 — 새로고침
+  // 없이 바로 재조회해서 옆 미리보기에 즉시 반영되게 한다.
+  const subtitleStyleVersion = useAgentStore((s) => s.subtitleStyleVersion);
   useEffect(() => {
     if (!finalStem || !hasFinal) {
       setSubStyle(null);
@@ -150,7 +184,7 @@ export function Stage() {
     return () => {
       alive = false;
     };
-  }, [finalStem, hasFinal]);
+  }, [finalStem, hasFinal, subtitleStyleVersion]);
 
   const subtitleOverlayStyle = useMemo<CSSProperties>(() => {
     if (!subStyle) return {};
@@ -167,19 +201,63 @@ export function Stage() {
       return dirs.join(", ");
     })();
     const inset = 4 + (subStyle.margin_v / 100) * 40; // % from edge
+
+    // motion-editor 의 EditorPreview 와 같은 공식(size * 1.5, 컨테이너 크기와
+    // 무관한 고정 배율)으로 통일 — 두 미리보기가 같은 size 값에 다른 크기를
+    // 보여주면 안 된다. 이전에는 frameRect 높이에 비례해서 계산했는데, 그러면
+    // 같은 size 값이라도 화면/패널 크기에 따라 다르게 보이고 모션 에디터보다
+    // 훨씬 크게 나왔다.
+    const fontSize = Math.round(subStyle.size * 1.5);
+
+    // frameRect 를 아직 모르면(메타데이터 로드 전) 예전처럼 wrap 기준 % 로 폴백.
+    if (!frameRect) {
+      const placement: CSSProperties =
+        subStyle.position === "top"
+          ? { top: `${inset}%`, bottom: "auto", left: "50%", transform: "translateX(-50%)" }
+          : subStyle.position === "middle"
+            ? { top: "50%", bottom: "auto", left: "50%", transform: "translate(-50%, -50%)" }
+            : { bottom: `${inset}%`, top: "auto", left: "50%", transform: "translateX(-50%)" };
+      return {
+        ...placement,
+        color: subStyle.color,
+        fontWeight: subStyle.bold ? 800 : 500,
+        textShadow: strokeShadow,
+        fontSize,
+      };
+    }
+
+    // 실제 영상이 보이는 영역(frameRect) 기준으로 위치 계산 — wrap 에 생기는
+    // 레터박스(여백)는 무시하고 항상 영상 프레임 안쪽에 자막이 들어오게 한다.
+    const centerX = frameRect.left + frameRect.w / 2;
     const placement: CSSProperties =
       subStyle.position === "top"
-        ? { top: `${inset}%`, bottom: "auto", transform: "translateX(-50%)" }
+        ? {
+            top: frameRect.top + (inset / 100) * frameRect.h,
+            bottom: "auto",
+            transform: "translateX(-50%)",
+          }
         : subStyle.position === "middle"
-          ? { top: "50%", bottom: "auto", transform: "translate(-50%, -50%)" }
-          : { bottom: `${inset}%`, top: "auto", transform: "translateX(-50%)" };
+          ? {
+              top: frameRect.top + frameRect.h / 2,
+              bottom: "auto",
+              transform: "translate(-50%, -50%)",
+            }
+          : {
+              bottom:
+                wrapSize.h - (frameRect.top + frameRect.h) + (inset / 100) * frameRect.h,
+              top: "auto",
+              transform: "translateX(-50%)",
+            };
     return {
+      left: centerX,
+      maxWidth: frameRect.w * 0.86,
       ...placement,
       color: subStyle.color,
       fontWeight: subStyle.bold ? 800 : 500,
       textShadow: strokeShadow,
+      fontSize,
     };
-  }, [subStyle]);
+  }, [subStyle, frameRect, wrapSize.h]);
 
   const displayDuration =
     videoDuration || lastFinal?.duration || videoContext?.duration || 0;
@@ -188,11 +266,13 @@ export function Stage() {
       ? lastFinal.outputPath
       : uploadedName ?? lastFinal?.outputPath ?? "";
 
-  // 소스가 바뀌면 재생 상태 초기화
+  // 소스가 바뀌면 재생 상태 초기화 (자막 프레임 계산도 새 영상 메타데이터를
+  // 다시 읽을 때까지 리셋 — 이전 소스의 비율로 잘못 계산되는 것 방지).
   useEffect(() => {
     setPlaying(false);
     setCurrentTime(0);
     setVideoDuration(0);
+    setVideoNatural(null);
   }, [activeSrc]);
 
   // 재생 상태 -> video element sync
@@ -304,13 +384,7 @@ export function Stage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className={styles.videoWrap}>
-              {/* 영상 비율 박스 — 자막 오버레이가 레터박스된 실제 영상 rect 에
-                  정확히 얹히도록 영상과 자막을 함께 담는다. */}
-              <div
-                className={styles.videoBox}
-                style={{ aspectRatio: videoAspect }}
-              >
+            <div className={styles.videoWrap} ref={setWrapEl}>
               {activeSrc && (
                 <video
                   ref={videoRef}
@@ -319,11 +393,14 @@ export function Stage() {
                   src={activeSrc}
                   className={styles.video}
                   onLoadedMetadata={(e) => {
+                    if (e.currentTarget.videoWidth && e.currentTarget.videoHeight) {
+                      setVideoNatural({
+                        w: e.currentTarget.videoWidth,
+                        h: e.currentTarget.videoHeight,
+                      });
+                    }
                     const v = e.currentTarget;
                     setVideoDuration(v.duration || 0);
-                    if (v.videoWidth > 0 && v.videoHeight > 0) {
-                      setVideoAspect(`${v.videoWidth} / ${v.videoHeight}`);
-                    }
                     // 소스 전환 중 요청됐던 시킹을 metadata 로드 후 적용.
                     if (pendingSeekRef.current != null) {
                       const dur = v.duration;
@@ -356,23 +433,29 @@ export function Stage() {
                 </div>
               )}
 
-              {/* 자막 cue 오버레이 (편집본 재생 시) */}
+              {/* 자막 cue 오버레이 (편집본 재생 시).
+                  위치 정렬(translateX(-50%) 등)과 등장 애니메이션(opacity/y)을 반드시
+                  분리한다 — 같은 요소에서 motion 의 animate={{y}} 와 style.transform
+                  을 같이 쓰면 motion 이 transform 을 자체 관리하며 덮어써서 중앙 정렬용
+                  translate 가 사라지고 요소가 왼쪽 끝 기준으로 붙어버린다. */}
               <AnimatePresence mode="wait">
                 {activeSubtitle && (
-                  <motion.div
+                  <div
                     key={activeSubtitle}
                     className={styles.subtitleOverlay}
                     style={subtitleOverlayStyle}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.16 }}
                   >
-                    {activeSubtitle}
-                  </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.16 }}
+                    >
+                      {activeSubtitle}
+                    </motion.div>
+                  </div>
                 )}
               </AnimatePresence>
-              </div>{/* .videoBox */}
 
               {/* Source / Final 토글 — 편집본이 있을 때만 표시 */}
               {hasFinal && hasSource && (

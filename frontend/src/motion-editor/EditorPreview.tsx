@@ -22,10 +22,9 @@ export function EditorPreview() {
   const setPlayhead = useEditorStore((s) => s.setPlayhead);
   const setPlaying = useEditorStore((s) => s.setPlaying);
   const overrides = useEditorStore((s) => s.subtitleOverrides);
+  const globalSubtitleStyle = useEditorStore((s) => s.globalSubtitleStyle);
 
   const [muted, setMuted] = useState(false);
-  // 영상 실제 비율 — 자막 오버레이를 레터박스된 실제 영상 rect 에 맞추기 위해.
-  const [videoAspect, setVideoAspect] = useState("9 / 16");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Prefer the agent result. The upload is only a fallback before a result exists.
@@ -85,7 +84,6 @@ export function EditorPreview() {
   return (
     <div className={styles.wrap}>
       <div className={styles.videoFrame}>
-        <div className={styles.videoBox} style={{ aspectRatio: videoAspect }}>
         {src ? (
           <video
             ref={videoRef}
@@ -93,12 +91,6 @@ export function EditorPreview() {
             className={styles.video}
             preload="metadata"
             playsInline
-            onLoadedMetadata={(e) => {
-              const v = e.currentTarget;
-              if (v.videoWidth > 0 && v.videoHeight > 0) {
-                setVideoAspect(`${v.videoWidth} / ${v.videoHeight}`);
-              }
-            }}
             onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
@@ -112,11 +104,8 @@ export function EditorPreview() {
           {activeSubtitle && (
             <motion.div
               key={activeSubtitle.text}
-              className={styles.subtitleOverlay}
+              className={styles.subtitlePositioner}
               style={{
-                fontSize: activeSubtitle.override?.fontSize ?? 26,
-                fontWeight: activeSubtitle.override?.fontWeight ?? 600,
-                color: activeSubtitle.override?.color ?? "#ffffff",
                 bottom:
                   activeSubtitle.override?.position === "top"
                     ? "auto"
@@ -125,21 +114,27 @@ export function EditorPreview() {
                       : "8%",
                 top:
                   activeSubtitle.override?.position === "top" ? "8%" : "auto",
-                transform:
-                  activeSubtitle.override?.position === "middle"
-                    ? "translate(-50%, 50%)"
-                    : "translateX(-50%)",
               }}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
             >
-              {activeSubtitle.text}
+              <div
+                className={styles.subtitleOverlay}
+                style={{
+                  fontSize: activeSubtitle.override?.fontSize
+                    ?? (globalSubtitleStyle ? Math.round(globalSubtitleStyle.size * 1.5) : 26),
+                  fontWeight: activeSubtitle.override?.fontWeight
+                    ?? (globalSubtitleStyle ? (globalSubtitleStyle.bold ? 700 : 400) : 600),
+                  color: activeSubtitle.override?.color ?? globalSubtitleStyle?.color ?? "#ffffff",
+                }}
+              >
+                {activeSubtitle.text}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
-        </div>{/* .videoBox */}
       </div>
 
       <div className={styles.transport}>
