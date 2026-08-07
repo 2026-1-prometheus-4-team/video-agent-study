@@ -198,14 +198,16 @@ STYLE_PRESETS: dict[str, dict] = {
         "margin_v": 40,
         "bold": False,
     },
-    # 인스타/틱톡 쇼츠 스타일 — 큰 볼드 한글, 굵은 검은 외곽선, 흰색, 상단
+    # 인스타/틱톡 쇼츠 스타일 — 큰 볼드 한글, 굵은 검은 외곽선, 흰색, 하단.
+    # 쇼츠 레이아웃은 제목이 위쪽 여백, 발화 자막이 아래쪽 여백이라 bottom 이 맞다
+    # (예전 top 은 제목과 겹치고 "자막이 위로 간다"는 문제를 만들었다).
     "shorts_bold": {
         "size": 36,
         "color": "#FFFFFF",
         "stroke_color": "#000000",
         "stroke_width": 3,
-        "position": "top",
-        "margin_v": 60,
+        "position": "bottom",
+        "margin_v": 40,
         "bold": True,
     },
     # 노란색 강조 캡션 — 핵심 문장 포인트용
@@ -401,6 +403,27 @@ def _load_or_promote(video_path: str) -> tuple[dict | None, str]:
             )
             logger.info(f"사이드카 승격: {sidecar} → {path}")
             return doc, path
+
+    # 최종 stem 과 큐 문서 stem 이 어긋나는 경우 폴백: supervisor 가 자막 step 이후
+    # 파일명을 바꾸면(예: subtitle_added_shorts.mp4 -> final_shorts_v1.mp4) 최종
+    # stem 으로 큐 문서를 못 찾아 스타일 카드/내보내기가 404 났다. 가장 최근에 만든
+    # 큐 문서로 폴백해 최종본의 자막 편집/번인이 이어지게 한다.
+    try:
+        if os.path.isdir(SUBTITLES_DIR):
+            candidates = [
+                os.path.join(SUBTITLES_DIR, f)
+                for f in os.listdir(SUBTITLES_DIR)
+                if f.endswith(".cues.json")
+            ]
+            if candidates:
+                newest = max(candidates, key=os.path.getmtime)
+                with open(newest, encoding="utf-8") as f:
+                    logger.info(
+                        "큐 문서 stem 불일치(%s) -> 최신 큐 문서 폴백: %s", stem, newest
+                    )
+                    return json.load(f), newest
+    except OSError:
+        logger.warning("최신 큐 문서 폴백 실패", exc_info=True)
 
     return None, doc_path
 

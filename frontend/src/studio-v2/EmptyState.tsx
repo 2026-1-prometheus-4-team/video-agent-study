@@ -25,6 +25,35 @@ const PROMPTS = [
   },
 ];
 
+// 쇼츠 프리셋 — 클릭하면 아래 상세 프롬프트가 입력창에 채워진다(길이만 다름).
+// 원본이 세로면 pad 없이 9:16, 가로면 위아래 pad + 그 여백에 제목/자막.
+function shortsPrompt(seconds: number): string {
+  return `업로드한 영상들을 소재로 ${seconds}초짜리 세로 쇼츠(9:16)를 만들어줘.
+
+[분위기]
+- 영상이 가진 원래 분위기(밝음 / 차분함 / 감성 등)를 파악해서, 그 톤에 맞춰 BGM·편집 속도·제목을 통일감 있게 잡아줘.
+
+[화면 구성]
+- 원본이 세로 영상이면 여백 없이 9:16 화면을 꽉 채우고, 원본이 가로 영상이면 비율을 그대로 유지한 채 위아래에 검은 여백을 넣는 pad 방식으로 세로로 만들어줘. 원본 화면을 잘라내는 crop은 쓰지 마.
+- 제목은 위쪽에, 발화 자막은 아래쪽에 배치해줘. 가로 원본이라 위아래 검은 여백이 생기면 그 여백 안에 제목/자막이 들어가게 해줘.
+
+[편집]
+- 각 영상에서 가장 보기 좋은 구간만 골라 자연스럽게 이어붙여 전체 길이를 ${seconds}초 정도로 맞춰줘. 전체를 다 넣지 말고 하이라이트 위주로.
+- 첫 3초(인트로)는 가장 시선을 끄는 장면으로 시작해서 초반에 이탈하지 않게 해줘.
+- 등장인물이 말하는 내용은 발화 자막으로 자동으로 넣어줘.
+
+[사운드]
+- 분위기에 어울리는 배경음악을 영상 전체에 은은하게 깔아줘(특별한 색이 없으면 잔잔하고 편안하게). 원본 현장음은 살리고 BGM은 작게(원본이 잘 들리게).
+
+[제목]
+- 영상 내용에 맞는 짧은 제목을 지어서 위쪽에 넣어줘 (예: "oo 브이로그").`;
+}
+
+const SHORTS_PRESETS = [
+  { label: "30초 쇼츠", caption: "하이라이트 · 9:16 · 자막 · BGM", seconds: 30 },
+  { label: "60초 쇼츠", caption: "풀 하이라이트 · 9:16 · 자막 · BGM", seconds: 60 },
+];
+
 // 백엔드 ALLOWED_VIDEO_EXTS 와 동일. 드롭 시점에 걸러야 415 왕복을 줄인다.
 const VIDEO_EXTS = [".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"];
 
@@ -251,9 +280,35 @@ export function EmptyState() {
       )}
 
       {mediaCount > 0 && (
-        <div className={styles.readyHint}>
-          쓸 영상을 고르고 아래에 하고 싶은 편집을 적어줘.
-        </div>
+        <>
+          <div className={styles.promptsHeader}>쇼츠 프리셋 — 클릭하면 지시가 채워져</div>
+          <div className={styles.prompts}>
+            {SHORTS_PRESETS.map((p, i) => (
+              <motion.button
+                key={p.seconds}
+                type="button"
+                className={styles.promptCard}
+                onClick={() => fillComposer(shortsPrompt(p.seconds))}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.24,
+                  delay: 0.06 * i,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                whileHover={{ y: -1 }}
+              >
+                <div className={styles.promptTop}>
+                  <div className={styles.promptTitle}>{p.label}</div>
+                </div>
+                <div className={styles.promptCaption}>{p.caption}</div>
+              </motion.button>
+            ))}
+          </div>
+          <div className={styles.readyHint}>
+            쓸 영상을 고르고 프리셋을 누르거나, 아래에 직접 편집을 적어줘.
+          </div>
+        </>
       )}
 
       {/* margin-top:auto 로 하단에 붙는다. 남는 세로 공간이 "빈 화면"이 아니라

@@ -1353,7 +1353,27 @@ def _load_transcript_sidecar(
         except Exception:
             logger.warning("final transcript origin reconstruction failed", exc_info=True)
 
-        # 최종 stem과 origin 모두 없으면 입력 원본 JSON을 임의로 고르지 않는다.
+        # stem 불일치 + origin 없음 폴백: supervisor 가 자막 step 이후 파일명을 바꾸면
+        # (예: video_with_auto_subtitle.mp4 -> final_shorts_video.mp4) 최종 stem 으로
+        # 전사를 못 찾아 오버레이/자막카드가 통째로 비었다. 이 세션 중 생성된 가장
+        # 최근 큐 문서로 폴백한다(세션 시작 이후 것만 골라 오래된 것 오인 방지).
+        try:
+            session_start = getattr(session, "created_at", 0) or 0
+            cue_docs = list(subtitles_dir.glob("*.cues.json"))
+            recent = [p for p in cue_docs if p.stat().st_mtime >= session_start]
+            pool = recent or cue_docs
+            if pool:
+                newest = max(pool, key=lambda p: p.stat().st_mtime)
+                transcript = _read_transcript_sidecar(newest)
+                if transcript:
+                    logger.info(
+                        "final transcript: stem 불일치 -> 최신 큐 폴백 %s", newest.name
+                    )
+                    return transcript
+        except OSError:
+            logger.warning("최신 큐 폴백 실패", exc_info=True)
+
+        # 최종 stem과 origin, 폴백 모두 없으면 입력 원본 JSON을 임의로 고르지 않는다.
         return []
 
     input_stems = {Path(vp).stem for vp in session.video_paths}
