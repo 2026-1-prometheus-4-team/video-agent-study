@@ -788,7 +788,8 @@ class TestStylePresets:
         assert d["size"] > subtitle_cues.DEFAULT_STYLE["size"]     # 기본 24 보다 큼
         assert d["stroke_width"] >= 2.5                            # 굵은 외곽선
         assert d["color"] == "#FFFFFF"
-        assert d["position"] == "top"
+        # 쇼츠 레이아웃: 제목은 위쪽 여백, 발화 자막은 아래쪽 여백 → bottom.
+        assert d["position"] == "bottom"
         # BlackHanSans/BMJUA 없으면 NotoSansKR 로 폴백
         assert d["font"] == "Noto Sans KR"
 
