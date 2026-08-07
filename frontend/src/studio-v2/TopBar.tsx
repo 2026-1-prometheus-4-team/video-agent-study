@@ -1,9 +1,9 @@
 "use client";
 
-import { Download, PanelLeft, PanelRight } from "lucide-react";
+import { Download, Loader2, PanelLeft, PanelRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAgentStore } from "./state";
-import { outputFileUrl } from "./subtitle/subtitleApi";
+import { useExportVideo } from "./useExportVideo";
 import styles from "./topbar.module.css";
 
 interface TopBarProps {
@@ -32,9 +32,9 @@ export function TopBar({
   const lastFinal = useAgentStore((s) => s.lastFinal);
   const offline = connection === "offline";
 
-  const finalUrl = lastFinal
-    ? lastFinal.outputUrl || outputFileUrl(lastFinal.outputPath)
-    : null;
+  // 내보내기는 링크가 아니라 렌더다. 자막·제목은 큐 문서에만 있으므로
+  // lastFinal 의 mp4 로 바로 링크를 걸면 자막 없는 파일이 나간다.
+  const { exporting, exportError, exportVideo } = useExportVideo();
 
   return (
     <header className={styles.bar}>
@@ -52,10 +52,17 @@ export function TopBar({
       </div>
 
       <div className={styles.center}>
-        {offline && (
+        {offline ? (
           <span className={styles.offline} role="status">
             백엔드 연결 끊김
           </span>
+        ) : (
+          // 자막이 빠진 채 나갔다면 파일을 열어보기 전에 알아야 한다.
+          exportError && (
+            <span className={styles.notice} role="status">
+              {exportError}
+            </span>
+          )
         )}
       </div>
 
@@ -89,16 +96,25 @@ export function TopBar({
           모션 에디터
         </button>
 
-        <a
+        <button
+          type="button"
           className={styles.export}
-          href={finalUrl ?? undefined}
-          download={lastFinal ? "" : undefined}
-          data-disabled={!finalUrl || undefined}
-          aria-disabled={!finalUrl}
+          onClick={() => exportVideo(lastFinal)}
+          data-disabled={!lastFinal || exporting || undefined}
+          disabled={!lastFinal || exporting}
+          title={
+            lastFinal
+              ? "자막을 입혀 다시 렌더한 뒤 내려받아 (수십 초 걸려)"
+              : "내보낼 결과물이 아직 없어"
+          }
         >
-          <Download size={13} strokeWidth={2.2} />
-          <span>내보내기</span>
-        </a>
+          {exporting ? (
+            <Loader2 size={13} strokeWidth={2.2} className={styles.spin} />
+          ) : (
+            <Download size={13} strokeWidth={2.2} />
+          )}
+          <span>{exporting ? "렌더 중" : "내보내기"}</span>
+        </button>
       </div>
     </header>
   );

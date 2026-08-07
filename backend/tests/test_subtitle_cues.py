@@ -1032,3 +1032,63 @@ class TestEmoji:
             mock_run.side_effect = _fake_subprocess_run
             render_subtitles.invoke({"video_path": str(cue_env["video"])})
         assert not any("이모지" in r.message for r in caplog.records)
+
+
+class TestTitleCuePreservation:
+    """제목 큐는 전사 층과 별개다 — 자막을 다시 뽑아도 살아남아야 한다."""
+
+    def _existing_doc_with_title(self, cue_env, stem="sample"):
+        from agent.tools import subtitle_cues
+
+        subtitle_cues.create_cues_doc(
+            stem,
+            str(cue_env["video"]),
+            [{"start": 0.0, "end": 1.0, "text": "옛 대사"}],
+        )
+        doc, _ = subtitle_cues._load_or_promote(str(cue_env["video"]))
+        doc["cues"].append({
+            "id": "c900",
+            "role": "title",
+            "start": 0.0,
+            "end": 3.0,
+            "text": "내 제목",
+            "style": {"position": "top", "size": 48},
+        })
+        subtitle_cues._save_cues_doc(doc)
+
+    def test_retranscribe_keeps_title_cue(self, cue_env):
+        from agent.tools import subtitle_cues
+
+        self._existing_doc_with_title(cue_env)
+        # 새 전사가 들어온다 — 대사는 갈아엎되 제목은 남아야 한다.
+        doc, _ = subtitle_cues.create_cues_doc(
+            "sample",
+            str(cue_env["video"]),
+            [{"start": 5.0, "end": 6.0, "text": "새 대사"}],
+        )
+        titles = [c for c in doc["cues"] if c.get("role") == "title"]
+        assert len(titles) == 1, "제목 큐가 새 전사에 지워졌다"
+        assert titles[0]["text"] == "내 제목"
+        assert titles[0]["style"]["position"] == "top"
+        assert any(c["text"] == "새 대사" for c in doc["cues"])
+        assert not any(c["text"] == "옛 대사" for c in doc["cues"])
+
+    def test_preserved_title_gets_unique_id(self, cue_env):
+        from agent.tools import subtitle_cues
+
+        self._existing_doc_with_title(cue_env)
+        doc, _ = subtitle_cues.create_cues_doc(
+            "sample",
+            str(cue_env["video"]),
+            [{"start": i, "end": i + 0.5, "text": f"대사{i}"} for i in range(3)],
+        )
+        ids = [c["id"] for c in doc["cues"]]
+        assert len(ids) == len(set(ids)), f"id 충돌: {ids}"
+
+    def test_no_existing_doc_is_not_an_error(self, cue_env):
+        from agent.tools import subtitle_cues
+
+        doc, _ = subtitle_cues.create_cues_doc(
+            "fresh", str(cue_env["video"]), [{"start": 0, "end": 1, "text": "처음"}]
+        )
+        assert len(doc["cues"]) == 1

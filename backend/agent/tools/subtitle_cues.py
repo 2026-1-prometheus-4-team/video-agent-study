@@ -354,7 +354,11 @@ def create_cues_doc(
 ) -> tuple[dict, str]:
     """세그먼트 리스트에서 큐 문서를 새로 생성하고 저장. (doc, path) 반환.
 
-    id 는 c001 부터 순번 부여. 기존 문서가 있으면 덮어씀 (새 전사 = 새 진실).
+    id 는 c001 부터 순번 부여. 기존 문서의 대사 큐는 덮어씀 (새 전사 = 새 진실).
+
+    단 role="title" 큐는 살린다. 제목은 전사 결과가 아니라 사용자가 따로 얹은
+    층이라, 자막을 다시 뽑았다고 같이 지워지면 안 된다 (그렇게 지워져서
+    "제목을 넣었는데 사라졌다" 가 됐다).
     """
     cues = []
     for i, seg in enumerate(segments, 1):
@@ -367,6 +371,30 @@ def create_cues_doc(
         if isinstance(seg.get("style"), dict) and seg["style"]:
             cue["style"] = seg["style"]
         cues.append(cue)
+
+    # 기존 문서에서 제목 큐만 회수. id 는 새 대사 큐와 겹치므로 뒤에서 다시 매긴다.
+    preserved: list[dict] = []
+    try:
+        existing_path = _cues_doc_path(stem)
+        if os.path.exists(existing_path):
+            with open(existing_path, encoding="utf-8") as f:
+                old = json.load(f)
+            preserved = [
+                c
+                for c in old.get("cues", [])
+                if isinstance(c, dict) and c.get("role") == "title"
+            ]
+    except Exception as e:
+        # 회수 실패가 새 문서 생성을 막으면 안 된다. 잃은 것만 알린다.
+        logger.warning(f"기존 제목 큐 회수 실패 ({stem}): {e}")
+        preserved = []
+
+    for j, cue in enumerate(preserved, len(cues) + 1):
+        cue["id"] = f"c{j:03d}"
+        cues.append(cue)
+    if preserved:
+        logger.info(f"제목 큐 {len(preserved)}개 보존 ({stem})")
+
     cues.sort(key=lambda c: (float(c["start"]), float(c["end"])))
 
     doc = {

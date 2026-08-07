@@ -30,7 +30,34 @@ export type SessionStatus =
   | "completed"
   | "error";
 
-export type TranscriptSeg = { start: number; end: number; text: string };
+/** 큐가 들고 있는 자기 스타일. 문서 기본값을 덮어쓴다. */
+export type CueStyle = {
+  font?: string;
+  size?: number;
+  color?: string;
+  stroke_color?: string;
+  stroke_width?: number;
+  position?: "top" | "middle" | "bottom";
+  margin_v?: number;
+  bold?: boolean;
+};
+
+/**
+ * 자막/제목 큐 하나.
+ *
+ * role 은 제목("title")과 대사를 가르는 유일한 표시고, style 은 그 큐의 실제
+ * 서식이다. 둘 다 서버가 보내주기 전에는 인스펙터가 기본값을 진짜 값인 척
+ * 보여줬다 — 제목을 열면 "아래 · 26px" 로 뜨고, 건드리는 순간 그 값이 저장됐다.
+ * id 는 저장 시 배열 위치 대신 쓰는 매칭 키다.
+ */
+export type TranscriptSeg = {
+  start: number;
+  end: number;
+  text: string;
+  id?: string;
+  role?: string;
+  style?: CueStyle;
+};
 export type SceneSeg = { start: number; end: number; description: string };
 
 /**

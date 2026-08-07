@@ -51,7 +51,7 @@ class TestTranscriptSidecar:
 
         session = _fake_session(server_mod, tmp_path, ["videos/input.mp4"])
         out = server_mod._load_transcript_sidecar(session, str(final))
-        assert out == [{"start": 1.0, "end": 2.0, "text": "최종 컷"}]
+        assert out == [{"start": 1.0, "end": 2.0, "text": "최종 컷", "id": "c001"}]
 
     def test_final_without_matching_sidecar_does_not_use_input(
         self, server_mod, tmp_path, monkeypatch
@@ -99,7 +99,7 @@ class TestTranscriptSidecar:
 
         session = _fake_session(server_mod, tmp_path, ["videos/clip.mp4"])
         out = server_mod._load_transcript_sidecar(session)
-        assert out == [{"start": 0.0, "end": 1.0, "text": "갔다"}]
+        assert out == [{"start": 0.0, "end": 1.0, "text": "갔다", "id": "c001"}]
 
     def test_cues_stem_matches_session_input(self, server_mod, tmp_path, monkeypatch):
         """<stem>.cues.json 의 Path.stem 은 '<stem>.cues' — 접미 제거 후 매칭돼야 함."""
@@ -116,7 +116,7 @@ class TestTranscriptSidecar:
         # created_at 을 미래로 둬서 mtime 규칙이 아닌 stem 규칙으로만 잡히게
         session.created_at = time.time() + 3600
         out = server_mod._load_transcript_sidecar(session)
-        assert out == [{"start": 2.0, "end": 3.0, "text": "안녕"}]
+        assert out == [{"start": 2.0, "end": 3.0, "text": "안녕", "id": "c001"}]
 
     def test_falls_back_to_segments_when_no_cues(self, server_mod, tmp_path, monkeypatch):
         videos = tmp_path / "videos"

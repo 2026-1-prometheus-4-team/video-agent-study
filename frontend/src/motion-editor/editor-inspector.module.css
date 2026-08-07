@@ -225,3 +225,60 @@
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
+
+/* 폰트 선택 — 네이티브 select 를 카드 톤에 맞춘다. */
+.select {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--rad-2);
+  background: var(--bg-elevated);
+  color: var(--text-1);
+  font-size: 12.5px;
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
+    linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 14px, calc(100% - 9px) 14px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* 타이밍 — 읽기 전용 텍스트였던 자리를 입력으로. */
+.timeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.timeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeKey {
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+
+.timeInput {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--rad-2);
+  background: var(--bg-elevated);
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}

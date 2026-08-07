@@ -1280,15 +1280,29 @@ def _read_transcript_sidecar(sidecar: Path) -> list[dict]:
 
     cues = data.get("cues")
     if isinstance(cues, list) and cues:
-        return [
-            {
+        # id / role / style 을 함께 넘긴다.
+        #   - role 이 없으면 프론트는 제목과 대사를 구분할 방법이 없다.
+        #   - style 이 없으면 인스펙터가 큐의 실제 값 대신 기본값을 보여주고,
+        #     사용자가 손대는 순간 그 기본값이 진짜로 덮어써진다.
+        #   - id 가 없으면 저장이 배열 위치로 큐를 찾아야 해서, 목록이 한 번만
+        #     어긋나도 엉뚱한 큐가 수정된다.
+        out: list[dict] = []
+        for c in cues:
+            if not isinstance(c, dict):
+                continue
+            item = {
                 "start": float(c.get("start", 0)),
                 "end": float(c.get("end", 0)),
                 "text": str(c.get("text", "")),
             }
-            for c in cues
-            if isinstance(c, dict)
-        ]
+            if c.get("id"):
+                item["id"] = str(c["id"])
+            if c.get("role"):
+                item["role"] = str(c["role"])
+            if isinstance(c.get("style"), dict):
+                item["style"] = c["style"]
+            out.append(item)
+        return out
 
     segments = data.get("segments")
     if isinstance(segments, list) and segments:
