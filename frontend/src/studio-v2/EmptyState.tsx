@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { AlertCircle, Sparkles, Upload } from "lucide-react";
+import { AlertCircle, Clapperboard, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
@@ -192,7 +192,7 @@ export function EmptyState() {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className={styles.heroIcon}>
-          <Sparkles size={14} strokeWidth={2.2} />
+          <Clapperboard size={14} strokeWidth={2.2} />
         </div>
         <div className={styles.heroTitle}>영상으로 시작해</div>
         <div className={styles.heroCaption}>

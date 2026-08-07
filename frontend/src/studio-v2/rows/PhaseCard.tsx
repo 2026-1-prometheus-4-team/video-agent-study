@@ -6,7 +6,7 @@ import {
   Check,
   Film,
   ScanLine,
-  Sparkles,
+  ListChecks,
   ShieldCheck,
   Loader2,
   Wand2,
@@ -19,7 +19,7 @@ const PHASE_ICON: Record<string, typeof Film> = {
   pending: Loader2,
   analysis: ScanLine,
   script: Wand2,
-  interrupt_gate: Sparkles,
+  interrupt_gate: ListChecks,
   supervisor: Film,
   critic: ShieldCheck,
 };

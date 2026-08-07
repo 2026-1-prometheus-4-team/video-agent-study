@@ -19,10 +19,10 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Video Agent Studio",
+  title: "Vibe Edit",
   description:
     "자연어로 영상을 편집하는 AI 에이전트. 업로드 → 지시 → 계획 승인 → 실행 → 프리뷰까지 대화 한 번으로.",
-  applicationName: "Video Agent Studio",
+  applicationName: "Vibe Edit",
 };
 
 export const viewport: Viewport = {
@@ -30,7 +30,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "dark",
-  themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#0A0B0D" }],
+  themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#000000" }],
 };
 
 export default function RootLayout({

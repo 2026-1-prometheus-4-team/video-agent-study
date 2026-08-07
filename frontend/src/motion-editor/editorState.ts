@@ -16,6 +16,11 @@ export interface EditorSubtitleOverride {
   fontSize?: number;
   color?: string;
   position?: "top" | "middle" | "bottom";
+  /** 큐별 폰트. 없으면 문서 기본 폰트를 따른다. */
+  font?: string;
+  /** 타이밍. 제목은 대사와 달리 노출 구간을 직접 잡아야 한다. */
+  start?: number;
+  end?: number;
 }
 
 export interface GlobalSubtitleStyle {

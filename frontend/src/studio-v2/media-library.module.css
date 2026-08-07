@@ -39,7 +39,7 @@
 
 .card {
   position: relative;
-  border-radius: var(--r-3);
+  border-radius: var(--rad-3);
   background: var(--bg-card);
   box-shadow: 0 0 0 1px var(--hairline);
   transition: box-shadow var(--dur-pop) var(--ease-pop),
@@ -95,7 +95,7 @@
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--r-2);
+  border-radius: var(--rad-2);
   overflow: hidden;
   background: var(--bg-inset);
 }
@@ -120,7 +120,7 @@
   right: 4px;
   bottom: 4px;
   padding: 1px 4px;
-  border-radius: var(--r-1);
+  border-radius: var(--rad-1);
   background: rgba(0, 0, 0, 0.68);
   color: #fff;
   font-size: 9.5px;
@@ -194,7 +194,7 @@
   width: 20px;
   height: 20px;
   border: 0;
-  border-radius: var(--r-1);
+  border-radius: var(--rad-1);
   background: rgba(0, 0, 0, 0.62);
   color: var(--text-2);
   cursor: pointer;
