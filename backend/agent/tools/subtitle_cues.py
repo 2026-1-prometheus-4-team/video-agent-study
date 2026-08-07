@@ -382,8 +382,17 @@ def create_cues_doc(
     return doc, path
 
 
-def _load_or_promote(video_path: str) -> tuple[dict | None, str]:
-    """큐 문서 로드. 없으면 전사 사이드카(<stem>.json)에서 자동 승격 생성."""
+def _load_or_promote(
+    video_path: str, *, allow_newest_fallback: bool = True
+) -> tuple[dict | None, str]:
+    """큐 문서 로드. 없으면 전사 사이드카(<stem>.json)에서 자동 승격 생성.
+
+    allow_newest_fallback=False 면 아래 "최신 문서 폴백" 을 건너뛴다. 그 폴백은
+    디렉토리 전체에서 mtime 이 가장 늦은 문서를 집어오므로, 새 내용을 *쓰는*
+    경로에서 쓰면 아무 관계 없는 영상의 자막 문서에 기록된다 (실측: 사본 영상에
+    제목을 넣었더니 final_video_with_subtitles 문서에 들어갔다).
+    조회에는 유용하므로 기본값은 유지한다.
+    """
     stem = _video_stem(video_path)
     doc_path = _cues_doc_path(stem)
     if os.path.exists(doc_path):
@@ -409,7 +418,7 @@ def _load_or_promote(video_path: str) -> tuple[dict | None, str]:
     # stem 으로 큐 문서를 못 찾아 스타일 카드/내보내기가 404 났다. 가장 최근에 만든
     # 큐 문서로 폴백해 최종본의 자막 편집/번인이 이어지게 한다.
     try:
-        if os.path.isdir(SUBTITLES_DIR):
+        if allow_newest_fallback and os.path.isdir(SUBTITLES_DIR):
             candidates = [
                 os.path.join(SUBTITLES_DIR, f)
                 for f in os.listdir(SUBTITLES_DIR)

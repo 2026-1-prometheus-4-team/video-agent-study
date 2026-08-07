@@ -7,8 +7,11 @@ import { HistorySidebar } from "./HistorySidebar";
 import { Sidebar } from "./Sidebar";
 import { Stage } from "./Stage";
 import { Timeline } from "./Timeline";
+import { TopBar } from "./TopBar";
 // PipelineHUD 는 phase 카드 rail 이랑 정보 중복이라 제거. 필요 시 재도입.
-import { StageToolbar } from "./StageToolbar";
+// StageToolbar 도 제거 — 영상 위에 뜨던 유리 알약 묶음이었고, 그 안의
+// "● 연결됨" 은 사용자가 아무 것도 할 수 없는 장식이었다. 필요한 것은
+// TopBar 로 옮기고 연결 문제는 끊겼을 때만 알린다.
 import { checkHealth, restoreStudioSession } from "./backend";
 import { useAgentStore } from "./state";
 import styles from "./studio-shell.module.css";
@@ -29,6 +32,7 @@ import styles from "./studio-shell.module.css";
 export function StudioShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true);
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((c) => !c);
@@ -37,6 +41,11 @@ export function StudioShell() {
   useHotkeys("meta+b, ctrl+b", (e) => {
     e.preventDefault();
     toggleSidebar();
+  });
+
+  useHotkeys("meta+shift+b, ctrl+shift+b", (e) => {
+    e.preventDefault();
+    setHistoryOpen((v) => !v);
   });
 
   // 모바일 → 데스크톱 전환 시 drawer 자동 닫기
@@ -88,7 +97,35 @@ export function StudioShell() {
       data-collapsed={collapsed}
       data-mobile-open={mobileOpen}
     >
+      <TopBar
+        historyOpen={historyOpen}
+        chatOpen={!collapsed}
+        onToggleHistory={() => {
+          // HistorySidebar 는 자체 접힘 상태(⌘⇧B · localStorage)를 갖는다.
+          // 여기서 언마운트하면 접힌 rail 까지 사라져 패널을 되살릴 방법이
+          // 상단 버튼밖에 안 남는다. 토글 신호만 보낸다.
+          window.dispatchEvent(new CustomEvent("va:toggle-history"));
+          setHistoryOpen((v) => !v);
+        }}
+        onToggleChat={toggleSidebar}
+      />
+
       <HistorySidebar />
+
+      <div className={styles.center}>
+        <Stage />
+
+        {/* Mobile FAB — 사이드바가 없을 때만 */}
+        <button
+          type="button"
+          className={styles.mobileFab}
+          onClick={() => setMobileOpen(true)}
+          aria-label="대화 열기"
+        >
+          <Menu size={16} />
+          <span>대화</span>
+        </button>
+      </div>
 
       <Sidebar
         collapsed={collapsed}
@@ -97,30 +134,7 @@ export function StudioShell() {
         onToggleCollapse={toggleSidebar}
       />
 
-      <div className={styles.right}>
-        <div className={styles.stageWrap}>
-          <Stage />
-
-          <div className={styles.stageOverlay}>
-            <StageToolbar />
-          </div>
-
-          {/* PipelineHUD 제거됨 — phase 카드가 진행 상황을 rail 에 이미 표시 */}
-
-          {/* Mobile FAB — 사이드바가 없을 때만 */}
-          <button
-            type="button"
-            className={styles.mobileFab}
-            onClick={() => setMobileOpen(true)}
-            aria-label="대화 열기"
-          >
-            <Menu size={16} />
-            <span>대화</span>
-          </button>
-        </div>
-
-        <Timeline />
-      </div>
+      <Timeline />
     </div>
   );
 }

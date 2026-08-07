@@ -87,17 +87,17 @@
 /* ===== TOOL CALL ===== */
 .toolCard {
   background: var(--bg-card);
-  border-radius: 10px;
+  border-radius: var(--rad-3);
   overflow: hidden;
   box-shadow: 0 0 0 1px var(--hairline);
 }
 
 .toolCard[data-state="success"] {
-  background: rgba(89, 212, 153, 0.05);
+  background: var(--bg-card);
 }
 
 .toolCard[data-state="error"] {
-  background: rgba(255, 97, 97, 0.06);
+  background: var(--bg-card);
 }
 
 .toolHeader {
@@ -257,7 +257,7 @@
   color: var(--text-2);
   background: var(--bg-inset);
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--rad-2);
   margin: 0;
   max-height: 160px;
   overflow: auto;
@@ -267,8 +267,8 @@
 
 /* ===== INTERRUPT ===== */
 .interruptCard {
-  background: linear-gradient(180deg, rgba(124, 141, 241, 0.08), rgba(124, 141, 241, 0.03));
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--rad-3);
   padding: 14px;
   box-shadow:
     0 0 0 1px rgba(124, 141, 241, 0.3),
@@ -292,7 +292,7 @@
   height: 6px;
   border-radius: 999px;
   background: var(--accent-strong);
-  box-shadow: 0 0 0 4px rgba(124, 141, 241, 0.14);
+  box-shadow: 0 0 0 4px var(--accent-muted);
   flex-shrink: 0;
 }
 
@@ -319,7 +319,7 @@
   font-size: 10px;
   color: var(--text-3);
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
+  border-radius: var(--rad-2);
   font-family: var(--font-mono-stack);
 }
 
@@ -356,15 +356,15 @@
   padding: 10px 12px;
   margin-bottom: 12px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   box-shadow: inset 0 0 0 1px var(--hairline);
 }
 
 .brief {
   margin: 2px 0 14px;
   padding: 12px;
-  border-radius: 10px;
-  background: rgba(124, 141, 241, 0.055);
+  border-radius: var(--rad-3);
+  background: var(--bg-elevated);
   box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.16);
 }
 
@@ -422,7 +422,7 @@
 
 .briefScene {
   padding: 9px 10px;
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   background: rgba(0, 0, 0, 0.13);
 }
 
@@ -438,7 +438,7 @@
 .briefSceneHead strong {
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(124, 141, 241, 0.14);
+  background: var(--accent-muted);
   color: var(--accent-strong);
   font-family: var(--font-sans-stack);
   font-size: 10px;
@@ -474,14 +474,14 @@
   gap: 10px;
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
+  border-radius: var(--rad-3);
 }
 
 .planStepIdx {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: rgba(124, 141, 241, 0.18);
+  background: var(--bg-elevated);
   color: var(--accent-strong);
   font-size: 10px;
   font-weight: 600;
@@ -537,7 +537,7 @@
   display: inline-block;
   font-size: 10px;
   color: var(--accent-strong);
-  background: rgba(124, 141, 241, 0.12);
+  background: var(--bg-elevated);
   padding: 1px 8px;
   border-radius: 999px;
   margin-top: 6px;
@@ -552,7 +552,7 @@
   gap: 5px;
   padding: 9px 11px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   margin-bottom: 12px;
 }
 
@@ -615,7 +615,7 @@
   gap: 8px;
   padding: 6px 8px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   box-shadow: inset 0 0 0 1px transparent;
   transition:
     background 160ms cubic-bezier(0.23, 1, 0.32, 1),
@@ -623,7 +623,7 @@
 }
 
 .candidateRow[data-checked] {
-  background: rgba(124, 141, 241, 0.07);
+  background: var(--bg-elevated);
   box-shadow: inset 0 0 0 1px rgba(124, 141, 241, 0.4);
 }
 
@@ -631,7 +631,7 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: var(--rad-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -664,7 +664,7 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--rad-2);
   padding: 2px 4px;
   transition: background 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -703,7 +703,7 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--accent-strong);
-  background: rgba(124, 141, 241, 0.12);
+  background: var(--bg-elevated);
   padding: 1px 6px;
   border-radius: 999px;
 }
@@ -758,7 +758,7 @@
   color: var(--text-1);
   font-size: 13px;
   line-height: 1.55;
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   border: 0;
   resize: vertical;
   outline: none;
@@ -783,7 +783,7 @@
   gap: 6px;
   height: 30px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: -0.005em;
@@ -823,8 +823,8 @@
 
 /* ===== FINAL ===== */
 .finalCard {
-  background: linear-gradient(180deg, rgba(89, 212, 153, 0.08), rgba(89, 212, 153, 0.02));
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--rad-3);
   padding: 14px;
   box-shadow:
     0 0 0 1px rgba(89, 212, 153, 0.25),
@@ -832,7 +832,7 @@
 }
 
 .finalCardFailed {
-  background: linear-gradient(180deg, rgba(239, 95, 95, 0.08), rgba(239, 95, 95, 0.02));
+  background: var(--bg-elevated);
   box-shadow:
     0 0 0 1px rgba(239, 95, 95, 0.28),
     0 8px 24px -8px rgba(0, 0, 0, 0.4);
@@ -873,7 +873,7 @@
   color: var(--text-2);
   background: rgba(0, 0, 0, 0.3);
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--rad-2);
   margin-bottom: 10px;
 }
 
@@ -896,7 +896,7 @@
   gap: 6px;
   height: 30px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: var(--rad-3);
   background: var(--ok);
   color: #05130d;
   font-size: 12px;
@@ -936,8 +936,8 @@
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  background: rgba(255, 97, 97, 0.06);
-  border-radius: 8px;
+  background: var(--bg-card);
+  border-radius: var(--rad-3);
   box-shadow: 0 0 0 1px rgba(255, 97, 97, 0.18);
 }
 
@@ -970,7 +970,7 @@
 .phaseCard {
   position: relative;
   padding: 10px 12px 12px;
-  border-radius: 10px;
+  border-radius: var(--rad-3);
   background: var(--bg-panel);
   box-shadow: inset 0 0 0 1px var(--hairline);
   overflow: hidden;
@@ -1012,7 +1012,7 @@
 .phaseIcon {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--rad-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1027,7 +1027,7 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  border-radius: 6px;
+  border-radius: var(--rad-2);
   color: #0a0b18;
   background: var(--phase-tint);
 }
@@ -1106,14 +1106,14 @@
   padding: 0 10px 0 4px;
   margin: 0 0 6px;
   border-radius: 999px;
-  background: rgba(240, 120, 120, 0.08);
+  background: var(--bg-card);
   box-shadow: inset 0 0 0 1px rgba(240, 120, 120, 0.2);
   color: #f07278;
   font-size: 11.5px;
 }
 
 .expertHeader[data-ok] {
-  background: rgba(62, 207, 142, 0.08);
+  background: var(--bg-elevated);
   box-shadow: inset 0 0 0 1px rgba(62, 207, 142, 0.2);
   color: #3ecf8e;
 }

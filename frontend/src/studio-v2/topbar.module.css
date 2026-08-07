@@ -1,0 +1,178 @@
+/* 최상단 바 — 배경도 테두리도 없다. 검정 위에 요소만 떠 있다. */
+
+.bar {
+  grid-area: topbar;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  margin-top: 8px;
+  padding: 0 8px 0 16px;
+  /* 다른 패널과 같은 카드 레시피. 투명하게 두면 그 높이만큼이 그냥 빈
+     검정으로 읽혀 위쪽이 휑해 보인다. */
+  border: 1px solid transparent;
+  border-radius: var(--rad-4);
+  corner-shape: squircle;
+  background:
+    linear-gradient(var(--bg-panel), var(--bg-panel)) padding-box,
+    var(--rim) border-box;
+}
+
+/* ---- 좌: 브랜드 ---- */
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 마크는 선으로만 그린다. 채운 사각형은 앱 아이콘이지 화면 안 로고가 아니다. */
+.mark {
+  color: var(--text-1);
+  flex-shrink: 0;
+  margin-right: 1px;
+}
+
+/* 워드마크 — 굵기 대비 + 타이트한 자간으로 로고처럼 읽히게 한다.
+   Pretendard Variable(45~920)이라 800 같은 중간값을 그대로 쓸 수 있다. */
+.wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.06em;
+  font-size: 20px;
+  line-height: 1;
+  white-space: nowrap;
+  /* 자간을 크게 조여 낱글자가 아니라 한 덩어리로 읽히게 한다.
+     로고와 본문 텍스트를 가르는 건 결국 자간과 웨이트 대비다. */
+  letter-spacing: -0.058em;
+  font-feature-settings: "ss03", "cv11";
+}
+
+.wordmarkStrong {
+  font-weight: 800;
+  color: var(--text-1);
+}
+
+.wordmarkLight {
+  font-weight: 300;
+  color: var(--text-3);
+}
+
+/* 유일한 색. 점 하나면 충분하고, 그 이상은 장식이 된다. */
+.wordmarkDot {
+  align-self: center;
+  width: 4px;
+  height: 4px;
+  margin-left: 3px;
+  border-radius: 999px;
+  background: var(--yellow);
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.offline {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--danger-muted);
+  color: var(--danger);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ---- 우: 실제 동작하는 것만 ---- */
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ghost {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--rad-2);
+  corner-shape: squircle;
+  color: var(--text-3);
+  transition: background var(--dur-hover-out) var(--ease-pop),
+    color var(--dur-hover-out) var(--ease-pop);
+}
+
+.ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  transition: none;
+}
+
+.ghost[data-active] {
+  color: var(--text-1);
+}
+
+.editor {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--rad-2);
+  corner-shape: squircle;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  font-weight: 500;
+  transition: background var(--dur-hover-out) var(--ease-pop),
+    color var(--dur-hover-out) var(--ease-pop);
+}
+
+.editor:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+  transition: none;
+}
+
+/* 유일한 채운 버튼. 포인트 색 면적을 여기로 몰아준다. */
+.export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 14px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--yellow);
+  color: var(--ink-on-yellow);
+  font-size: var(--fs-12);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter var(--dur-hover-out) var(--ease-pop);
+}
+
+.export:hover {
+  filter: brightness(1.08);
+  transition: none;
+}
+
+.export[data-disabled] {
+  /* 색은 유지하고 흐리게만. 회색으로 바꾸면 이 버튼이 무슨 색인지,
+     활성화되면 어떻게 보이는지 알 수 없다. */
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .editor,
+  .wordmark {
+    display: none;
+  }
+}

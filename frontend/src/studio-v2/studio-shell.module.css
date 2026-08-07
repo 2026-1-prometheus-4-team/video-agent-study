@@ -1,40 +1,45 @@
 /*
- * StudioShell layout — sidebar + right(stage/timeline).
- * Topbar 없음. 브랜드/컨트롤은 사이드바 헤더에, 상태는 스테이지 툴바에.
+ * StudioShell 레이아웃 — 순수 검정 캔버스 위에 카드 네 장.
+ *
+ *   [ topbar : 배경 없음                        ]
+ *   [ 기록 │      프리뷰       │    대화        ]
+ *   [ 타임라인 (전체 폭)                        ]
+ *
+ * 채팅을 오른쪽으로 옮긴 이유: 기록 248 + 채팅 384 = 632px 이 왼쪽을 먹어
+ * 1440 화면에서 프리뷰가 700px 밑으로 내려갔다. 편집기는 인스펙터를 오른쪽에
+ * 두고, 타임라인은 자기가 제어하는 프리뷰 바로 아래 붙는 게 맞다.
  */
 
 .shell {
   position: fixed;
   inset: 0;
   display: grid;
-  /* history rail 은 <1024px 에서 display:none → auto 트랙이 0 으로 접힘 */
-  grid-template-columns: auto auto 1fr;
-  grid-template-rows: 1fr;
-  grid-template-areas: "history sidebar right";
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--timeline-h);
+  grid-template-areas:
+    "topbar   topbar  topbar"
+    "history  center  chat"
+    "timeline timeline timeline";
+  column-gap: var(--shell-gap);
+  row-gap: var(--shell-gap);
+  padding: 0 var(--shell-gap) var(--shell-gap);
   background: var(--bg-app);
   color: var(--text-1);
   overflow: hidden;
 }
 
-.right {
-  grid-area: right;
+/* ---- 중앙: 프리뷰 ----
+   카드가 아니라 "파인 곳" 이다. 영상이 주인공이라 테두리 빛을 주지 않는다. */
+.center {
+  grid-area: center;
+  position: relative;
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 208px;
-  gap: 14px;
-  padding: 14px 14px 14px 14px;
-}
-
-.stageWrap {
-  position: relative;
-  min-height: 0;
-  border-radius: 14px;
+  border-radius: var(--rad-5);
+  corner-shape: squircle;
   overflow: hidden;
   background: var(--bg-inset);
-  box-shadow:
-    0 0 0 1px var(--hairline),
-    inset 0 1px 0 rgba(255, 255, 255, 0.015);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .stageOverlay {
@@ -52,55 +57,61 @@
   pointer-events: auto;
 }
 
-/* ---- Mobile FAB (햄버거) ---- */
+/* ---- Mobile FAB ---- */
 .mobileFab {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  height: 32px;
+  top: 12px;
+  left: 12px;
+  height: 30px;
   padding: 0 12px 0 10px;
   display: none;
   align-items: center;
   gap: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(6px);
+  border-radius: var(--rad-2);
+  corner-shape: squircle;
+  background: var(--bg-elevated);
   color: var(--text-1);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 500;
-  letter-spacing: -0.01em;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
   z-index: 6;
-  transition: background 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: background var(--dur-hover-out) var(--ease-pop);
 }
 
 .mobileFab:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-float);
+  transition: none;
 }
 
 .mobileFab:active {
   transform: scale(0.96);
 }
 
-/* ---------- Tablet: 사이드바 자체는 유지, 폭은 조금 좁게 (Sidebar 안에서 처리) ---------- */
+/* ---------- 태블릿: 기록 레일을 접는다 ---------- */
+@media (max-width: 1180px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "topbar   topbar"
+      "center   chat"
+      "timeline timeline";
+  }
+}
 
-/* ---------- Mobile: 사이드바 hide, FAB 노출 ---------- */
+/* ---------- 모바일: 프리뷰 + 타임라인만, 나머지는 drawer ---------- */
 @media (max-width: 767px) {
   .shell {
-    grid-template-columns: 1fr;
-    grid-template-areas: "right";
-  }
-  .right {
-    padding: 12px;
-    gap: 10px;
-    grid-template-rows: minmax(0, 1fr) 168px;
-  }
-  .stageOverlay {
-    top: 12px;
-    left: 108px; /* 히스토리 FAB + 대화 FAB 자리 확보 */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: var(--topbar-h) minmax(0, 1fr) 168px;
+    grid-template-areas:
+      "topbar"
+      "center"
+      "timeline";
+    padding: 0 8px 8px;
   }
   .mobileFab {
     display: inline-flex;
-    left: 56px; /* 좌상단 히스토리 FAB(고정 left:14) 옆으로 */
+  }
+  .stageOverlay {
+    left: 108px;
   }
 }

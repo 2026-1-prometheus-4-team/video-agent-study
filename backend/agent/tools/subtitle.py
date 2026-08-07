@@ -1243,6 +1243,83 @@ def add_auto_subtitle(
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
+def _add_title_as_cue(
+    *,
+    input_path: str,
+    text: str,
+    position: str,
+    start_time: float,
+    duration: float,
+    anim: str,
+    style: str,
+) -> str:
+    """제목을 자막 큐 문서에 "제목 큐" 로 기록한다 (굽지 않음).
+
+    제목을 drawtext 로 구우면 픽셀이 되어 폰트도 크기도 위치도 다시 못 바꾼다.
+    실제로 긴 제목이 화면 밖으로 잘려도 손쓸 방법이 없었다. 자막과 같은 큐
+    레이어에 넣으면 편집 UI 가 그대로 통하고, 최종 렌더에서 한 번만 굽는다.
+
+    role="title" 로 표시해 편집 화면이 자막과 구분해 보여줄 수 있게 한다.
+    """
+    from agent.tools import subtitle_cues
+
+    # 최신 문서 폴백을 끈다 — 켜두면 이 영상과 무관한 (가장 최근에 수정된)
+    # 자막 문서에 제목이 기록된다.
+    doc, doc_path = subtitle_cues._load_or_promote(
+        input_path, allow_newest_fallback=False
+    )
+    if doc is None:
+        # 자막이 아직 없는 영상에도 제목만 올릴 수 있어야 한다.
+        stem = os.path.splitext(os.path.basename(input_path))[0]
+        doc, doc_path = subtitle_cues.create_cues_doc(stem, input_path, [])
+
+    if duration <= 0:
+        video_duration = _get_video_duration_ffprobe(input_path)
+        end = video_duration if video_duration > 0 else start_time + 3600.0
+    else:
+        end = start_time + duration
+
+    merged = _merge_style(
+        style, tool_defaults={"font_size": 48, "position": position, "stroke_width": 3}
+    )
+    # 큐 스타일은 큐 문서 스키마(size/stroke_width/...)를 따른다.
+    cue_style: dict = {
+        "position": merged.get("position", position),
+        "size": int(merged.get("font_size", 48)),
+        "color": merged.get("color", "#FFFFFF"),
+        "stroke_color": merged.get("stroke_color", "#000000"),
+        "stroke_width": merged.get("stroke_width", 3),
+        "bold": bool(merged.get("bold", True)),
+    }
+    if anim == "fade":
+        cue_style["fade"] = True
+
+    cue = {
+        "id": subtitle_cues._next_cue_id(doc),
+        "role": "title",
+        "start": round(float(start_time), 3),
+        "end": round(float(end), 3),
+        "text": text,
+        "style": cue_style,
+    }
+    doc.setdefault("cues", []).append(cue)
+    doc["cues"].sort(key=lambda c: (float(c["start"]), float(c["end"])))
+    subtitle_cues._save_cues_doc(doc)
+
+    return json.dumps({
+        "status": "success",
+        "mode": "cue",
+        "output": input_path,
+        "cue_id": cue["id"],
+        "cues_doc": doc_path,
+        "style": cue_style,
+        "note": (
+            "제목을 편집 가능한 큐로 기록했습니다. 영상 파일은 그대로이며 "
+            "최종 렌더(render_subtitles)에서 자막과 함께 한 번에 적용됩니다."
+        ),
+    }, ensure_ascii=False)
+
+
 @tool
 def add_title(
     video_path: str,
@@ -1253,6 +1330,7 @@ def add_title(
     anim: str = "fade",
     style: str = "",
     output_path: str = "",
+    burn: bool = False,
 ) -> str:
     """영상 위에 타이틀 텍스트 오버레이 — fade-in/out 지원.
 
@@ -1263,6 +1341,12 @@ def add_title(
     기본값: 상단 중앙(top), 자막보다 1.5배 큰 폰트, stroke_width=3(굵게).
     위치를 바꾸려면 position='center'|'bottom'으로 지정.
 
+    burn=False (기본): 영상에 굽지 않고 자막 큐 문서에 제목 큐로 기록한다.
+    자막과 같은 레이어에 들어가므로 이후 폰트/크기/위치/문구를 계속 수정할 수 있고,
+    최종 export 에서 자막과 함께 한 번만 렌더된다. 구워버리면 픽셀이 되어
+    되돌릴 수 없다 — 제목이 화면 밖으로 잘려도 다시 편집할 방법이 없어진다.
+    burn=True 는 즉시 번인이 필요한 특수한 경우에만.
+
     Args:
         video_path: 입력 영상 파일명 (videos/ 기준)
         text: 타이틀 텍스트
@@ -1271,11 +1355,23 @@ def add_title(
         duration: 타이틀 표시 시간(초). 0 이하면 영상 끝까지 고정 (기본값).
         anim: 'fade'|'none' (기본 'fade')
         style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':3}
+        burn: True 면 영상에 즉시 번인. 기본 False (편집 가능한 큐로 기록).
     """
     try:
         input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
+
+        if not burn:
+            return _add_title_as_cue(
+                input_path=input_path,
+                text=text,
+                position=position,
+                start_time=start_time,
+                duration=duration,
+                anim=anim,
+                style=style,
+            )
 
         if duration <= 0:
             vid_dur = _get_video_duration_ffprobe(input_path)

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
-import { PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { ThreadStream } from "./ThreadStream";
 import { Composer } from "./Composer";
 import { EmptyState } from "./EmptyState";
@@ -159,32 +159,12 @@ function SidebarHeader({
   activePulse: boolean;
   closeIconIsX?: boolean;
 }) {
+  // 브랜드는 TopBar 에만 둔다. 여기까지 로고를 반복하면 같은 화면에 제품명이
+  // 두 번 나오고, 정작 이 패널이 무엇인지는 안 알려준다.
+  // 펄스하던 glow 도 제거 — 유휴 상태에서 숨쉬는 요소는 두지 않는다.
   return (
     <div className={styles.header}>
-      <div className={styles.brand}>
-        <div className={styles.brandMark}>
-          <motion.div
-            className={styles.brandMarkGlow}
-            animate={
-              activePulse
-                ? { opacity: [0.6, 1, 0.6] }
-                : { opacity: 0.6 }
-            }
-            transition={{
-              duration: 1.8,
-              repeat: activePulse ? Infinity : 0,
-              ease: "easeInOut",
-            }}
-          />
-          <Sparkles size={11} strokeWidth={2.2} />
-        </div>
-        {!collapsed && (
-          <div className={styles.brandText}>
-            <span className={styles.brandTitle}>Video Agent</span>
-            <span className={styles.brandCaption}>Studio</span>
-          </div>
-        )}
-      </div>
+      <span className={styles.panelLabel}>대화</span>
 
       <button
         type="button"
@@ -210,27 +190,6 @@ function SidebarCollapsedTop({
     <div className={styles.railStack}>
       <button
         type="button"
-        className={styles.railBrand}
-        onClick={onToggle}
-        title="사이드바 펴기 (⌘B)"
-      >
-        <motion.div
-          className={styles.brandMarkGlow}
-          animate={
-            activePulse
-              ? { opacity: [0.6, 1, 0.6] }
-              : { opacity: 0 }
-          }
-          transition={{
-            duration: 1.8,
-            repeat: activePulse ? Infinity : 0,
-            ease: "easeInOut",
-          }}
-        />
-        <Sparkles size={12} strokeWidth={2.2} />
-      </button>
-      <button
-        type="button"
         className={styles.railBtn}
         onClick={onToggle}
         aria-label="사이드바 펴기"
@@ -238,6 +197,8 @@ function SidebarCollapsedTop({
       >
         <PanelLeftOpen size={14} />
       </button>
+      {/* 진행 중일 때만 표시. 유휴 상태에서는 아무것도 그리지 않는다. */}
+      {activePulse && <span className={styles.railBusy} aria-label="실행 중" />}
     </div>
   );
 }
