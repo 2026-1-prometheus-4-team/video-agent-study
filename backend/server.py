@@ -68,8 +68,13 @@ from langchain_core.messages import ToolMessage
 import media_library
 from agent import config as agent_config
 from agent.graph import build_graph
+from agent.observability import AgentTracer, setup_logging
 from agent.state import VideoContext
 from db import SessionRepo, dispose_db, init_db
+
+# uvicorn 이 자기 핸들러를 붙이기 전에 포맷/레벨을 잡는다. 이게 없으면 에이전트
+# 로그가 uvicorn 기본 포맷으로 섞여 나오고 서드파티 라이브러리 로그에 묻힌다.
+setup_logging()
 
 logger = logging.getLogger("server")
 
@@ -194,6 +199,8 @@ class Session:
         self.checkpointer = MemorySaver()
         self.graph = build_graph(checkpointer=self.checkpointer)
         self.created_at = time.time()
+        # 로그 줄 주체 표시. 세션이 여러 개 붙어 있어도 어느 대화의 실행인지 구분된다.
+        self.tracer = AgentTracer(session_id[:6])
         # 그래프 실행 직렬화 (WS+WS / WS+REST 동시 접근 시 checkpointer 경합 방지)
         self.run_lock = asyncio.Lock()
         # run_lock 은 await 로만 잡히므로 "task 생성 ~ 락 획득" 사이에 다른
@@ -230,7 +237,13 @@ class Session:
 
     @property
     def config(self) -> dict:
-        return {"configurable": {"thread_id": self.session_id}}
+        # tracer 를 여기 달아두면 이 config 를 쓰는 모든 그래프 실행(stream/resume/
+        # get_state)이 노드·LLM·툴 경계를 로그로 흘린다. 세션마다 하나를 재사용해
+        # run_id 짝짓기가 turn 을 넘어가도 유지되게 한다.
+        return {
+            "configurable": {"thread_id": self.session_id},
+            "callbacks": [self.tracer],
+        }
 
     def pending_interrupt(self) -> Optional[dict]:
         """체크포인트에 남아 있는 미해결 interrupt payload. 없으면 None.
@@ -2040,6 +2053,49 @@ def _apply_subtitle_style(stem: str, style: dict) -> None:
 def get_subtitle_style(stem: str):
     """현재 자막 기본 스타일. 큐 문서가 없으면 백엔드 기본값을 반환."""
     return _current_subtitle_style(stem)
+
+
+@app.get("/api/subtitles/{stem}/document")
+def get_subtitle_document(stem: str):
+    """자막 큐 + 스타일을 한 번에 반환 — 모든 화면의 단일 소스.
+
+    미리보기 · 모션 에디터 · 스타일 카드가 각자 다른 곳에서 자막을 읽어와
+    같은 영상인데도 서로 다른 자막/스타일을 보여주던 문제 때문에 만든다.
+    (미리보기는 스토어 transcript + 스타일 API, 모션 에디터는 스토어 transcript +
+    메모리 전용 globalSubtitleStyle, export 는 서버 큐 문서를 봤다.)
+
+    큐가 없으면 404 가 아니라 빈 목록 + 기본 스타일을 돌려준다. 자막이 아직
+    없는 상태와 조회 실패를 프론트가 구분할 수 있어야 한다.
+    """
+    from agent.tools.subtitle_cues import list_subtitle_cues
+
+    style = _current_subtitle_style(stem)
+    try:
+        raw = list_subtitle_cues.invoke({"video_path": stem})
+        data = json.loads(raw)
+    except Exception:
+        logger.warning("subtitle document 조회 실패: %s", stem, exc_info=True)
+        data = {"status": "error", "error": "lookup_failed"}
+
+    if data.get("status") != "success":
+        return {
+            "status": "empty",
+            "stem": stem,
+            "reason": data.get("error", "no_cues"),
+            "style_defaults": style,
+            "cues": [],
+        }
+
+    return {
+        "status": "success",
+        "stem": stem,
+        "source_video": data.get("source_video", ""),
+        "cues_doc": data.get("cues_doc", ""),
+        # 스타일은 서버가 해석한 값 하나만 내려보낸다. 프론트가 각자 기본값을
+        # 들고 있으면 화면마다 달라진다.
+        "style_defaults": style,
+        "cues": data.get("cues", []),
+    }
 
 
 @app.patch("/api/subtitles/{stem}/style")

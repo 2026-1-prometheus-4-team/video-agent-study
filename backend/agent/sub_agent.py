@@ -33,6 +33,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from agent import config
 from agent.errors import is_transient_error
 from agent.llm import make_llm
+from agent.observability import AgentTracer
 from agent.prompt_builder import build_sub_agent_system_prompt
 from agent.state import VideoContext
 from agent.tools import tool_groups
@@ -218,9 +219,15 @@ def spawn_sub_agent(envelope: SubAgentEnvelope) -> SubAgentResult:
     result_state = None
     for attempt in range(1, TRANSIENT_RETRY_ATTEMPTS + 1):
         try:
+            # 콜백은 부모 config 를 타고 내려오는데 여기서 config 를 새로 만들기
+            # 때문에, 명시적으로 달지 않으면 서브에이전트 안에서 도는 툴이 전부
+            # 로그에서 사라진다 (실제 편집 작업 대부분이 여기서 일어난다).
             result_state = child_agent.invoke(
                 invoke_input,
-                config={"recursion_limit": limits.max_tool_calls_per_spawn * 2},
+                config={
+                    "recursion_limit": limits.max_tool_calls_per_spawn * 2,
+                    "callbacks": [AgentTracer(f"sub:{role}")],
+                },
             )
             break
         except Exception as e:

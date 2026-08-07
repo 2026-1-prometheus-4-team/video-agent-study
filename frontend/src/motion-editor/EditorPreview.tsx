@@ -128,6 +128,13 @@ export function EditorPreview() {
                   fontWeight: activeSubtitle.override?.fontWeight
                     ?? (globalSubtitleStyle ? (globalSubtitleStyle.bold ? 700 : 400) : 600),
                   color: activeSubtitle.override?.color ?? globalSubtitleStyle?.color ?? "#ffffff",
+                  // 외곽선까지 맞춰야 미리보기와 같은 자막으로 보인다. 굵기/크기만
+                  // 맞추고 외곽선을 빼면 밝은 화면에서 글자가 묻혀 다르게 읽힌다.
+                  WebkitTextStrokeWidth: globalSubtitleStyle
+                    ? `${globalSubtitleStyle.strokeWidth}px`
+                    : undefined,
+                  WebkitTextStrokeColor: globalSubtitleStyle?.strokeColor,
+                  paintOrder: "stroke fill",
                 }}
               >
                 {activeSubtitle.text}

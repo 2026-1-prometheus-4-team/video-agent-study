@@ -53,12 +53,45 @@ def _run_ffmpeg(cmd: list[str]) -> tuple[int, str]:
     return result.returncode, result.stderr
 
 
+def _stream_rotation(stream: dict) -> int:
+    """스트림의 회전각(도). 없으면 0.
+
+    새 ffmpeg 는 side_data_list 의 display matrix 에, 예전 파일은 tags.rotate 에
+    회전을 싣는다. 둘 다 본다.
+    """
+    for side_data in stream.get("side_data_list") or []:
+        if isinstance(side_data, dict) and side_data.get("rotation") is not None:
+            try:
+                return int(float(side_data["rotation"]))
+            except (TypeError, ValueError):
+                pass
+    tag = (stream.get("tags") or {}).get("rotate")
+    if tag is not None:
+        try:
+            return int(float(tag))
+        except (TypeError, ValueError):
+            pass
+    return 0
+
+
 def _ffprobe_video_meta(path: str) -> dict | None:
+    """비디오 메타. width/height 는 *화면에 보이는* 크기다 (회전 반영).
+
+    폰으로 세로로 찍은 영상은 컨테이너에 1280x720 으로 저장되고 회전 -90 이
+    붙어 실제로는 720x1280 으로 보인다. 컨테이너 값을 그대로 쓰면 세로 클립이
+    가로로 판정돼, 병합이 가로를 기준 해상도로 잡고 세로 클립을 좌우 여백에
+    가둔다. 그 뒤 9:16 리사이즈가 그 전체를 다시 위아래 여백에 넣으면 원본이
+    화면의 7% 까지 쪼그라든다 (실측: 세로 4개 + 가로 1개 소스).
+
+    ffmpeg 는 디코드 시 회전을 자동 적용하므로 필터가 보는 것도 이 값이다.
+    """
     try:
         cmd = [
             "ffprobe", "-v", "error",
             "-select_streams", "v:0",
-            "-show_entries", "stream=codec_name,width,height,r_frame_rate",
+            "-show_entries",
+            "stream=codec_name,width,height,r_frame_rate"
+            ":stream_side_data=rotation:stream_tags=rotate",
             "-of", "json",
             path,
         ]
@@ -73,10 +106,16 @@ def _ffprobe_video_meta(path: str) -> dict | None:
             return None
         data = json.loads(result.stdout)
         stream = (data.get("streams") or [{}])[0]
+        width = int(stream.get("width") or 0)
+        height = int(stream.get("height") or 0)
+        rotation = _stream_rotation(stream)
+        if rotation % 180 != 0:
+            width, height = height, width
         return {
             "codec_name": stream.get("codec_name"),
-            "width": int(stream.get("width") or 0),
-            "height": int(stream.get("height") or 0),
+            "width": width,
+            "height": height,
+            "rotation": rotation,
             "fps": stream.get("r_frame_rate") or "",
         }
     except Exception:
@@ -136,10 +175,14 @@ def _streams_compatible(metas: list[dict | None]) -> bool:
     if not metas or any(meta is None for meta in metas):
         return True
     first = metas[0]
+    # 회전까지 같아야 stream copy 로 붙일 수 있다. 컨테이너 회전 메타는 첫
+    # 스트림 것만 남으므로, 회전이 다른 클립을 copy 로 concat 하면 나머지가
+    # 통째로 눕거나 뒤집힌다.
     return all(
         meta.get("codec_name") == first.get("codec_name")
         and meta.get("width") == first.get("width")
         and meta.get("height") == first.get("height")
+        and meta.get("rotation", 0) == first.get("rotation", 0)
         and meta.get("fps") == first.get("fps")
         for meta in metas[1:]
     )

@@ -64,6 +64,12 @@ export function FinalCard({
       // 자막 큐가 없으면 깨끗한 영상 그대로 내려받는다.
       const msg = e instanceof Error ? e.message : String(e);
       if (/404|no_cues/i.test(msg) && cleanUrl) {
+        // 조용히 넘어가면 사용자는 자막이 빠진 걸 파일을 열어보고서야 안다.
+        // 실패를 삼키지 않고 무엇이 빠졌는지 알린다.
+        setExportError(
+          "이 영상에는 자막 데이터가 없어서 자막 없이 내보냈어. " +
+            "자막이 필요하면 채팅에 '자막 달아줘' 로 요청해줘."
+        );
         await downloadFile(cleanUrl, `${stem}.mp4`);
       } else if (cleanUrl) {
         // 렌더 실패해도 최소한 깨끗한 영상은 내려받게.
