@@ -15,8 +15,14 @@ import { formatSeconds } from "@/lib/format";
 import styles from "./timeline.module.css";
 
 /* 레인 높이 차등 — 비디오가 가장 두껍다. 세 줄이 같은 높이면 목록처럼 보이고
-   어느 것이 주 트랙인지 안 읽힌다. */
-const LANE_H = { video: 64, audio: 58, subtitle: 54 } as const;
+   어느 것이 주 트랙인지 안 읽힌다.
+   값은 globals.css 의 --lane-h-* 하나만 보고 쓴다. 여기 숫자를 따로 들고
+   있으면 CSS 가 계산한 카드 높이와 어긋나 아래가 잘린다. */
+const LANE_H = {
+  video: "var(--lane-h-video)",
+  audio: "var(--lane-h-audio)",
+  subtitle: "var(--lane-h-sub)",
+} as const;
 
 /* 편집기 타임코드 표기 HH:MM:SS:FF. 초 단위만 보여주면 프레임 단위로
    맞추는 작업에서 쓸모가 없다. fps 를 모를 때는 30 으로 가정한다. */

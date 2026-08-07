@@ -91,7 +91,18 @@
 
   /* 레이아웃 상수 */
   --topbar-h: 52px; /* 카드(44px) + 위 여백 8px */
-  --timeline-h: 300px;
+  /* 타임라인 높이는 고정값이 아니라 레인 합으로 계산한다. 레인을 늘리거나
+     높이를 키웠을 때 아래가 잘리던 문제 — 값을 두 곳에서 따로 관리하면
+     반드시 어긋난다. 레인 높이는 Timeline.tsx 의 LANE_H 와 짝이다. */
+  --lane-h-video: 64px;
+  --lane-h-audio: 58px;
+  --lane-h-sub: 54px;
+  /* 헤더 30 + 눈금자 32 + 눈금자여백 10 + 레인여백 24 + 콘텐츠여백 10 + 카드패딩 38 */
+  --timeline-chrome: 148px;
+  --timeline-h: calc(
+    var(--lane-h-video) + var(--lane-h-audio) + var(--lane-h-sub) +
+      var(--timeline-chrome)
+  );
   --shell-gap: 10px;
 
   /* float shadow — 실제로 떠 있는 것에만 (팝오버/메뉴/드래그 중). */
