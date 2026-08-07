@@ -54,13 +54,25 @@ def test_explicit_relative_path_wins_over_search(project):
     assert media_paths.find_media("outputs/x.mp4") == target
 
 
-def test_project_root_precedes_outputs_on_name_collision(project):
-    """같은 이름이 여러 곳에 있으면 탐색 순서가 결정한다 (루트 우선)."""
-    root_file = project / "dup.mp4"
-    root_file.write_bytes(b"root")
-    (project / "outputs" / "dup.mp4").write_bytes(b"outputs")
+def test_newest_file_wins_on_name_collision(project):
+    """같은 generic 이름이 여러 곳에 있으면 가장 최근 파일이 이긴다.
 
-    assert media_paths.find_media("dup.mp4") == root_file
+    video_with_bgm.mp4 / final_video.mp4 같은 출력 이름은 세션·run 간 재사용돼서,
+    옛 세션의 stale 파일이 검색 순서상 먼저 잡히면 편집 결과에 엉뚱한 영상(예:
+    이전 move 세션 내용)이 섞였다. 방금 쓴 최신 파일이 이겨야 한다.
+    """
+    import os
+    import time
+
+    old_file = project / "dup.mp4"
+    old_file.write_bytes(b"old")
+    new_file = project / "outputs" / "dup.mp4"
+    new_file.write_bytes(b"new")
+    now = time.time()
+    os.utime(old_file, (now - 100, now - 100))
+    os.utime(new_file, (now, now))
+
+    assert media_paths.find_media("dup.mp4") == new_file
 
 
 def test_missing_file_reports_fallback_location(project):
