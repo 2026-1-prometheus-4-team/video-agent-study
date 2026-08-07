@@ -120,7 +120,11 @@ def _enforce_requested_features(plan: dict[str, Any], user_request: str) -> dict
     wants_sfx = requested("sfx", "효과음")
     wants_audio_mix = wants_tts or requested("오디오", "음원", "소리 섞", "mix", "믹스")
     wants_caption = requested(
-        "캡션", "화면 문구", "온스크린", "타이틀", "제목 넣", "텍스트 넣",
+        "캡션", "화면 문구", "온스크린",
+        "타이틀", "title",
+        "제목 넣", "제목을 넣", "제목 추가", "제목 달", "제목 붙", "제목 올",
+        "텍스트 넣", "텍스트 추가",
+        "인트로",
     )
     wants_emoji = requested("이모지", "emoji")
 

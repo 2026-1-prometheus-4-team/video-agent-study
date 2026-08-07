@@ -18,6 +18,15 @@ export interface EditorSubtitleOverride {
   position?: "top" | "middle" | "bottom";
 }
 
+export interface GlobalSubtitleStyle {
+  size: number;
+  color: string;
+  bold: boolean;
+  strokeColor: string;
+  strokeWidth: number;
+  position: "top" | "middle" | "bottom";
+}
+
 export interface EditorState {
   /** 현재 재생 위치 (초) */
   playhead: number;
@@ -34,6 +43,9 @@ export interface EditorState {
   /** 저장되지 않은 변경 여부 */
   dirty: boolean;
 
+  /** 자막 스타일 카드에서 저장한 전역 스타일 — overlay 즉시 반영용 */
+  globalSubtitleStyle: GlobalSubtitleStyle | null;
+
   // ---- actions ----
   setPlayhead: (t: number) => void;
   setPlaying: (p: boolean) => void;
@@ -41,6 +53,7 @@ export interface EditorState {
   updateSubtitle: (index: number, patch: EditorSubtitleOverride) => void;
   clearOverrides: () => void;
   markSaved: () => void;
+  setGlobalSubtitleStyle: (style: GlobalSubtitleStyle) => void;
 }
 
 export const useEditorStore = create<EditorState>()(
@@ -51,6 +64,7 @@ export const useEditorStore = create<EditorState>()(
     selectionIndex: null,
     subtitleOverrides: {},
     dirty: false,
+    globalSubtitleStyle: null,
 
     setPlayhead: (t) =>
       set((s) => {
@@ -84,6 +98,11 @@ export const useEditorStore = create<EditorState>()(
     markSaved: () =>
       set((s) => {
         s.dirty = false;
+      }),
+
+    setGlobalSubtitleStyle: (style) =>
+      set((s) => {
+        s.globalSubtitleStyle = style;
       }),
   }))
 );

@@ -22,6 +22,7 @@ export function EditorPreview() {
   const setPlayhead = useEditorStore((s) => s.setPlayhead);
   const setPlaying = useEditorStore((s) => s.setPlaying);
   const overrides = useEditorStore((s) => s.subtitleOverrides);
+  const globalSubtitleStyle = useEditorStore((s) => s.globalSubtitleStyle);
 
   const [muted, setMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -103,11 +104,8 @@ export function EditorPreview() {
           {activeSubtitle && (
             <motion.div
               key={activeSubtitle.text}
-              className={styles.subtitleOverlay}
+              className={styles.subtitlePositioner}
               style={{
-                fontSize: activeSubtitle.override?.fontSize ?? 26,
-                fontWeight: activeSubtitle.override?.fontWeight ?? 600,
-                color: activeSubtitle.override?.color ?? "#ffffff",
                 bottom:
                   activeSubtitle.override?.position === "top"
                     ? "auto"
@@ -116,17 +114,24 @@ export function EditorPreview() {
                       : "8%",
                 top:
                   activeSubtitle.override?.position === "top" ? "8%" : "auto",
-                transform:
-                  activeSubtitle.override?.position === "middle"
-                    ? "translate(-50%, 50%)"
-                    : "translateX(-50%)",
               }}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
             >
-              {activeSubtitle.text}
+              <div
+                className={styles.subtitleOverlay}
+                style={{
+                  fontSize: activeSubtitle.override?.fontSize
+                    ?? (globalSubtitleStyle ? Math.round(globalSubtitleStyle.size * 1.5) : 26),
+                  fontWeight: activeSubtitle.override?.fontWeight
+                    ?? (globalSubtitleStyle ? (globalSubtitleStyle.bold ? 700 : 400) : 600),
+                  color: activeSubtitle.override?.color ?? globalSubtitleStyle?.color ?? "#ffffff",
+                }}
+              >
+                {activeSubtitle.text}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
