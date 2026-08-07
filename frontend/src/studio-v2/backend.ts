@@ -585,7 +585,7 @@ export async function restoreStudioSession(): Promise<void> {
     // WS 재연결 — 서버가 pending interrupt 를 다시 보내도 dedupe 로 중복 카드 X.
     const sock = new AgentSocket(persisted.sessionId);
     sock.connect();
-    currentSocket = sock;
+    adoptSocket(sock);
     await sock.ready(6000).catch(() => undefined);
   } catch {
     clearStudioSession();
@@ -613,7 +613,7 @@ export async function ensureSessionAndConnect(
     persistStudioSession();
     const sock = new AgentSocket(session_id);
     sock.connect();
-    currentSocket = sock;
+    adoptSocket(sock);
     await sock.ready(6000);
     return sock;
   } catch (err) {
@@ -626,6 +626,20 @@ export async function ensureSessionAndConnect(
 export function closeSocket() {
   currentSocket?.disconnect();
   currentSocket = null;
+}
+
+/**
+ * 새 소켓을 현재 소켓으로 채택하고 *이전 것은 반드시 정리한다*.
+ *
+ * 그냥 `currentSocket = sock` 로 덮으면 이전 인스턴스가 살아남아서:
+ *  - 자기 watchdog 타이머로 90초 뒤 "응답 없음" 을 띄운다. 새 소켓이 이벤트를
+ *    잘 받고 있어도 상태(sessionStatus)는 공유라 가짜 에러가 그대로 뜬다.
+ *  - closedByUser 가 false 라 재연결 루프를 계속 돈다.
+ *  - 소켓이 아직 열려 있으면 같은 스토어를 두 인스턴스가 함께 건드린다.
+ */
+function adoptSocket(sock: AgentSocket) {
+  if (currentSocket && currentSocket !== sock) currentSocket.disconnect();
+  currentSocket = sock;
 }
 
 // ---------- 지난 대화 히스토리 (좌측 사이드바) ----------
@@ -891,7 +905,7 @@ export async function loadSession(summary: SessionSummary): Promise<void> {
   persistStudioSession();
   const sock = new AgentSocket(summary.session_id);
   sock.connect();
-  currentSocket = sock;
+  adoptSocket(sock);
   await sock.ready(6000).catch(() => undefined);
 }
 
