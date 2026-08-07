@@ -911,8 +911,14 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
 def _display_segments(
     segments: list[dict],
     correction: dict | None = None,
+    include_sound_captions: bool = False,
 ) -> list[dict]:
-    """Build render-only captions while leaving canonical spoken segments untouched."""
+    """Build render-only captions while leaving canonical spoken segments untouched.
+
+    include_sound_captions=False(기본): [박수]/[웃음] 같은 효과음 캡션은 넣지 않는다.
+    쇼츠에서 화면 중앙/상단에 뜨는 이 캡션이 방해된다는 피드백이 많아 기본 제외.
+    발화 자막과 (당황) 같은 감정 표현(display_edits)은 그대로 유지한다.
+    """
     correction = correction if isinstance(correction, dict) else {}
     display_edits = {
         item["segment_index"]: item["display_text"]
@@ -925,6 +931,8 @@ def _display_segments(
     }
     rendered: list[dict] = []
     for index, segment in enumerate(segments):
+        if segment.get("kind") == "sound" and not include_sound_captions:
+            continue
         display_text = str(
             segment.get("display_text")
             or display_edits.get(index)
@@ -948,16 +956,17 @@ def _display_segments(
             item["kind"] = "sound"
         rendered.append(item)
 
-    for sound in correction.get("sound_captions", []):
-        if not isinstance(sound, dict) or not str(sound.get("text", "")).strip():
-            continue
-        rendered.append({
-            "start": float(sound["start"]),
-            "end": float(sound["end"]),
-            "text": str(sound["text"]).strip(),
-            "kind": "sound",
-            "style": {"position": "top", "color": "#FFE600"},
-        })
+    if include_sound_captions:
+        for sound in correction.get("sound_captions", []):
+            if not isinstance(sound, dict) or not str(sound.get("text", "")).strip():
+                continue
+            rendered.append({
+                "start": float(sound["start"]),
+                "end": float(sound["end"]),
+                "text": str(sound["text"]).strip(),
+                "kind": "sound",
+                "style": {"position": "top", "color": "#FFE600"},
+            })
     rendered.sort(key=lambda item: (item["start"], item["end"]))
     return rendered
 
