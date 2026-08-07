@@ -67,6 +67,14 @@ logger = logging.getLogger(__name__)
 # analysis_node — 사전 영상 분석
 # =============================================================
 
+# 영상 하나 분석은 CPU 가 아니라 네트워크 대기가 대부분이다 — 전사(OpenAI
+# whisper-1) + 전사 교정(Gemini) + 시각 분석(Gemini Vision) 으로 API 왕복이
+# 3번이고, 그 사이 스레드는 놀고 있다. 워커가 3개면 영상 5개가 2웨이브로
+# 갈려서 가장 짧은 영상이 큐 뒤에 밀리는 만큼 벽시계 시간이 그대로 늘어난다
+# (실측: 5개 4분 1초, 15초짜리가 마지막에 끝남).
+_ANALYSIS_MAX_WORKERS = max(1, int(os.getenv("ANALYSIS_MAX_WORKERS", "5")))
+
+
 def _analyze_one_video(path: str) -> tuple[str, dict]:
     """영상 하나 분석 (캐시 JSON 우선). 반환: (파일명, 분석 데이터 or {'error': ...})."""
     import json as _json
@@ -181,8 +189,13 @@ def analysis_node(state: AgentState) -> dict[str, Any]:
 
     multi = len(video_paths) > 1
     if multi:
-        logger.info("analysis_node: 영상 %d개 병렬 분석 시작", len(video_paths))
-        with ThreadPoolExecutor(max_workers=min(3, len(video_paths))) as pool:
+        workers = min(_ANALYSIS_MAX_WORKERS, len(video_paths))
+        logger.info(
+            "analysis_node: 영상 %d개 병렬 분석 시작 (worker %d개)",
+            len(video_paths),
+            workers,
+        )
+        with ThreadPoolExecutor(max_workers=workers) as pool:
             results = list(pool.map(_analyze_one_video, video_paths))
     else:
         results = [_analyze_one_video(video_paths[0])]
