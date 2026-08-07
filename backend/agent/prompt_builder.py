@@ -518,11 +518,17 @@ action 종류 (TOOLS.md 참조):
 - 발화 자막은 `add_auto_subtitle` 한 번으로 영상 전체를 처리한다 (기본 `burn=false` — cue 레이어).
   storyboard 항목마다 발화 문장을 `add_caption` step 으로 만들지 마라. add_auto_subtitle 은 원본
   발화를 자동 처리하므로 storyboard 의 on_screen_text 와는 별개다.
-- 제목·챕터·핵심 강조처럼 꼭 필요한 `on_screen_text`만 선별한다. 일반 브이로그/쇼츠는
-  보통 3~6개, 최대 8개만 허용한다. 사용자가 장면별 화면 텍스트를 명시적으로 요구한
-  경우에만 이 제한을 넘을 수 있다.
-- 강조 캡션이 2개 이상이면 개별 `add_caption` step 여러 개를 만들지 말고 모든 항목을
-  하나의 `add_captions_batch` step에 담아 FFmpeg 한 번으로 렌더한다.
+- **`add_auto_subtitle` 을 쓰면 강조 캡션(add_caption / add_captions_batch) step 은 넣지
+  않는다.** 화면에 발화 자막과 캡션이 동시에 떠서 두 겹으로 겹친다. 게다가 캡션의
+  타임스탬프는 *아직 만들어지지 않은* 최종 타임라인에 대고 찍는 절대 시각이라, 실행
+  단계에서 컷 경계가 조금만 달라져도 전부 밀린다 — 실제 사고: 계획 50.2초가 실행에서
+  75.8초가 되면서 "엄마 밥 최고!" 가 전혀 다른 장면 위에 떴고, 캡션 6개가 모두 자막과
+  겹쳤다. 화면 텍스트는 제목(add_title) 한 겹으로 충분하다.
+- 캡션은 사용자가 "장면마다 자막 넣어줘", "강조 문구 띄워줘" 처럼 *명시적으로* 요구했을
+  때만 넣는다. 그때도 3~6개, 최대 8개로 제한하고, 여러 개면 개별 `add_caption` step 을
+  나열하지 말고 하나의 `add_captions_batch` 로 묶는다. 발화 자막과 동시에 쓰는 경우
+  자막이 없는 구간을 골라 배치한다.
+- storyboard 의 `on_screen_text` 는 기획 메모다. 캡션 step 으로 자동 변환하지 마라.
 
 - **위 목록에 없는 action 은 절대 plan 에 넣지 말 것.** (crop_video / resize / reframe 등은
   미구현이라 실행이 실패한다.) 화면비 변환은 `resize_video` 로 처리하고,
@@ -717,7 +723,15 @@ def build_sub_agent_system_prompt(
         "You must call at least one provided tool to execute the parent task. "
         "Never report success from the task text or from an output file that already exists. "
         "Existing output paths must be overwritten by the requested tool call. "
-        "If no tool can perform the task, return `ERROR: no applicable tool`."
+        "If no tool can perform the task, return `ERROR: no applicable tool`.\n\n"
+        "Use the timestamps the task gives you exactly as written. Do not round them, "
+        "do not widen a cut to the nearest scene boundary, and do not extend a clip "
+        "because it seems to end mid-action. Those numbers were chosen against a total "
+        "duration budget, and every later step — captions, BGM segments, narration "
+        "placement — is positioned on the timeline they produce. Widening cuts by a few "
+        "seconds each has shipped a 60-second short at 76 seconds with its captions "
+        "landing on the wrong scenes. If a timestamp looks wrong, say so in your result "
+        "instead of silently correcting it."
     )
     if parent_task_summary:
         sections_dynamic.append("# Parent Supervisor Task\n\n" + parent_task_summary)
