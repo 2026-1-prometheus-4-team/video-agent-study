@@ -171,6 +171,48 @@ def _ffprobe_duration_sec(path: str) -> Optional[float]:
         return None
 
 
+# crop 으로 남는 비율이 이보다 낮으면 잘라내는 대신 여백을 넣는다. 0.75 는 한 변의
+# 1/4 까지는 잘라도 되지만 그 이상은 다른 영상이 된다는 선.
+_CROP_RETENTION_MIN = 0.75
+
+
+def _fit_mode_for_clip(mode: str, src_w: int, src_h: int, out_w: int, out_h: int) -> str:
+    """이 클립을 목표 화면비에 넣을 때 crop 할지 pad 할지.
+
+    mode="auto" 는 *잘려나가는 양*으로 정한다. 소스와 목표의 화면비가 비슷하면
+    crop 이 거의 무손실이라 꽉 채우는 게 낫고 (세로 영상 -> 세로 쇼츠), 많이
+    다르면 화면 대부분이 사라지므로 폭이나 높이를 맞추고 남는 곳을 검은 여백으로
+    두는 게 낫다 (1280x720 을 9:16 으로 crop 하면 가로의 68% 가 없어진다).
+
+    가로/세로 어느 방향이든 같은 기준이 적용된다 — 세로 영상을 16:9 로 만들 때도
+    똑같이 위아래가 날아가므로 여백을 넣는다.
+
+    crop / pad 를 명시하면 그대로 따른다.
+    """
+    if mode != "auto":
+        return mode
+    if src_w <= 0 or src_h <= 0:
+        # 크기를 모르면 되돌릴 수 없는 crop 대신 원본을 지키는 쪽으로.
+        return "pad"
+    src_ratio = src_w / src_h
+    out_ratio = out_w / out_h
+    retention = min(src_ratio, out_ratio) / max(src_ratio, out_ratio)
+    return "crop" if retention >= _CROP_RETENTION_MIN else "pad"
+
+
+def _fit_filter(src_w: int, src_h: int, out_w: int, out_h: int, mode: str) -> str:
+    """목표 해상도에 맞추는 ffmpeg 필터 체인 (scale + crop|pad)."""
+    if _fit_mode_for_clip(mode, src_w, src_h, out_w, out_h) == "crop":
+        return (
+            f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
+            f"crop={out_w}:{out_h}"
+        )
+    return (
+        f"scale={out_w}:{out_h}:force_original_aspect_ratio=decrease,"
+        f"pad={out_w}:{out_h}:(ow-iw)/2:(oh-ih)/2:black"
+    )
+
+
 def _streams_compatible(metas: list[dict | None]) -> bool:
     if not metas or any(meta is None for meta in metas):
         return True
@@ -862,7 +904,7 @@ def merge_video(
     clip_paths: list[str],
     output_path: Optional[str] = None,
     aspect_ratio: Optional[str] = None,
-    mode: str = "pad",
+    mode: str = "auto",
 ) -> str:
     """여러 클립을 순서대로 이어 붙여 하나의 영상으로 저장.
 
@@ -871,7 +913,11 @@ def merge_video(
         output_path: 저장 경로. 생략 시 outputs/merged_<id>.mp4.
         aspect_ratio: 혼합 해상도 클립의 목표 비율. "9:16", "16:9", "1:1", "4:5".
             생략하면 가장 흔한 클립 해상도를 사용한다.
-        mode: aspect_ratio 지정 시 "crop"은 화면을 꽉 채우고 "pad"는 전체를 보존한다.
+        mode: aspect_ratio 지정 시 클립을 목표 비율에 넣는 방법 (기본 "auto").
+            "auto" 는 클립마다 판단한다 — 세로 소스는 crop 으로 꽉 채우고(비율이
+            같아 잘리는 게 없다), 가로 소스는 pad 로 폭을 맞추고 위아래에 검은
+            여백을 둔다(crop 하면 가로의 대부분이 잘려나간다).
+            "crop" 은 전부 꽉 채우고, "pad" 는 전부 여백을 넣는다.
 
     Returns:
         성공 시 출력 파일 절대경로. 실패 시 "ERROR: ..." 문자열.
@@ -881,8 +927,8 @@ def merge_video(
             return "ERROR: clip_paths 가 비어 있습니다."
         if aspect_ratio is not None and aspect_ratio not in _TARGET_RESOLUTIONS:
             return f"ERROR: 지원하지 않는 비율: {aspect_ratio}"
-        if mode not in {"crop", "pad"}:
-            return f"ERROR: mode 는 crop 또는 pad 만 가능: {mode}"
+        if mode not in {"auto", "crop", "pad"}:
+            return f"ERROR: mode 는 auto, crop, pad 만 가능: {mode}"
         if len(clip_paths) == 1:
             if aspect_ratio:
                 resolved = _resolve_video_path(clip_paths[0])
@@ -955,19 +1001,20 @@ def merge_video(
             concat_inputs = []
             for idx, path in enumerate(resolved_clips):
                 inputs.extend(["-i", path])
-                if aspect_ratio and mode == "crop":
-                    video_filter = (
-                        f"[{idx}:v]scale={width}:{height}:"
-                        "force_original_aspect_ratio=increase,"
-                        f"crop={width}:{height},fps={target_fps},setsar=1[v{idx}]"
-                    )
-                else:
-                    video_filter = (
-                        f"[{idx}:v]scale={width}:{height}:"
-                        "force_original_aspect_ratio=decrease,"
-                        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
-                        f"fps={target_fps},setsar=1[v{idx}]"
-                    )
+                # 클립마다 자기 화면비로 crop/pad 를 정한다 (mode="auto"). 세로 소스는
+                # 꽉 차고 가로 소스만 위아래 여백을 받는다 — 하나의 모드를 전부에
+                # 강요하면 둘 중 한쪽이 반드시 손해를 본다.
+                meta = metas[idx] or {}
+                clip_filter = _fit_filter(
+                    int(meta.get("width") or 0),
+                    int(meta.get("height") or 0),
+                    width,
+                    height,
+                    mode if aspect_ratio else "pad",
+                )
+                video_filter = (
+                    f"[{idx}:v]{clip_filter},fps={target_fps},setsar=1[v{idx}]"
+                )
                 filter_parts.append(video_filter)
                 if all_have_audio:
                     filter_parts.append(
@@ -1454,7 +1501,7 @@ _TARGET_RESOLUTIONS = {
 def resize_video(
     video_path: str,
     aspect_ratio: str = "9:16",
-    mode: str = "crop",
+    mode: str = "auto",
     output_path: Optional[str] = None,
 ) -> str:
     """영상의 화면 비율(가로세로)을 변환한다. 쇼츠/릴스용 세로 변환 등.
@@ -1465,8 +1512,10 @@ def resize_video(
     Args:
         video_path: 원본 영상 경로. 절대경로, 프로젝트 루트 상대경로, 또는 videos/ 기준 파일명.
         aspect_ratio: 목표 비율. "9:16"(쇼츠·세로) | "16:9"(유튜브) | "1:1" | "4:5".
-        mode: "crop" 은 화면 가장자리를 잘라 꽉 채움(권장, 여백 없음).
-              "pad" 는 원본 전체를 유지하고 남는 곳을 검은 여백으로 채움.
+        mode: "auto"(기본) 는 영상 화면비를 보고 정한다 — 세로 영상은 crop 으로 꽉
+              채우고(비율이 같아 잘리는 게 없다), 가로 영상은 pad 로 폭을 맞추고
+              위아래에 검은 여백을 둔다(crop 하면 가로의 대부분이 잘려나간다).
+              "crop" 은 무조건 꽉 채우고, "pad" 는 무조건 여백을 넣는다.
         output_path: 저장 경로. 생략 시 outputs/resized_<id>.mp4.
 
     Returns:
@@ -1482,8 +1531,8 @@ def resize_video(
                 f"ERROR: 지원하지 않는 비율: {aspect_ratio}. "
                 f"사용 가능: {list(_ASPECT_RATIOS)}"
             )
-        if mode not in ("crop", "pad"):
-            return f"ERROR: mode 는 crop 또는 pad 만 가능: {mode}"
+        if mode not in ("auto", "crop", "pad"):
+            return f"ERROR: mode 는 auto, crop, pad 만 가능: {mode}"
 
         # 플랫폼별 실용 표준 해상도를 사용한다. 원본 높이만 기준으로 계산하면
         # 1280x720 가로 영상을 9:16으로 바꿀 때 404x720까지 축소된다.
@@ -1492,18 +1541,9 @@ def resize_video(
         src_h = (meta or {}).get("height") or 1080
         out_w, out_h = _TARGET_RESOLUTIONS[aspect_ratio]
 
-        if mode == "crop":
-            # 중앙 기준으로 꽉 채우고 넘치는 부분 잘라냄
-            vf = (
-                f"scale={out_w}:{out_h}:force_original_aspect_ratio=increase,"
-                f"crop={out_w}:{out_h}"
-            )
-        else:
-            # 전체를 담고 남는 영역은 검은 여백
-            vf = (
-                f"scale={out_w}:{out_h}:force_original_aspect_ratio=decrease,"
-                f"pad={out_w}:{out_h}:(ow-iw)/2:(oh-ih)/2:black"
-            )
+        # auto 면 이 영상의 화면비를 보고 정한다 (세로는 꽉, 가로는 여백).
+        effective_mode = _fit_mode_for_clip(mode, src_w, src_h, out_w, out_h)
+        vf = _fit_filter(src_w, src_h, out_w, out_h, mode)
 
         output_path = _resolve_output_path(output_path, "resized", resolved)
 
@@ -1518,8 +1558,9 @@ def resize_video(
         ]
 
         logger.info(
-            "resize_video: %s -> %s (%s, %dx%d)",
-            os.path.basename(resolved), aspect_ratio, mode, out_w, out_h,
+            "resize_video: %s (%dx%d) -> %s %dx%d, mode=%s%s",
+            os.path.basename(resolved), src_w, src_h, aspect_ratio, out_w, out_h,
+            effective_mode, " (auto)" if mode == "auto" else "",
         )
         t0 = time.monotonic()
         code, stderr = _run_ffmpeg(cmd)
@@ -1532,7 +1573,7 @@ def resize_video(
 
         # pad 모드: 콘텐츠 영역을 수학적으로 계산해 사이드카 저장
         # subtitle_cues 가 cropdetect 대신 이 값을 읽어 자막을 콘텐츠 안에 배치
-        if mode == "pad":
+        if effective_mode == "pad":
             import json as _json
             scale = min(out_w / src_w, out_h / src_h)
             content_w = round(src_w * scale)
