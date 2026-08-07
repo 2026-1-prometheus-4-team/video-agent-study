@@ -102,6 +102,21 @@ def _get_video_size_ffprobe(video_path: str) -> tuple[int, int]:
         return 0, 0
 
 
+def _get_video_duration_ffprobe(video_path: str) -> float:
+    """ffprobe 로 영상 길이(초) 반환. 실패 시 0.0."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-show_entries", "format=duration",
+        "-of", "csv=p=0",
+        video_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return float(result.stdout.strip())
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _resolve_video_path(video_path: str) -> str:
     """Resolve absolute, backend-relative, outputs/ then videos-relative paths."""
     if os.path.isabs(video_path):
@@ -1089,9 +1104,9 @@ def add_auto_subtitle(
 def add_title(
     video_path: str,
     text: str,
-    position: str = "center",
+    position: str = "top",
     start_time: float = 0.0,
-    duration: float = 3.0,
+    duration: float = 0,
     anim: str = "fade",
     style: str = "",
 ) -> str:
@@ -1100,26 +1115,33 @@ def add_title(
     인트로·아웃트로 타이틀, 챕터 제목 등에 사용.
     anim='fade' 이면 0.5초 fade-in + 0.5초 fade-out 자동 적용.
 
+    기본값: 상단 중앙(top), 자막보다 1.5배 큰 폰트, stroke_width=3(굵게).
+    위치를 바꾸려면 position='center'|'bottom'으로 지정.
+
     Args:
         video_path: 입력 영상 파일명 (videos/ 기준)
         text: 타이틀 텍스트
-        position: 'center'|'top'|'bottom' (기본 'center')
+        position: 'top'|'center'|'bottom' (기본 'top' — 상단 중앙)
         start_time: 타이틀 시작 시간(초) (기본 0.0)
-        duration: 타이틀 표시 시간(초) (기본 3.0)
+        duration: 타이틀 표시 시간(초). 0 이하면 영상 끝까지 고정 (기본값).
         anim: 'fade'|'none' (기본 'fade')
-        style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':2}
+        style: JSON 스타일 {'font_size':48, 'color':'white', 'stroke_width':3}
     """
     try:
         input_path = _resolve_video_path(video_path)
         if not os.path.exists(input_path):
             return json.dumps({"error": f"영상 파일 없음: {input_path}"}, ensure_ascii=False)
 
-        s = _merge_style(style, tool_defaults={"font_size": 48, "position": position})
+        if duration <= 0:
+            vid_dur = _get_video_duration_ffprobe(input_path)
+            duration = max(1.0, vid_dur - start_time) if vid_dur > 0 else 3600.0
+
+        s = _merge_style(style, tool_defaults={"font_size": 48, "position": position, "stroke_width": 3})
 
         # drawtext 는 실제 픽셀값 — 영상 높이에 비례해 폰트 크기 조정
         vw, vh = _get_video_size_ffprobe(input_path)
         if vh > 0 and s.get("font_size") == 48:
-            s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 1.5배
+            s["font_size"] = max(16, round(vh * _FONT_SIZE_PCT * 1.5))  # 타이틀은 자막 1.5배
 
         font_size = s["font_size"]
         color = s["color"]

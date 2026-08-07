@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check } from "lucide-react";
 import { useAgentStore } from "../state";
+import { useEditorStore } from "../../motion-editor/editorState";
 import { fetchFonts } from "../backend";
 import {
   DEFAULT_STYLE,
@@ -36,10 +37,11 @@ function normalizePosition(p: unknown): SubtitlePosition {
   return "bottom";
 }
 
-export function SubtitleStyleCard({ id, stem, status }: Props) {
-  const uploadedUrl   = useAgentStore((s) => s.uploadedUrl);
-  const lastFinal     = useAgentStore((s) => s.lastFinal);
-  const applySubtitle = useAgentStore((s) => s.applySubtitleStyle);
+export function SubtitleStyleCard({ id, stem, status, outputPath }: Props) {
+  const uploadedUrl          = useAgentStore((s) => s.uploadedUrl);
+  const lastFinal            = useAgentStore((s) => s.lastFinal);
+  const applySubtitle        = useAgentStore((s) => s.applySubtitleStyle);
+  const setGlobalSubtitleStyle = useEditorStore((s) => s.setGlobalSubtitleStyle);
 
   // 자막 큐 문서는 자막을 입힌 *편집 결과물* stem 으로 키가 잡힌다. 카드는 계획
   // 승인 시점(원본 stem)에 만들어지므로, 결과물이 도착하면 그 stem 을 우선한다.
@@ -94,15 +96,17 @@ export function SubtitleStyleCard({ id, stem, status }: Props) {
     setSaving(true);
     setError(null);
     try {
-      // 자막을 영상에 굽지 않고 cue 문서에 스타일만 저장한다 (레이어 방식).
-      // 스테이지 오버레이가 이 스타일을 즉시 반영하고, 실제 burn 은 내보내기에서
-      // 한 번만 한다 — 편집본에 자막이 이중으로 겹치지 않는다.
       await patchSubtitleStyle(effectiveStem, style);
-      applySubtitle(id, `${effectiveStem}.cues.json`);
+      setGlobalSubtitleStyle({
+        size: style.size,
+        color: style.color,
+        bold: style.bold,
+        strokeColor: style.stroke_color,
+        strokeWidth: style.stroke_width,
+        position: style.position,
+      });
+      applySubtitle(id, outputPath ?? "");
     } catch (e) {
-      // 에러 종류별 안내. 흔한 경우는 "아직 자막이 안 만들어짐"(에이전트 실행 중)
-      // 인데 예전엔 이걸 전부 "백엔드 연결 필요"로 잘못 띄웠다. 실제 연결 오류
-      // (fetch 실패 = TypeError)일 때만 연결 문제로 안내한다.
       const isNetworkError =
         e instanceof TypeError ||
         (e instanceof Error && /failed to fetch|networkerror|load failed/i.test(e.message));
@@ -111,7 +115,7 @@ export function SubtitleStyleCard({ id, stem, status }: Props) {
           ? "아직 자막 데이터가 없어요 — 편집이 끝난 뒤 다시 적용해줘"
           : isNetworkError
             ? "백엔드에 연결할 수 없어요 — 서버가 켜져 있는지 확인해줘"
-            : "아직 자막을 적용할 수 없어요 — 자막 생성(편집)이 끝난 뒤 다시 시도해줘";
+            : "자막 스타일 저장에 실패했어요 — 다시 시도해줘";
       setError(msg);
     } finally {
       setSaving(false);
@@ -389,9 +393,7 @@ export function SubtitleStyleCard({ id, stem, status }: Props) {
       {isApplied ? (
         <div className={styles.appliedNote}>
           <Check size={12} />
-          <span>
-            자막 스타일 저장 완료 — 스테이지에서 확인하고 &ldquo;내보내기&rdquo;로 태워줘
-          </span>
+          <span>자막 스타일 저장 완료</span>
         </div>
       ) : (
         <>
@@ -415,7 +417,7 @@ export function SubtitleStyleCard({ id, stem, status }: Props) {
               onClick={handleRender}
               disabled={saving || loading}
             >
-              {saving ? "저장 중…" : error ? "다시 시도 →" : "자막 스타일 적용 →"}
+              {saving ? "저장 중…" : error ? "다시 시도 →" : "스타일 저장 →"}
             </button>
           </div>
         </>
