@@ -436,3 +436,22 @@
   padding: var(--sp-2) var(--sp-4) var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
+
+/* 저장 완료 + "다시 수정" 이 한 줄에 놓이는 footer. appliedNote 를 그대로
+   footer 안에 넣으면 padding·border-top 이 이중으로 겹친다. */
+.appliedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.appliedText {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1-5);
+  font-size: var(--fs-micro);
+  color: var(--success-fg);
+}
