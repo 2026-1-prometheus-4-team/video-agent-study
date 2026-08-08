@@ -908,6 +908,17 @@ def _transcript_from_origin(video_path: str) -> list[dict]:
     return out
 
 
+# 자막 표시 타이밍 보정(초). Whisper 세그먼트 경계는 실제 말보다 살짝 이르고,
+# 다단계 재인코딩이 오디오를 살짝 늦춰서 자막이 말보다 먼저 뜨는 경향이 있다.
+# 양수면 자막을 그만큼 늦춘다. SUBTITLE_OFFSET_MS 로 환경마다 조절(호출마다 읽어
+# 재시작 없이 반영). 0 이면 보정 없음.
+def _subtitle_offset_sec() -> float:
+    try:
+        return float(os.getenv("SUBTITLE_OFFSET_MS", "150")) / 1000.0
+    except ValueError:
+        return 0.15
+
+
 def _display_segments(
     segments: list[dict],
     correction: dict | None = None,
@@ -920,6 +931,7 @@ def _display_segments(
     발화 자막과 (당황) 같은 감정 표현(display_edits)은 그대로 유지한다.
     """
     correction = correction if isinstance(correction, dict) else {}
+    offset = _subtitle_offset_sec()
     display_edits = {
         item["segment_index"]: item["display_text"]
         for item in correction.get("display_edits", [])
@@ -941,8 +953,8 @@ def _display_segments(
         if not display_text:
             continue
         item = {
-            "start": float(segment["start"]),
-            "end": float(segment["end"]),
+            "start": max(0.0, float(segment["start"]) + offset),
+            "end": max(0.0, float(segment["end"]) + offset),
             "text": display_text,
         }
         if isinstance(segment.get("style"), dict):
@@ -1412,7 +1424,7 @@ def add_title(
                 duration=duration,
                 anim=anim,
                 style=style,
-                output_path=resolved_output_path,
+                output_path=output_path,
             )
 
         if duration <= 0:
