@@ -351,6 +351,7 @@ def create_cues_doc(
     source_video: str,
     segments: list,
     style_defaults: dict | None = None,
+    inherit_title_from: str | None = None,
 ) -> tuple[dict, str]:
     """세그먼트 리스트에서 큐 문서를 새로 생성하고 저장. (doc, path) 반환.
 
@@ -359,6 +360,10 @@ def create_cues_doc(
     단 role="title" 큐는 살린다. 제목은 전사 결과가 아니라 사용자가 따로 얹은
     층이라, 자막을 다시 뽑았다고 같이 지워지면 안 된다 (그렇게 지워져서
     "제목을 넣었는데 사라졌다" 가 됐다).
+
+    inherit_title_from: 다른 stem(예: 자막 step 의 입력 영상 stem)의 제목 큐도
+    가져온다. add_title(입력 stem) -> add_auto_subtitle(출력 stem) 처럼 stem 이
+    바뀌면 제목이 새 문서로 안 넘어와 최종본에서 제목이 통째로 빠지던 문제 해결.
     """
     cues = []
     for i, seg in enumerate(segments, 1):
@@ -373,21 +378,28 @@ def create_cues_doc(
         cues.append(cue)
 
     # 기존 문서에서 제목 큐만 회수. id 는 새 대사 큐와 겹치므로 뒤에서 다시 매긴다.
+    # 같은 stem 문서 + (stem 이 바뀐 경우) 입력 stem 문서 둘 다에서 회수한다.
     preserved: list[dict] = []
-    try:
-        existing_path = _cues_doc_path(stem)
-        if os.path.exists(existing_path):
+    seen: set = set()
+    for src_stem in (stem, inherit_title_from):
+        if not src_stem:
+            continue
+        try:
+            existing_path = _cues_doc_path(src_stem)
+            if not os.path.exists(existing_path):
+                continue
             with open(existing_path, encoding="utf-8") as f:
                 old = json.load(f)
-            preserved = [
-                c
-                for c in old.get("cues", [])
-                if isinstance(c, dict) and c.get("role") == "title"
-            ]
-    except Exception as e:
-        # 회수 실패가 새 문서 생성을 막으면 안 된다. 잃은 것만 알린다.
-        logger.warning(f"기존 제목 큐 회수 실패 ({stem}): {e}")
-        preserved = []
+            for c in old.get("cues", []):
+                if isinstance(c, dict) and c.get("role") == "title":
+                    key = (str(c.get("text", "")), round(float(c.get("start", 0)), 2))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    preserved.append(c)
+        except Exception as e:
+            # 회수 실패가 새 문서 생성을 막으면 안 된다. 잃은 것만 알린다.
+            logger.warning(f"기존 제목 큐 회수 실패 ({src_stem}): {e}")
 
     for j, cue in enumerate(preserved, len(cues) + 1):
         cue["id"] = f"c{j:03d}"

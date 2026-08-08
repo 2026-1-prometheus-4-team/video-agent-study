@@ -70,6 +70,8 @@ export function EditorPreview() {
   const activeSubtitle = useMemo(() => {
     for (let i = 0; i < transcript.length; i++) {
       const seg = transcript[i];
+      // 제목(role="title")은 상단에 따로 그린다 — 발화 자막 오버레이에서는 제외.
+      if ((seg as { role?: string }).role === "title") continue;
       if (playhead >= seg.start && playhead <= seg.end) {
         const override = overrides[i];
         return {
@@ -80,6 +82,20 @@ export function EditorPreview() {
     }
     return null;
   }, [transcript, playhead, overrides]);
+
+  // 제목 큐 — 항상 상단에 그린다 (발화 자막과 겹치지 않게).
+  const activeTitle = useMemo(() => {
+    for (const seg of transcript) {
+      if (
+        (seg as { role?: string }).role === "title" &&
+        playhead >= seg.start &&
+        playhead <= seg.end
+      ) {
+        return seg.text;
+      }
+    }
+    return null;
+  }, [transcript, playhead]);
 
   return (
     <div className={styles.wrap}>
@@ -99,6 +115,37 @@ export function EditorPreview() {
         ) : (
           <div className={styles.emptySrc}>영상 소스가 없어</div>
         )}
+
+        {/* 제목 오버레이 — 상단 고정 */}
+        <AnimatePresence mode="wait">
+          {activeTitle && (
+            <motion.div
+              key={activeTitle}
+              className={styles.subtitlePositioner}
+              style={{ top: "6%", bottom: "auto" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              <div
+                className={styles.subtitleOverlay}
+                style={{
+                  fontSize: globalSubtitleStyle
+                    ? Math.round(globalSubtitleStyle.size * 1.6)
+                    : 28,
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  WebkitTextStrokeWidth: "1px",
+                  WebkitTextStrokeColor: "#000000",
+                  paintOrder: "stroke fill",
+                }}
+              >
+                {activeTitle}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence mode="wait">
           {activeSubtitle && (

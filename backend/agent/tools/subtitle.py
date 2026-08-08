@@ -1192,6 +1192,7 @@ def add_auto_subtitle(
                     source_video=clean_out,
                     segments=display_transcript,
                     style_defaults=defaults,
+                    inherit_title_from=name,
                 )
             return json.dumps({
                 "output": clean_out,
@@ -1242,6 +1243,7 @@ def add_auto_subtitle(
             source_video=input_path,
             segments=display_transcript,
             style_defaults=defaults,
+            inherit_title_from=name,
         )
 
         return json.dumps({
