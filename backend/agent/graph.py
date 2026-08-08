@@ -861,15 +861,36 @@ def supervisor_node(state: AgentState, config: Optional[RunnableConfig] = None) 
     # 사라지지 않게 하는 안전망.
     from agent.tools import media_paths
 
+    # (1)/(2) 로 뽑은 경로가 이번 세션이 실제로 만든 파일인지 trace 로 검증한다.
+    # final_video.mp4, video_with_bgm.mp4 같은 범용 이름은 세션마다 재사용돼서,
+    # supervisor 요약문이 그 이름을 잘못 언급하면 "파일이 실재하니 채택"만으로는
+    # 걸러지지 않는다 — 실제 사고: 이전(이사) 세션의 outputs/final_video.mp4 가
+    # 남아있는 상태에서 새(카페) 세션 supervisor 가 같은 이름을 언급, 그 파일이
+    # 존재한다는 이유로 채택돼 완전히 다른 세션의 영상이 최종본으로 잡혔다.
+    # basename 이 trace 의 실제 산출 경로 목록에 있어야만 신뢰한다.
+    trace_basenames = {
+        os.path.basename(p)
+        for step in new_trace
+        for p in (step.get("output_paths") or [])
+    }
+
     final_output = _extract_final_output(last_text) or state.get("final_output_path")
     # bare/상대 경로("video_with_subtitles.mp4")를 outputs·videos 까지 뒤져 실재하는
     # 절대경로로 확정한다. 예전엔 PROJECT_ROOT 만 봐서 outputs/ 산출물을 "없음"으로
     # 오판, critic 이 "편집 미완료"로 끊고 reanalysis 도 파일을 못 찾았다.
     resolved_final = media_paths.find_media(final_output) if final_output else None
-    if resolved_final is not None:
+    if resolved_final is not None and (
+        not trace_basenames or os.path.basename(str(resolved_final)) in trace_basenames
+    ):
         final_output = str(resolved_final)
     else:
-        if final_output:
+        if final_output and resolved_final is not None:
+            logger.warning(
+                "final_output(%s)이 이번 실행 trace 의 산출물과 매칭 안 됨 "
+                "(다른 세션의 동명 파일일 수 있음) — trace 로 폴백",
+                final_output,
+            )
+        elif final_output:
             logger.warning("final_output 경로가 실재하지 않아 trace 로 폴백: %s", final_output)
         final_output = None
         # trace 의 실제 산출 경로로 폴백. trace 경로는 툴이 만든 절대경로라 정확.
