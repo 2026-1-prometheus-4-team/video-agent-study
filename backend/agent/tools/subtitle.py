@@ -1412,7 +1412,7 @@ def add_title(
                 duration=duration,
                 anim=anim,
                 style=style,
-                output_path=resolved_output_path,
+                output_path=output_path,
             )
 
         if duration <= 0:
