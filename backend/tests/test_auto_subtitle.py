@@ -66,7 +66,9 @@ def test_display_segments_keep_spoken_text_separate_and_style_sounds():
     assert with_sound[1]["style"]["position"] == "top"
 
 
-def test_absolute_output_reuses_origin_and_writes_final_sidecars(tmp_path):
+def test_absolute_output_reuses_origin_and_writes_final_sidecars(tmp_path, monkeypatch):
+    # 표시 타이밍 보정을 끄고 원본 전사 시각이 그대로 유지되는지 검증.
+    monkeypatch.setenv("SUBTITLE_OFFSET_MS", "0")
     source = tmp_path / "outputs" / "edited.mp4"
     source.parent.mkdir()
     source.write_bytes(b"video")
